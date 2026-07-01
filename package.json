@@ -1,6 +1,6 @@
 {
-    "name": "clawx",
-    "version": "0.4.9-alpha.0",
+    "name": "canvasland-clawx",
+    "version": "1.0.0",
     "pnpm": {
         "onlyBuiltDependencies": [
             "@discordjs/opus",
@@ -25,9 +25,9 @@
             ]
         }
     },
-    "description": "ClawX - Graphical AI Assistant based on OpenClaw",
+    "description": "canvasland - Graphical AI Assistant based on OpenClaw",
     "main": "dist-electron/main/index.js",
-    "author": "ClawX Team",
+    "author": "canvasland",
     "license": "MIT",
     "private": true,
     "scripts": {

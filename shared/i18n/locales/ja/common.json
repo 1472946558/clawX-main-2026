@@ -18,7 +18,8 @@
         "renameSessionPlaceholder": "セッションタイトル",
         "saveSessionRename": "セッションタイトルを保存",
         "cancelSessionRename": "名前変更をキャンセル",
-        "imageGeneration": "画像生成"
+        "imageGeneration": "画像生成",
+        "tokenTopUp": "トークンチャージ"
     },
     "actions": {
         "save": "保存",
@@ -63,5 +64,33 @@
         "notRunningDesc": "この機能を使用するには OpenClaw ゲートウェイが実行されている必要があります。自動的に起動するか、設定から起動できます。",
         "restarting": "ゲートウェイを再起動中",
         "warning": "ゲートウェイが停止中です。"
+    },
+    "tokenTopUp": {
+        "title": "トークンチャージ",
+        "subtitle": "canvasland を New API に接続し、ウォレットコンソールを開きます。",
+        "openConsole": "コンソールを開く",
+        "connectionTitle": "New API 接続",
+        "connectionDesc": "New API の接続 JSON を貼り付けます。キーはローカルに保存され、いつでも削除できます。",
+        "connectionJson": "接続 JSON",
+        "connectionPlaceholder": "{\"_type\":\"newapi_channel_conn\",\"key\":\"sk-...\",\"url\":\"https://feiniu.space\"}",
+        "modelId": "既定のモデル ID",
+        "modelHelp": "New API アカウントで利用できるモデルを指定してください。後で AI Providers から変更できます。",
+        "saveConnection": "接続を保存",
+        "clearConnection": "キーを削除",
+        "saved": "canvasland 接続を保存しました",
+        "cleared": "保存済みの canvasland キーを削除しました",
+        "walletTitle": "ウォレット",
+        "walletDesc": "チャージと請求は New API コンソールで管理されます。",
+        "currentEndpoint": "現在のエンドポイント",
+        "balanceNote": "残高は New API コンソールに表示されます。コンソールはブラウザのログイン状態を使用します。",
+        "openTopUp": "チャージページを開く",
+        "errors": {
+            "invalidJson": "接続 JSON が無効です",
+            "invalidType": "接続タイプは newapi_channel_conn である必要があります",
+            "missingKey": "接続キーが必要です",
+            "missingUrl": "接続 URL が必要です",
+            "saveFailed": "接続の保存に失敗しました",
+            "clearFailed": "キーの削除に失敗しました"
+        }
     }
 }

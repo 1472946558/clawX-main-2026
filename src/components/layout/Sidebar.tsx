@@ -11,6 +11,7 @@ import {
   Puzzle,
   Clock,
   Settings as SettingsIcon,
+  CreditCard,
   PanelLeftClose,
   PanelLeft,
   Plus,
@@ -41,7 +42,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { hostApi } from '@/lib/host-api';
 import { SIDEBAR_COLLAPSED_WIDTH, MAC_SIDEBAR_CHROME_HEIGHT } from '@shared/sidebar-layout';
 import { useTranslation } from 'react-i18next';
-import logoSvg from '@/assets/logo.svg';
+import logoPng from '@/assets/logo.png';
 import { useNewChatAction } from './use-new-chat-action';
 
 interface NavItemProps {
@@ -318,6 +319,7 @@ export function Sidebar() {
     { to: '/models', icon: <Cpu className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.models'), testId: 'sidebar-nav-models' },
     { to: '/agents', icon: <Bot className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.agents'), testId: 'sidebar-nav-agents' },
     { to: '/channels', icon: <Network className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.channels'), testId: 'sidebar-nav-channels' },
+    { to: '/token-topup', icon: <CreditCard className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.tokenTopUp'), testId: 'sidebar-nav-token-topup' },
     { to: '/skills', icon: <Puzzle className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.skills'), testId: 'sidebar-nav-skills' },
     { to: '/cron', icon: <Clock className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.cronTasks'), testId: 'sidebar-nav-cron' },
     ...(devModeUnlocked
@@ -365,9 +367,9 @@ export function Sidebar() {
       >
         {!sidebarCollapsed && (
           <div className="flex items-center gap-2 px-2 overflow-hidden">
-            <img src={logoSvg} alt="ClawX" className="h-5 w-auto shrink-0" />
+            <img src={logoPng} alt="canvasland" className="h-5 w-auto shrink-0" />
             <span className="text-sm font-semibold truncate whitespace-nowrap text-foreground/90">
-              ClawX
+              canvasland
             </span>
           </div>
         )}

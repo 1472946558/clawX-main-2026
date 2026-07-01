@@ -18,7 +18,8 @@
         "renameSessionPlaceholder": "Session title",
         "saveSessionRename": "Save session title",
         "cancelSessionRename": "Cancel renaming",
-        "imageGeneration": "Image Generation"
+        "imageGeneration": "Image Generation",
+        "tokenTopUp": "Token Top-up"
     },
     "actions": {
         "save": "Save",
@@ -63,5 +64,33 @@
         "notRunningDesc": "The OpenClaw Gateway needs to be running to use this feature. It will start automatically, or you can start it from Settings.",
         "restarting": "Gateway restarting",
         "warning": "Gateway is not running."
+    },
+    "tokenTopUp": {
+        "title": "Token Top-up",
+        "subtitle": "Connect canvasland to New API and open the wallet console.",
+        "openConsole": "Open Console",
+        "connectionTitle": "New API Connection",
+        "connectionDesc": "Paste a New API connection JSON. The key is stored locally and can be cleared at any time.",
+        "connectionJson": "Connection JSON",
+        "connectionPlaceholder": "{\"_type\":\"newapi_channel_conn\",\"key\":\"sk-...\",\"url\":\"https://feiniu.space\"}",
+        "modelId": "Default model ID",
+        "modelHelp": "Use a model available in your New API account. You can edit this later in AI Providers.",
+        "saveConnection": "Save connection",
+        "clearConnection": "Clear key",
+        "saved": "canvasland connection saved",
+        "cleared": "Stored canvasland key cleared",
+        "walletTitle": "Wallet",
+        "walletDesc": "Recharge and billing are handled in your New API console.",
+        "currentEndpoint": "Current endpoint",
+        "balanceNote": "Balance is shown in the New API console. Opening the console uses your browser login session.",
+        "openTopUp": "Open top-up page",
+        "errors": {
+            "invalidJson": "Invalid connection JSON",
+            "invalidType": "Connection type must be newapi_channel_conn",
+            "missingKey": "Connection key is required",
+            "missingUrl": "Connection URL is required",
+            "saveFailed": "Failed to save connection",
+            "clearFailed": "Failed to clear key"
+        }
     }
 }

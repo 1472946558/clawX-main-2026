@@ -18,7 +18,8 @@
         "renameSessionPlaceholder": "会话标题",
         "saveSessionRename": "保存会话标题",
         "cancelSessionRename": "取消重命名",
-        "imageGeneration": "图像生成"
+        "imageGeneration": "图像生成",
+        "tokenTopUp": "钱包充值"
     },
     "actions": {
         "save": "保存",
@@ -63,5 +64,33 @@
         "notRunningDesc": "OpenClaw 网关需要运行才能使用此功能。它将自动启动，或者您可以从设置中启动。",
         "restarting": "Gateway 重启中",
         "warning": "网关未运行。"
+    },
+    "tokenTopUp": {
+        "title": "钱包充值",
+        "subtitle": "连接 canvasland 的 New API，并打开钱包充值控制台。",
+        "openConsole": "打开控制台",
+        "connectionTitle": "New API 连接",
+        "connectionDesc": "粘贴 New API 连接 JSON。密钥只保存在本机，并且可随时清空。",
+        "connectionJson": "连接 JSON",
+        "connectionPlaceholder": "{\"_type\":\"newapi_channel_conn\",\"key\":\"sk-...\",\"url\":\"https://feiniu.space\"}",
+        "modelId": "默认模型 ID",
+        "modelHelp": "请填写当前 New API 账号可用的模型，之后也可以在 AI 模型提供商里修改。",
+        "saveConnection": "保存连接",
+        "clearConnection": "清空密钥",
+        "saved": "canvasland 连接已保存",
+        "cleared": "已清空本机保存的 canvasland 密钥",
+        "walletTitle": "钱包",
+        "walletDesc": "充值与账单在 New API 控制台完成。",
+        "currentEndpoint": "当前端点",
+        "balanceNote": "余额在 New API 控制台显示。打开控制台会使用您浏览器中的登录状态。",
+        "openTopUp": "打开充值页面",
+        "errors": {
+            "invalidJson": "连接 JSON 格式无效",
+            "invalidType": "连接类型必须是 newapi_channel_conn",
+            "missingKey": "连接密钥不能为空",
+            "missingUrl": "连接 URL 不能为空",
+            "saveFailed": "保存连接失败",
+            "clearFailed": "清空密钥失败"
+        }
     }
 }

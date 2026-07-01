@@ -35,6 +35,11 @@ test.describe('ClawX main navigation without setup flow', () => {
 
       await page.getByTestId('sidebar-nav-channels').click();
       await expect(page.getByTestId('channels-page')).toBeVisible();
+
+      await page.getByTestId('sidebar-nav-token-topup').click();
+      await expect(page.getByTestId('token-topup-page')).toBeVisible();
+      await expect(page.getByTestId('token-topup-connection-json')).toBeVisible();
+      await expect(page.getByTestId('token-topup-open')).toBeVisible();
     } finally {
       await closeElectronApp(app);
     }
