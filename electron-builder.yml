@@ -2,7 +2,7 @@ appId: land.canvas.clawx.desktop
 productName: canvasland-clawX-Windows
 copyright: Copyright © 2026 canvasland
 compression: maximum
-artifactName: canvasland-clawX-Windows ${version}.${ext}
+artifactName: canvasland-clawX-Windows-${version}.${ext}
 
 directories:
   output: release
@@ -51,15 +51,15 @@ asarUnpack:
 npmRebuild: false
 
 # Auto-update configuration
-# Primary: Alibaba Cloud OSS (fast for Chinese users, used for auto-update)
-# Fallback: GitHub Releases (backup, used when OSS is unavailable)
+# Use GitHub Releases as a generic feed. The app can override this URL in
+# Settings > Updates when a customer-owned CDN/OSS directory is ready.
 publish:
   - provider: generic
-    url: https://oss.intelli-spectrum.com/latest
+    url: https://github.com/1472946558/clawX-main-2026/releases/latest/download
     useMultipleRangeRequest: false
   - provider: github
-    owner: ValueCell-ai
-    repo: ClawX
+    owner: "1472946558"
+    repo: clawX-main-2026
 
 # macOS Configuration
 mac:

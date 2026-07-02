@@ -67,7 +67,7 @@
     },
     "tokenTopUp": {
         "title": "Token Top-up",
-        "subtitle": "Connect canvasland to New API and open the wallet console.",
+        "subtitle": "Connect canvasland to New API, check token balance, and open the wallet console.",
         "openConsole": "Open Console",
         "connectionTitle": "New API Connection",
         "connectionDesc": "Paste a New API connection JSON. The key is stored locally and can be cleared at any time.",
@@ -80,9 +80,21 @@
         "saved": "canvasland connection saved",
         "cleared": "Stored canvasland key cleared",
         "walletTitle": "Wallet",
-        "walletDesc": "Recharge and billing are handled in your New API console.",
+        "walletDesc": "Check saved token balance and open the New API recharge console.",
+        "availableBalance": "Available",
+        "usedBalance": "Used",
+        "tokenStatus": "Connection status",
+        "configured": "Configured",
+        "notConfigured": "Not configured",
+        "tokenName": "Token",
+        "totalGranted": "Total granted",
+        "checkedAt": "Checked",
+        "amountOptions": "Recharge amounts",
+        "refreshBalance": "Refresh balance",
+        "notAvailable": "Unavailable",
+        "unlimited": "Unlimited",
         "currentEndpoint": "Current endpoint",
-        "balanceNote": "Balance is shown in the New API console. Opening the console uses your browser login session.",
+        "balanceNote": "Balance is read from the saved New API token. Recharge still opens the browser console so payment uses your login session.",
         "openTopUp": "Open top-up page",
         "errors": {
             "invalidJson": "Invalid connection JSON",
@@ -90,7 +102,8 @@
             "missingKey": "Connection key is required",
             "missingUrl": "Connection URL is required",
             "saveFailed": "Failed to save connection",
-            "clearFailed": "Failed to clear key"
+            "clearFailed": "Failed to clear key",
+            "balanceFailed": "Failed to refresh balance"
         }
     }
 }

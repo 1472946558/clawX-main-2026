@@ -39,7 +39,26 @@ test.describe('ClawX main navigation without setup flow', () => {
       await page.getByTestId('sidebar-nav-token-topup').click();
       await expect(page.getByTestId('token-topup-page')).toBeVisible();
       await expect(page.getByTestId('token-topup-connection-json')).toBeVisible();
+      await expect(page.getByTestId('token-topup-refresh-balance')).toBeVisible();
       await expect(page.getByTestId('token-topup-open')).toBeVisible();
+    } finally {
+      await closeElectronApp(app);
+    }
+  });
+
+  test('settings exposes configurable update feed URL', async ({ launchElectronApp }) => {
+    const app = await launchElectronApp({ skipSetup: true });
+
+    try {
+      const page = await getStableWindow(app);
+      await page.getByTestId('sidebar-nav-settings').click();
+      await expect(page.getByTestId('settings-page')).toBeVisible();
+
+      const feedUrl = page.getByTestId('update-feed-url');
+      await feedUrl.scrollIntoViewIfNeeded();
+      await expect(feedUrl).toBeVisible();
+      await expect(page.getByTestId('update-feed-url-save')).toBeVisible();
+      await expect(page.getByTestId('update-feed-url-clear')).toBeVisible();
     } finally {
       await closeElectronApp(app);
     }

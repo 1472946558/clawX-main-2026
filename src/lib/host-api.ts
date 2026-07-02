@@ -31,6 +31,7 @@ import type {
   SkillUpdateConfigPayload,
   SkillUpdatePayload,
   UpdateChannel,
+  UpdateSetFeedUrlPayload,
 } from '@shared/host-api/contract';
 import type { CronJobCreateInput, CronJobUpdateInput } from '@shared/types/cron';
 import { invokeHost } from './host-api-client';
@@ -107,11 +108,13 @@ export const hostApi = {
   updates: {
     status: () => invokeHost('updates', 'status'),
     version: () => invokeHost('updates', 'version'),
+    feedUrl: () => invokeHost('updates', 'feedUrl'),
     check: () => invokeHost('updates', 'check'),
     download: () => invokeHost('updates', 'download'),
     install: () => invokeHost('updates', 'install'),
     setChannel: (channel: UpdateChannel) => invokeHost('updates', 'setChannel', { channel }),
     setAutoDownload: (enable: boolean) => invokeHost('updates', 'setAutoDownload', { enable }),
+    setFeedUrl: (url: string) => invokeHost('updates', 'setFeedUrl', { url } satisfies UpdateSetFeedUrlPayload),
     cancelAutoInstall: () => invokeHost('updates', 'cancelAutoInstall'),
   },
   uv: {
@@ -259,6 +262,9 @@ export const hostApi = {
     requestOAuth: (input: ProviderOAuthRequestPayload) => invokeHost('providers', 'requestOAuth', input),
     cancelOAuth: () => invokeHost('providers', 'cancelOAuth'),
     submitOAuth: (input: { code: string }) => invokeHost('providers', 'submitOAuth', input),
+  },
+  canvasland: {
+    balance: () => invokeHost('canvasland', 'balance'),
   },
   files: {
     stagePaths: (input: { filePaths: string[] }) => invokeHost('files', 'stagePaths', input),

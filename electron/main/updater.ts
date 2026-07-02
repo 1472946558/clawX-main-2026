@@ -11,9 +11,9 @@ import { BrowserWindow, app, ipcMain } from 'electron';
 import { logger } from '../utils/logger';
 import { EventEmitter } from 'events';
 import { setQuitting } from './app-state';
+import { getSetting } from '../utils/store';
 
-/** Base CDN URL (without trailing channel path) */
-const OSS_BASE_URL = 'https://oss.intelli-spectrum.com';
+const DEFAULT_UPDATE_FEED_URL = 'https://github.com/1472946558/clawX-main-2026/releases/latest/download';
 
 export interface UpdateStatus {
   status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
@@ -55,11 +55,22 @@ function detectChannel(version: string): string {
   return match ? match[1] : 'latest';
 }
 
+function normalizeFeedUrl(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  if (!trimmed) return DEFAULT_UPDATE_FEED_URL;
+  const parsed = new URL(trimmed);
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error('Update feed URL must use http or https');
+  }
+  return parsed.toString().replace(/\/+$/, '');
+}
+
 export class AppUpdater extends EventEmitter {
   private mainWindow: BrowserWindow | null = null;
   private status: UpdateStatus = { status: 'idle' };
   private autoInstallTimer: NodeJS.Timeout | null = null;
   private autoInstallCountdown = 0;
+  private feedUrl = DEFAULT_UPDATE_FEED_URL;
 
   /** Delay (in seconds) before auto-installing a downloaded update. */
   private static readonly AUTO_INSTALL_DELAY_SECONDS = 5;
@@ -89,13 +100,10 @@ export class AppUpdater extends EventEmitter {
       debug: (msg: string) => logger.debug('[Updater]', msg),
     };
 
-    // Override feed URL for prerelease channels so that
-    // alpha -> /alpha/alpha-mac.yml, beta -> /beta/beta-mac.yml, etc.
     const version = app.getVersion();
     const channel = detectChannel(version);
-    const feedUrl = `${OSS_BASE_URL}/${channel}`;
 
-    logger.info(`[Updater] Version: ${version}, channel: ${channel}, feedUrl: ${feedUrl}`);
+    logger.info(`[Updater] Version: ${version}, channel: ${channel}, feedUrl: ${this.feedUrl}`);
 
     // Set channel so electron-updater requests the correct yml filename.
     // e.g. channel "alpha" → requests alpha-mac.yml, channel "latest" → requests latest-mac.yml
@@ -103,7 +111,7 @@ export class AppUpdater extends EventEmitter {
 
     autoUpdater.setFeedURL({
       provider: 'generic',
-      url: feedUrl,
+      url: this.feedUrl,
       useMultipleRangeRequest: false,
     });
 
@@ -122,6 +130,23 @@ export class AppUpdater extends EventEmitter {
    */
   getStatus(): UpdateStatus {
     return this.status;
+  }
+
+  getFeedUrl(): string {
+    return this.feedUrl;
+  }
+
+  setFeedUrl(url: string): void {
+    const normalizedUrl = normalizeFeedUrl(url);
+    this.feedUrl = normalizedUrl;
+    if (!isNativeUpdaterEnabled()) return;
+    const autoUpdater = getAutoUpdater();
+    autoUpdater.setFeedURL({
+      provider: 'generic',
+      url: normalizedUrl,
+      useMultipleRangeRequest: false,
+    });
+    logger.info(`[Updater] Feed URL set to ${normalizedUrl}`);
   }
 
   /**
@@ -201,6 +226,8 @@ export class AppUpdater extends EventEmitter {
     }
 
     try {
+      const savedFeedUrl = await getSetting('updateFeedUrl');
+      this.setFeedUrl(savedFeedUrl || DEFAULT_UPDATE_FEED_URL);
       const autoUpdater = getAutoUpdater();
       const result = await autoUpdater.checkForUpdates();
 

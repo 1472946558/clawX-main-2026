@@ -95,6 +95,8 @@ export type UpdateStatusSnapshot = {
 export type UpdateCheckResult = HostSuccess & { status?: UpdateStatusSnapshot };
 export type UpdateSetChannelPayload = { channel: UpdateChannel };
 export type UpdateSetAutoDownloadPayload = { enable: boolean };
+export type UpdateFeedUrlSnapshot = { url: string };
+export type UpdateSetFeedUrlPayload = { url: string };
 
 export type SettingsSnapshot = Partial<{
   theme: 'light' | 'dark' | 'system';
@@ -112,6 +114,7 @@ export type SettingsSnapshot = Partial<{
   proxyBypassRules: string;
   updateChannel: 'stable' | 'beta' | 'dev';
   autoCheckUpdate: boolean;
+  updateFeedUrl: string;
   sidebarCollapsed: boolean;
   sidebarWidth: number;
   devModeUnlocked: boolean;
@@ -383,6 +386,39 @@ export type ProviderOAuthRequestPayload = {
   label?: string;
 };
 export type ProviderOAuthSubmitPayload = { code: string };
+
+export type CanvaslandTopUpMethod = {
+  name?: string;
+  type?: string;
+  minTopup?: string;
+};
+export type CanvaslandTopUpInfo = {
+  enabled: boolean;
+  redemptionEnabled?: boolean;
+  amountOptions?: number[];
+  payMethods?: CanvaslandTopUpMethod[];
+  topupLink?: string;
+};
+export type CanvaslandTokenUsage = {
+  name?: string;
+  totalGranted?: number;
+  totalUsed?: number;
+  totalAvailable?: number;
+  unlimitedQuota?: boolean;
+  expiresAt?: number;
+};
+export type CanvaslandBalanceResult = HostSuccess & {
+  configured: boolean;
+  endpoint?: string;
+  topUpUrl?: string;
+  token?: CanvaslandTokenUsage;
+  quotaPerUnit?: number;
+  quotaDisplayType?: string;
+  displayBalance?: string;
+  displayUsed?: string;
+  topup?: CanvaslandTopUpInfo;
+  checkedAt?: string;
+};
 
 export type StagedFileResult = {
   id: string;
@@ -696,11 +732,13 @@ export type HostApiContract = {
   updates: {
     status: () => UpdateStatusSnapshot;
     version: () => string;
+    feedUrl: () => UpdateFeedUrlSnapshot;
     check: () => UpdateCheckResult;
     download: () => HostSuccess;
     install: () => HostSuccess;
     setChannel: (payload: UpdateSetChannelPayload) => HostSuccess;
     setAutoDownload: (payload: UpdateSetAutoDownloadPayload) => HostSuccess;
+    setFeedUrl: (payload: UpdateSetFeedUrlPayload) => HostSuccess;
     cancelAutoInstall: () => HostSuccess;
   };
   uv: {
@@ -787,6 +825,9 @@ export type HostApiContract = {
     requestOAuth: (payload: ProviderOAuthRequestPayload) => HostSuccess;
     cancelOAuth: () => HostSuccess;
     submitOAuth: (payload: ProviderOAuthSubmitPayload) => HostSuccess;
+  };
+  canvasland: {
+    balance: () => CanvaslandBalanceResult;
   };
   files: {
     stagePaths: (payload: StagePathsPayload) => StagedFileResult[];

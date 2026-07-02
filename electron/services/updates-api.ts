@@ -39,6 +39,7 @@ export function createUpdatesApi(updater: AppUpdater): CompleteHostServiceRegist
   return {
     status: () => normalizeStatus(updater.getStatus()),
     version: () => updater.getCurrentVersion(),
+    feedUrl: () => ({ url: updater.getFeedUrl() }),
     check: async () => {
       try {
         await updater.checkForUpdates();
@@ -65,6 +66,10 @@ export function createUpdatesApi(updater: AppUpdater): CompleteHostServiceRegist
     },
     setAutoDownload: (payload) => {
       updater.setAutoDownload(payload.enable);
+      return { success: true };
+    },
+    setFeedUrl: (payload) => {
+      updater.setFeedUrl(payload.url);
       return { success: true };
     },
     cancelAutoInstall: () => {

@@ -32,6 +32,7 @@ interface SettingsState {
   // Update
   updateChannel: UpdateChannel;
   autoCheckUpdate: boolean;
+  updateFeedUrl: string;
 
   // UI State
   sidebarCollapsed: boolean;
@@ -58,6 +59,7 @@ interface SettingsState {
   setProxyBypassRules: (value: string) => void;
   setUpdateChannel: (channel: UpdateChannel) => void;
   setAutoCheckUpdate: (value: boolean) => void;
+  setUpdateFeedUrl: (value: string) => void;
   setSidebarCollapsed: (value: boolean) => void;
   setSidebarWidth: (value: number) => void;
   setDevModeUnlocked: (value: boolean) => void;
@@ -81,6 +83,7 @@ const defaultSettings = {
   proxyBypassRules: '<local>;localhost;127.0.0.1;::1',
   updateChannel: 'stable' as UpdateChannel,
   autoCheckUpdate: true,
+  updateFeedUrl: 'https://github.com/1472946558/clawX-main-2026/releases/latest/download',
   sidebarCollapsed: false,
   sidebarWidth: 280,
   devModeUnlocked: false,
@@ -154,6 +157,11 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoCheckUpdate: (autoCheckUpdate) => {
         set({ autoCheckUpdate });
         void hostApi.settings.set('autoCheckUpdate', autoCheckUpdate).catch(() => { });
+      },
+      setUpdateFeedUrl: (updateFeedUrl) => {
+        set({ updateFeedUrl });
+        void hostApi.settings.set('updateFeedUrl', updateFeedUrl).catch(() => { });
+        void hostApi.updates.setFeedUrl(updateFeedUrl).catch(() => { });
       },
 
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),

@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
-import { CheckCircle2, CreditCard, ExternalLink, KeyRound, Loader2, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, CreditCard, ExternalLink, KeyRound, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import type { CanvaslandBalanceResult } from '@shared/host-api/contract';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -47,6 +49,8 @@ export function TokenTopUp() {
   const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [savedRootUrl, setSavedRootUrl] = useState(DEFAULT_BASE_URL);
+  const [balance, setBalance] = useState<CanvaslandBalanceResult | null>(null);
+  const [refreshingBalance, setRefreshingBalance] = useState(false);
 
   const parsedConnection = useMemo(() => {
     if (!connectionJson.trim()) return null;
@@ -58,6 +62,27 @@ export function TokenTopUp() {
   }, [connectionJson]);
 
   const effectiveRootUrl = parsedConnection?.url ? normalizeRootUrl(parsedConnection.url) : savedRootUrl;
+  const effectiveTopUpUrl = balance?.topUpUrl || getTopUpUrl(effectiveRootUrl);
+
+  const refreshBalance = useCallback(async () => {
+    setRefreshingBalance(true);
+    try {
+      const nextBalance = await hostApi.canvasland.balance();
+      setBalance(nextBalance);
+      if (nextBalance.endpoint) setSavedRootUrl(nextBalance.endpoint);
+      if (!nextBalance.success && nextBalance.error) {
+        toast.error(`${t('tokenTopUp.errors.balanceFailed')}: ${nextBalance.error}`);
+      }
+    } catch (error) {
+      toast.error(`${t('tokenTopUp.errors.balanceFailed')}: ${toUserMessage(error)}`);
+    } finally {
+      setRefreshingBalance(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void refreshBalance();
+  }, [refreshBalance]);
 
   const handleSaveConnection = async () => {
     let connection: NewApiConnection;
@@ -110,6 +135,7 @@ export function TokenTopUp() {
       await hostApi.providers.setDefaultAccount(CANVASLAND_ACCOUNT_ID);
       setSavedRootUrl(rootUrl);
       setConnectionJson('');
+      await refreshBalance();
       toast.success(t('tokenTopUp.saved'));
     } catch (error) {
       toast.error(`${t('tokenTopUp.errors.saveFailed')}: ${toUserMessage(error)}`);
@@ -122,6 +148,7 @@ export function TokenTopUp() {
     setClearing(true);
     try {
       await hostApi.providers.deleteAccountApiKey(CANVASLAND_ACCOUNT_ID);
+      setBalance((current) => current ? { ...current, configured: false } : current);
       toast.success(t('tokenTopUp.cleared'));
     } catch (error) {
       toast.error(`${t('tokenTopUp.errors.clearFailed')}: ${toUserMessage(error)}`);
@@ -131,7 +158,7 @@ export function TokenTopUp() {
   };
 
   const handleOpenTopUp = () => {
-    void window.electron.openExternal(getTopUpUrl(effectiveRootUrl));
+    void hostApi.shell.openExternal(effectiveTopUpUrl);
   };
 
   return (
@@ -212,13 +239,61 @@ export function TokenTopUp() {
             </div>
 
             <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div data-testid="token-topup-balance" className="rounded-xl bg-surface-input p-4">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.availableBalance')}</p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
+                    {balance?.token?.unlimitedQuota
+                      ? t('tokenTopUp.unlimited')
+                      : balance?.displayBalance || t('tokenTopUp.notAvailable')}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-surface-input p-4">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.usedBalance')}</p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
+                    {balance?.displayUsed || t('tokenTopUp.notAvailable')}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-xl bg-surface-input p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.tokenStatus')}</p>
+                  <Badge variant={balance?.configured ? 'success' : 'warning'}>
+                    {balance?.configured ? t('tokenTopUp.configured') : t('tokenTopUp.notConfigured')}
+                  </Badge>
+                </div>
+                <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
+                  <p>{t('tokenTopUp.tokenName')}: <span className="font-mono text-foreground">{balance?.token?.name || '-'}</span></p>
+                  <p>{t('tokenTopUp.totalGranted')}: <span className="font-mono text-foreground">{balance?.token?.totalGranted ?? '-'}</span></p>
+                  <p>{t('tokenTopUp.checkedAt')}: <span className="font-mono text-foreground">{balance?.checkedAt ? new Date(balance.checkedAt).toLocaleString() : '-'}</span></p>
+                </div>
+              </div>
               <div className="rounded-xl bg-surface-input p-4">
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.currentEndpoint')}</p>
                 <p className="mt-2 break-all font-mono text-sm text-foreground">{effectiveRootUrl}</p>
               </div>
+              {balance?.topup?.amountOptions && balance.topup.amountOptions.length > 0 && (
+                <div className="rounded-xl border border-black/5 dark:border-white/10 p-4">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.amountOptions')}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {balance.topup.amountOptions.slice(0, 8).map((amount) => (
+                      <Badge key={amount} variant="outline">{amount}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="rounded-xl border border-dashed border-black/10 dark:border-white/10 p-4 text-sm text-muted-foreground">
                 {t('tokenTopUp.balanceNote')}
               </div>
+              {balance?.error && (
+                <div className="rounded-xl bg-red-50 dark:bg-red-900/10 p-4 text-sm text-red-600 dark:text-red-400">
+                  {balance.error}
+                </div>
+              )}
+              <Button data-testid="token-topup-refresh-balance" onClick={refreshBalance} disabled={refreshingBalance} variant="outline" className="w-full rounded-xl h-11 justify-center">
+                {refreshingBalance ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                {t('tokenTopUp.refreshBalance')}
+              </Button>
               <Button data-testid="token-topup-open" onClick={handleOpenTopUp} variant="outline" className="w-full rounded-xl h-11 justify-center">
                 <ExternalLink className="h-4 w-4 mr-2" />
                 {t('tokenTopUp.openTopUp')}

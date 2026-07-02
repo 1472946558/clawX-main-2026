@@ -67,7 +67,7 @@
     },
     "tokenTopUp": {
         "title": "トークンチャージ",
-        "subtitle": "canvasland を New API に接続し、ウォレットコンソールを開きます。",
+        "subtitle": "canvasland を New API に接続し、トークン残高を確認してウォレットコンソールを開きます。",
         "openConsole": "コンソールを開く",
         "connectionTitle": "New API 接続",
         "connectionDesc": "New API の接続 JSON を貼り付けます。キーはローカルに保存され、いつでも削除できます。",
@@ -80,9 +80,21 @@
         "saved": "canvasland 接続を保存しました",
         "cleared": "保存済みの canvasland キーを削除しました",
         "walletTitle": "ウォレット",
-        "walletDesc": "チャージと請求は New API コンソールで管理されます。",
+        "walletDesc": "保存済みトークンの残高を確認し、New API のチャージコンソールを開きます。",
+        "availableBalance": "利用可能",
+        "usedBalance": "使用済み",
+        "tokenStatus": "接続状態",
+        "configured": "設定済み",
+        "notConfigured": "未設定",
+        "tokenName": "トークン",
+        "totalGranted": "総付与量",
+        "checkedAt": "確認日時",
+        "amountOptions": "チャージ金額",
+        "refreshBalance": "残高を更新",
+        "notAvailable": "利用不可",
+        "unlimited": "無制限",
         "currentEndpoint": "現在のエンドポイント",
-        "balanceNote": "残高は New API コンソールに表示されます。コンソールはブラウザのログイン状態を使用します。",
+        "balanceNote": "残高は保存済みの New API トークンから読み取ります。チャージはブラウザのログイン状態で支払えるようコンソールを開きます。",
         "openTopUp": "チャージページを開く",
         "errors": {
             "invalidJson": "接続 JSON が無効です",
@@ -90,7 +102,8 @@
             "missingKey": "接続キーが必要です",
             "missingUrl": "接続 URL が必要です",
             "saveFailed": "接続の保存に失敗しました",
-            "clearFailed": "キーの削除に失敗しました"
+            "clearFailed": "キーの削除に失敗しました",
+            "balanceFailed": "残高の更新に失敗しました"
         }
     }
 }

@@ -61,6 +61,7 @@ import { createCronApi } from '../services/cron-api';
 import { createFilesApi } from '../services/files-api';
 import { createMediaApi } from '../services/media-api';
 import { createProvidersApi } from '../services/providers-api';
+import { createCanvaslandApi } from '../services/canvasland-api';
 import { createSessionsApi } from '../services/sessions-api';
 import { createSkillsApi } from '../services/skills-api';
 import { createUsageApi } from '../services/usage-api';
@@ -147,6 +148,7 @@ function registerTypedHostHandlers(
     channels: createChannelsApi({ gatewayManager, mainWindow }),
     agents: createAgentsApi({ gatewayManager }),
     providers: createProvidersApi({ gatewayManager, mainWindow }),
+    canvasland: createCanvaslandApi(),
     files: createFilesApi(),
     media: createMediaApi(),
     sessions: createSessionsApi(),

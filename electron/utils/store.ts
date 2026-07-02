@@ -46,6 +46,7 @@ export interface AppSettings {
   updateChannel: 'stable' | 'beta' | 'dev';
   autoCheckUpdate: boolean;
   autoDownloadUpdate: boolean;
+  updateFeedUrl: string;
   skippedVersions: string[];
 
   // UI State
@@ -97,6 +98,7 @@ function createDefaultSettings(): AppSettings {
     updateChannel: 'stable',
     autoCheckUpdate: true,
     autoDownloadUpdate: false,
+    updateFeedUrl: 'https://github.com/1472946558/clawX-main-2026/releases/latest/download',
     skippedVersions: [],
 
     // UI State

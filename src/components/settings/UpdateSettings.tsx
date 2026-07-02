@@ -2,12 +2,17 @@
  * Update Settings Component
  * Displays update status and allows manual update checking/installation
  */
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { Download, RefreshCw, Loader2, Rocket, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useUpdateStore } from '@/stores/update';
+import { useSettingsStore } from '@/stores/settings';
+import { toUserMessage } from '@/lib/error-message';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -34,16 +39,55 @@ export function UpdateSettings() {
     cancelAutoInstall,
     clearError,
   } = useUpdateStore();
+  const updateFeedUrl = useSettingsStore((state) => state.updateFeedUrl);
+  const setUpdateFeedUrl = useSettingsStore((state) => state.setUpdateFeedUrl);
+  const [feedUrlDraft, setFeedUrlDraft] = useState(updateFeedUrl);
+  const [savingFeedUrl, setSavingFeedUrl] = useState(false);
 
   // Initialize on mount
   useEffect(() => {
     init();
   }, [init]);
 
+  useEffect(() => {
+    setFeedUrlDraft(updateFeedUrl);
+  }, [updateFeedUrl]);
+
   const handleCheckForUpdates = useCallback(async () => {
     clearError();
     await checkForUpdates();
   }, [checkForUpdates, clearError]);
+
+  const handleSaveFeedUrl = useCallback(async () => {
+    const nextUrl = feedUrlDraft.trim();
+    if (nextUrl) {
+      try {
+        const parsed = new URL(nextUrl);
+        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+          throw new Error(t('updates.feedUrlInvalid'));
+        }
+      } catch {
+        toast.error(t('updates.feedUrlInvalid'));
+        return;
+      }
+    }
+
+    setSavingFeedUrl(true);
+    try {
+      setUpdateFeedUrl(nextUrl);
+      toast.success(t('updates.feedUrlSaved'));
+    } catch (error) {
+      toast.error(`${t('updates.feedUrlSaveFailed')}: ${toUserMessage(error)}`);
+    } finally {
+      setSavingFeedUrl(false);
+    }
+  }, [feedUrlDraft, setUpdateFeedUrl, t]);
+
+  const handleClearFeedUrl = useCallback(() => {
+    setFeedUrlDraft('');
+    setUpdateFeedUrl('');
+    toast.success(t('updates.feedUrlCleared'));
+  }, [setUpdateFeedUrl, t]);
 
   const renderStatusIcon = () => {
     switch (status) {
@@ -162,6 +206,27 @@ export function UpdateSettings() {
       <div className="flex items-center justify-between py-3 border-t border-b">
         <p className="text-sm text-muted-foreground">{renderStatusText()}</p>
         {renderAction()}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="update-feed-url">{t('updates.feedUrl')}</Label>
+        <div className="flex gap-2">
+          <Input
+            id="update-feed-url"
+            data-testid="update-feed-url"
+            value={feedUrlDraft}
+            onChange={(event) => setFeedUrlDraft(event.target.value)}
+            placeholder="https://github.com/1472946558/clawX-main-2026/releases/latest/download"
+            className="font-mono text-xs"
+          />
+          <Button data-testid="update-feed-url-save" onClick={handleSaveFeedUrl} disabled={savingFeedUrl} variant="outline" size="sm">
+            {t('updates.feedUrlSave')}
+          </Button>
+          <Button data-testid="update-feed-url-clear" onClick={handleClearFeedUrl} variant="outline" size="sm">
+            {t('updates.feedUrlClear')}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">{t('updates.feedUrlHelp')}</p>
       </div>
 
       {/* Download Progress */}

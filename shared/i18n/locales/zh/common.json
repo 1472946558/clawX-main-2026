@@ -67,7 +67,7 @@
     },
     "tokenTopUp": {
         "title": "钱包充值",
-        "subtitle": "连接 canvasland 的 New API，并打开钱包充值控制台。",
+        "subtitle": "连接 canvasland 的 New API，查看令牌余额，并打开钱包充值控制台。",
         "openConsole": "打开控制台",
         "connectionTitle": "New API 连接",
         "connectionDesc": "粘贴 New API 连接 JSON。密钥只保存在本机，并且可随时清空。",
@@ -80,9 +80,21 @@
         "saved": "canvasland 连接已保存",
         "cleared": "已清空本机保存的 canvasland 密钥",
         "walletTitle": "钱包",
-        "walletDesc": "充值与账单在 New API 控制台完成。",
+        "walletDesc": "查看已保存令牌的余额，并打开 New API 充值控制台。",
+        "availableBalance": "可用余额",
+        "usedBalance": "已用额度",
+        "tokenStatus": "连接状态",
+        "configured": "已配置",
+        "notConfigured": "未配置",
+        "tokenName": "令牌",
+        "totalGranted": "总额度",
+        "checkedAt": "检查时间",
+        "amountOptions": "充值额度",
+        "refreshBalance": "刷新余额",
+        "notAvailable": "不可用",
+        "unlimited": "无限额度",
         "currentEndpoint": "当前端点",
-        "balanceNote": "余额在 New API 控制台显示。打开控制台会使用您浏览器中的登录状态。",
+        "balanceNote": "余额读取自本机保存的 New API 令牌。充值仍会打开浏览器控制台，以便使用您的登录状态完成支付。",
         "openTopUp": "打开充值页面",
         "errors": {
             "invalidJson": "连接 JSON 格式无效",
@@ -90,7 +102,8 @@
             "missingKey": "连接密钥不能为空",
             "missingUrl": "连接 URL 不能为空",
             "saveFailed": "保存连接失败",
-            "clearFailed": "清空密钥失败"
+            "clearFailed": "清空密钥失败",
+            "balanceFailed": "刷新余额失败"
         }
     }
 }
