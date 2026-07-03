@@ -11,7 +11,15 @@
     "gatewayNotRunning": "Gateway not running",
     "models": {
         "title": "Models",
-        "subtitle": "Manage your AI providers and monitor token usage."
+        "subtitle": "View the canvasland model channel and monitor token usage."
+    },
+    "modelAccess": {
+        "title": "AI Model Channel",
+        "official": "Official channel",
+        "description": "Model API access is managed by canvasland. Third-party API provider entry is disabled.",
+        "checking": "Checking",
+        "configured": "Configured",
+        "notConfigured": "Not configured"
     },
     "quickActions": {
         "title": "Quick Actions",

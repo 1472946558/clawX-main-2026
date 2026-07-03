@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ChevronLeft,
   ChevronRight,
+  LockKeyhole,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,6 @@ import { useGatewayStore } from '@/stores/gateway';
 import { useSettingsStore } from '@/stores/settings';
 import { hostApi } from '@/lib/host-api';
 import { trackUiEvent } from '@/lib/telemetry';
-import { ProvidersSettings } from '@/components/settings/ProvidersSettings';
 import { FeedbackState } from '@/components/common/FeedbackState';
 import {
   filterUsageHistoryByWindow,
@@ -25,6 +25,7 @@ const DEFAULT_USAGE_FETCH_MAX_ATTEMPTS = 2;
 const WINDOWS_USAGE_FETCH_MAX_ATTEMPTS = 3;
 const USAGE_FETCH_RETRY_DELAY_MS = 1500;
 const USAGE_AUTO_REFRESH_INTERVAL_MS = 15_000;
+const CANVASLAND_ACCOUNT_ID = 'canvasland-newapi';
 
 const HIDDEN_USAGE_MARKERS = ['gateway-injected', 'delivery-mirror'];
 
@@ -48,6 +49,7 @@ export function Models() {
   const [usagePage, setUsagePage] = useState(1);
   const [selectedUsageEntry, setSelectedUsageEntry] = useState<UsageHistoryEntry | null>(null);
   const [usageRefreshNonce, setUsageRefreshNonce] = useState(0);
+  const [canvaslandConfigured, setCanvaslandConfigured] = useState<boolean | null>(null);
   function formatUsageSource(source?: string): string | undefined {
     if (!source) return undefined;
 
@@ -108,6 +110,27 @@ export function Models() {
 
   useEffect(() => {
     trackUiEvent('models.page_viewed');
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const configured = await hostApi.providers.hasAccountApiKey(CANVASLAND_ACCOUNT_ID);
+        if (!cancelled) {
+          setCanvaslandConfigured(Boolean(configured));
+        }
+      } catch {
+        if (!cancelled) {
+          setCanvaslandConfigured(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -290,8 +313,38 @@ export function Models() {
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto pr-2 pb-10 min-h-0 -mr-2 space-y-12">
           
-          {/* AI Providers Section */}
-          <ProvidersSettings />
+          <div>
+            <h2 className="text-3xl font-serif text-foreground mb-6 font-normal tracking-tight">
+              {t('dashboard:modelAccess.title')}
+            </h2>
+            <div data-testid="canvasland-provider-card" className="rounded-3xl bg-black/[0.035] dark:bg-white/[0.055] border border-black/5 dark:border-white/10 p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/70 text-foreground shadow-sm dark:bg-white/10">
+                    <LockKeyhole className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-foreground">canvasland</p>
+                      <span className="rounded-full bg-black/5 px-2 py-0.5 text-tiny font-medium text-muted-foreground dark:bg-white/10">
+                        {t('dashboard:modelAccess.official')}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {t('dashboard:modelAccess.description')}
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 rounded-full bg-white/80 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm dark:bg-white/10">
+                  {canvaslandConfigured === null
+                    ? t('dashboard:modelAccess.checking')
+                    : canvaslandConfigured
+                      ? t('dashboard:modelAccess.configured')
+                      : t('dashboard:modelAccess.notConfigured')}
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Token Usage History Section */}
           <div>

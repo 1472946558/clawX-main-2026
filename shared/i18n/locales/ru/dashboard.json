@@ -11,7 +11,15 @@
     "gatewayNotRunning": "Шлюз не запущен",
     "models": {
         "title": "Модели",
-        "subtitle": "Управляйте AI-провайдерами и отслеживайте использование токенов."
+        "subtitle": "Просматривайте модельный канал canvasland и отслеживайте использование токенов."
+    },
+    "modelAccess": {
+        "title": "Канал AI-модели",
+        "official": "Официальный канал",
+        "description": "Доступ к Model API управляется canvasland. Добавление сторонних API-провайдеров отключено.",
+        "checking": "Проверка",
+        "configured": "Настроено",
+        "notConfigured": "Не настроено"
     },
     "quickActions": {
         "title": "Быстрые действия",

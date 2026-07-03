@@ -28,6 +28,11 @@ type ProvidersApiContext = {
   mainWindow: BrowserWindow;
 };
 
+const CANVASLAND_ACCOUNT_ID = 'canvasland-newapi';
+const CANVASLAND_PROVIDER_ID = 'canvasland-newapi';
+const CANVASLAND_BASE_URL = 'https://feiniu.space/v1';
+const THIRD_PARTY_PROVIDER_ERROR = 'Third-party API providers are disabled in this canvasland build';
+
 type ProviderPayload<Action extends keyof HostApiContract['providers']> =
   Parameters<HostApiContract['providers'][Action]>[0];
 
@@ -135,6 +140,30 @@ function getSavePayload(payload: unknown): { config: ProviderConfig; apiKey?: st
   };
 }
 
+function normalizeProviderUrl(url?: string): string {
+  return (url || '').trim().replace(/\/+$/, '');
+}
+
+function isCanvaslandAccount(account: ProviderAccount): boolean {
+  return (
+    account.id === CANVASLAND_ACCOUNT_ID
+    && account.vendorId === 'custom'
+    && normalizeProviderUrl(account.baseUrl) === CANVASLAND_BASE_URL
+  );
+}
+
+function isCanvaslandProviderConfig(config: ProviderConfig): boolean {
+  return (
+    config.id === CANVASLAND_PROVIDER_ID
+    && config.type === 'custom'
+    && normalizeProviderUrl(config.baseUrl) === CANVASLAND_BASE_URL
+  );
+}
+
+function rejectThirdPartyProvider() {
+  return { success: false, error: THIRD_PARTY_PROVIDER_ERROR };
+}
+
 async function validateKey(payload: ProviderPayload<'validateKey'>): Promise<{ valid: boolean; error?: string }> {
   try {
     const body = getPayloadRecord(payload, 'validateKey');
@@ -152,6 +181,16 @@ async function validateKey(payload: ProviderPayload<'validateKey'>): Promise<{ v
       return { valid: false, error: 'Invalid providers.validateKey payload' };
     }
 
+    const options = isRecord(body.options) ? body.options as ValidationOptions : undefined;
+    if (
+      (accountId && accountId !== CANVASLAND_ACCOUNT_ID)
+      || (providerId && providerId !== CANVASLAND_PROVIDER_ID)
+      || (vendorId && vendorId !== 'custom')
+      || (options?.baseUrl && normalizeProviderUrl(options.baseUrl) !== CANVASLAND_BASE_URL)
+    ) {
+      return { valid: false, error: THIRD_PARTY_PROVIDER_ERROR };
+    }
+
     const providerService = getProviderService();
     const lookupId = accountId || vendorId || providerId || '';
     const account = lookupId ? await providerService.getAccount(lookupId) : null;
@@ -161,7 +200,6 @@ async function validateKey(payload: ProviderPayload<'validateKey'>): Promise<{ v
       return { valid: false, error: 'Invalid providers.validateKey payload' };
     }
 
-    const options = isRecord(body.options) ? body.options as ValidationOptions : undefined;
     const registryBaseUrl = getProviderConfig(providerType)?.baseUrl;
     const resolvedBaseUrl = options?.baseUrl || account?.baseUrl || legacyProvider?.baseUrl || registryBaseUrl;
     const resolvedProtocol = options?.apiProtocol || account?.apiProtocol || legacyProvider?.apiProtocol;
@@ -177,6 +215,9 @@ async function validateKey(payload: ProviderPayload<'validateKey'>): Promise<{ v
 async function saveProvider(payload: ProviderPayload<'save'>, gatewayManager?: GatewayManager) {
   const providerService = getProviderService();
   const { config, apiKey } = getSavePayload(payload);
+  if (!isCanvaslandProviderConfig(config)) {
+    return rejectThirdPartyProvider();
+  }
   try {
     await providerService._saveProviderInternal(config);
     if (apiKey !== undefined) {
@@ -209,6 +250,9 @@ async function deleteProvider(payload: ProviderPayload<'delete'>, gatewayManager
 async function setProviderApiKey(payload: ProviderPayload<'setApiKey'>) {
   const providerService = getProviderService();
   const { providerId, apiKey } = getApiKeyPayload(payload, 'setApiKey');
+  if (providerId !== CANVASLAND_PROVIDER_ID) {
+    return rejectThirdPartyProvider();
+  }
   try {
     await providerService._setProviderApiKeyInternal(providerId, apiKey);
     const provider = await providerService._getProviderInternal(providerId);
@@ -223,6 +267,9 @@ async function setProviderApiKey(payload: ProviderPayload<'setApiKey'>) {
 async function updateProviderWithKey(payload: ProviderPayload<'updateWithKey'>, gatewayManager?: GatewayManager) {
   const providerService = getProviderService();
   const { providerId, updates, apiKey } = getProviderUpdatePayload(payload);
+  if (providerId !== CANVASLAND_PROVIDER_ID) {
+    return rejectThirdPartyProvider();
+  }
   const existing = await providerService._getProviderInternal(providerId);
   if (!existing) {
     return { success: false, error: 'Provider not found' };
@@ -237,6 +284,9 @@ async function updateProviderWithKey(payload: ProviderPayload<'updateWithKey'>, 
       ...updates,
       updatedAt: new Date().toISOString(),
     };
+    if (!isCanvaslandProviderConfig(nextConfig)) {
+      return rejectThirdPartyProvider();
+    }
     const ock = getOpenClawProviderKey(nextConfig.type, providerId);
     await providerService._saveProviderInternal(nextConfig);
 
@@ -286,6 +336,9 @@ async function deleteProviderApiKey(payload: ProviderPayload<'deleteApiKey'>) {
 async function setDefaultProvider(payload: ProviderPayload<'setDefault'>, gatewayManager?: GatewayManager) {
   const providerService = getProviderService();
   const providerId = getProviderId(payload, 'setDefault');
+  if (providerId !== CANVASLAND_PROVIDER_ID) {
+    return rejectThirdPartyProvider();
+  }
   try {
     await providerService._setDefaultProviderInternal(providerId);
     await syncDefaultProviderToRuntime(providerId, gatewayManager);
@@ -301,9 +354,13 @@ async function createAccount(payload: ProviderPayload<'createAccount'>, gatewayM
   if (!isRecord(body.account)) {
     throw new Error('Invalid providers.createAccount payload');
   }
+  const accountPayload = body.account as unknown as ProviderAccount;
+  if (!isCanvaslandAccount(accountPayload)) {
+    return rejectThirdPartyProvider();
+  }
   const apiKey = typeof body.apiKey === 'string' ? body.apiKey : undefined;
   try {
-    const account = await providerService.createAccount(body.account as unknown as ProviderAccount, apiKey);
+    const account = await providerService.createAccount(accountPayload, apiKey);
     await syncSavedProviderToRuntime(providerAccountToConfig(account), apiKey, gatewayManager);
     return { success: true, account };
   } catch (error) {
@@ -320,10 +377,17 @@ async function updateAccount(payload: ProviderPayload<'updateAccount'>, gatewayM
   if (!accountId || !updates) {
     throw new Error('Invalid providers.updateAccount payload');
   }
+  if (accountId !== CANVASLAND_ACCOUNT_ID) {
+    return rejectThirdPartyProvider();
+  }
   try {
     const existing = await providerService.getAccount(accountId);
     if (!existing) {
       return { success: false, error: 'Provider account not found' };
+    }
+    const nextAccount = { ...existing, ...updates, id: accountId } as ProviderAccount;
+    if (!isCanvaslandAccount(nextAccount)) {
+      return rejectThirdPartyProvider();
     }
     const hasPatchChanges = hasObjectChanges(existing as unknown as Record<string, unknown>, updates as Record<string, unknown>);
     if (!hasPatchChanges && apiKey === undefined) {
@@ -378,6 +442,9 @@ async function deleteAccount(
 async function setDefaultAccount(payload: ProviderPayload<'setDefaultAccount'>, gatewayManager?: GatewayManager) {
   const providerService = getProviderService();
   const accountId = getAccountId(payload, 'setDefaultAccount');
+  if (accountId !== CANVASLAND_ACCOUNT_ID) {
+    return rejectThirdPartyProvider();
+  }
   try {
     const currentDefault = await providerService.getDefaultAccountId();
     if (currentDefault === accountId) {

@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import type { CanvaslandBalanceResult } from '@shared/host-api/contract';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { hostApi } from '@/lib/host-api';
@@ -45,9 +44,9 @@ function parseConnectionJson(value: string): NewApiConnection {
 export function TokenTopUp() {
   const { t } = useTranslation('common');
   const [connectionJson, setConnectionJson] = useState('');
-  const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
   const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [showConnectionForm, setShowConnectionForm] = useState(false);
   const [savedRootUrl, setSavedRootUrl] = useState(DEFAULT_BASE_URL);
   const [balance, setBalance] = useState<CanvaslandBalanceResult | null>(null);
   const [refreshingBalance, setRefreshingBalance] = useState(false);
@@ -108,6 +107,10 @@ export function TokenTopUp() {
       toast.error(t('tokenTopUp.errors.missingUrl'));
       return;
     }
+    if (rootUrl !== DEFAULT_BASE_URL) {
+      toast.error(t('tokenTopUp.errors.unsupportedEndpoint'));
+      return;
+    }
 
     setSaving(true);
     try {
@@ -120,7 +123,7 @@ export function TokenTopUp() {
         authMode: 'api_key' as const,
         baseUrl: normalizeModelBaseUrl(rootUrl),
         apiProtocol: 'openai-completions' as const,
-        model: modelId.trim() || DEFAULT_MODEL_ID,
+        model: DEFAULT_MODEL_ID,
         enabled: true,
         isDefault: true,
         createdAt: existing?.createdAt || now,
@@ -135,6 +138,7 @@ export function TokenTopUp() {
       await hostApi.providers.setDefaultAccount(CANVASLAND_ACCOUNT_ID);
       setSavedRootUrl(rootUrl);
       setConnectionJson('');
+      setShowConnectionForm(false);
       await refreshBalance();
       toast.success(t('tokenTopUp.saved'));
     } catch (error) {
@@ -149,6 +153,7 @@ export function TokenTopUp() {
     try {
       await hostApi.providers.deleteAccountApiKey(CANVASLAND_ACCOUNT_ID);
       setBalance((current) => current ? { ...current, configured: false } : current);
+      setShowConnectionForm(true);
       toast.success(t('tokenTopUp.cleared'));
     } catch (error) {
       toast.error(`${t('tokenTopUp.errors.clearFailed')}: ${toUserMessage(error)}`);
@@ -191,40 +196,53 @@ export function TokenTopUp() {
               </div>
             </div>
 
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="newapi-connection">{t('tokenTopUp.connectionJson')}</Label>
-                <Textarea
-                  id="newapi-connection"
-                  data-testid="token-topup-connection-json"
-                  value={connectionJson}
-                  onChange={(event) => setConnectionJson(event.target.value)}
-                  placeholder={t('tokenTopUp.connectionPlaceholder')}
-                  className="min-h-36 rounded-xl bg-surface-input font-mono text-xs"
-                />
+            {balance?.configured && !showConnectionForm ? (
+              <div className="space-y-5">
+                <div data-testid="token-topup-connection-locked" className="rounded-xl bg-surface-input p-4">
+                  <p className="text-sm font-semibold text-foreground">{t('tokenTopUp.connectionLocked')}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{t('tokenTopUp.connectedDesc')}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button data-testid="token-topup-change-connection" onClick={() => setShowConnectionForm(true)} variant="outline" className="rounded-full px-5">
+                    <KeyRound className="h-4 w-4 mr-2" />
+                    {t('tokenTopUp.changeConnection')}
+                  </Button>
+                  <Button data-testid="token-topup-clear" onClick={handleClearConnection} disabled={clearing} variant="outline" className="rounded-full px-5">
+                    {clearing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                    {t('tokenTopUp.clearConnection')}
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="newapi-model">{t('tokenTopUp.modelId')}</Label>
-                <Input
-                  id="newapi-model"
-                  value={modelId}
-                  onChange={(event) => setModelId(event.target.value)}
-                  placeholder={DEFAULT_MODEL_ID}
-                  className="h-10 rounded-xl bg-surface-input font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground">{t('tokenTopUp.modelHelp')}</p>
+            ) : (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="newapi-connection">{t('tokenTopUp.connectionJson')}</Label>
+                  <Textarea
+                    id="newapi-connection"
+                    data-testid="token-topup-connection-json"
+                    value={connectionJson}
+                    onChange={(event) => setConnectionJson(event.target.value)}
+                    placeholder={t('tokenTopUp.connectionPlaceholder')}
+                    className="min-h-36 rounded-xl bg-surface-input font-mono text-xs"
+                  />
+                </div>
+                <div className="rounded-xl bg-surface-input p-4">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.officialEndpoint')}</p>
+                  <p className="mt-2 break-all font-mono text-sm text-foreground">{DEFAULT_BASE_URL}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{t('tokenTopUp.endpointHelp')}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button data-testid="token-topup-save" onClick={handleSaveConnection} disabled={saving || !connectionJson.trim()} className="rounded-full px-5">
+                    {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                    {t('tokenTopUp.saveConnection')}
+                  </Button>
+                  <Button data-testid="token-topup-clear" onClick={handleClearConnection} disabled={clearing} variant="outline" className="rounded-full px-5">
+                    {clearing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                    {t('tokenTopUp.clearConnection')}
+                  </Button>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button data-testid="token-topup-save" onClick={handleSaveConnection} disabled={saving || !connectionJson.trim()} className="rounded-full px-5">
-                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                  {t('tokenTopUp.saveConnection')}
-                </Button>
-                <Button data-testid="token-topup-clear" onClick={handleClearConnection} disabled={clearing} variant="outline" className="rounded-full px-5">
-                  {clearing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                  {t('tokenTopUp.clearConnection')}
-                </Button>
-              </div>
-            </div>
+            )}
           </section>
 
           <section className="rounded-2xl border border-black/5 dark:border-white/10 bg-surface-modal p-6">

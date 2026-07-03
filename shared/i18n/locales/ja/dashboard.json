@@ -11,7 +11,15 @@
     "gatewayNotRunning": "ゲートウェイが停止中",
     "models": {
         "title": "モデル",
-        "subtitle": "AI プロバイダーを管理し、トークン使用量を監視します"
+        "subtitle": "canvasland のモデルチャンネルを確認し、トークン使用量を監視します"
+    },
+    "modelAccess": {
+        "title": "AI モデルチャンネル",
+        "official": "公式チャンネル",
+        "description": "モデル API は canvasland によって管理されています。サードパーティ API プロバイダーの追加は無効です。",
+        "checking": "確認中",
+        "configured": "設定済み",
+        "notConfigured": "未設定"
     },
     "quickActions": {
         "title": "クイックアクション",

@@ -29,6 +29,7 @@ test.describe('ClawX main navigation without setup flow', () => {
       await page.getByTestId('sidebar-nav-models').click();
       await expect(page.getByTestId('models-page')).toBeVisible();
       await expect(page.getByTestId('models-page-title')).toBeVisible();
+      await expect(page.getByTestId('canvasland-provider-card')).toBeVisible();
 
       await page.getByTestId('sidebar-nav-agents').click();
       await expect(page.getByTestId('agents-page')).toBeVisible();

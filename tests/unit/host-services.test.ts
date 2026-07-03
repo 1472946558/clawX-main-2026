@@ -411,11 +411,11 @@ describe('host services', () => {
     await expect(providersApi.getDefaultAccount()).resolves.toEqual({ accountId: 'custom-local' });
   });
 
-  it('validates provider keys using account metadata and caller options', async () => {
+  it('validates canvasland provider keys using account metadata and caller options', async () => {
     providerServiceMock.getAccount.mockResolvedValue({
-      id: 'custom-local',
+      id: 'canvasland-newapi',
       vendorId: 'custom',
-      baseUrl: 'http://persisted.example/v1',
+      baseUrl: 'https://feiniu.space/v1',
       apiProtocol: 'openai-completions',
     });
     validateApiKeyWithProviderMock.mockResolvedValue({ valid: true });
@@ -426,25 +426,25 @@ describe('host services', () => {
     });
 
     await expect(providersApi.validateKey({
-      accountId: 'custom-local',
+      accountId: 'canvasland-newapi',
       apiKey: 'sk-test',
-      options: { baseUrl: 'http://live.example/v1', apiProtocol: 'openai-responses' },
+      options: { baseUrl: 'https://feiniu.space/v1', apiProtocol: 'openai-responses' },
     })).resolves.toEqual({ valid: true });
 
     expect(validateApiKeyWithProviderMock).toHaveBeenCalledWith('custom', 'sk-test', {
-      baseUrl: 'http://live.example/v1',
+      baseUrl: 'https://feiniu.space/v1',
       apiProtocol: 'openai-responses',
     });
   });
 
-  it('creates provider accounts and syncs runtime config through the typed providers service', async () => {
+  it('creates the canvasland provider account and syncs runtime config through the typed providers service', async () => {
     const account = {
-      id: 'custom-local',
+      id: 'canvasland-newapi',
       vendorId: 'custom',
-      label: 'Local',
+      label: 'canvasland',
       authMode: 'api_key',
-      baseUrl: 'http://127.0.0.1:1234/v1',
-      model: 'local-model',
+      baseUrl: 'https://feiniu.space/v1',
+      model: 'gpt-4o-mini',
       enabled: true,
       createdAt: '2026-05-31T00:00:00.000Z',
       updatedAt: '2026-05-31T00:00:00.000Z',
@@ -464,13 +464,13 @@ describe('host services', () => {
     expect(providerServiceMock.createAccount).toHaveBeenCalledWith(account, 'sk-test');
     expect(providerAccountToConfigMock).toHaveBeenCalledWith(account);
     expect(syncSavedProviderToRuntimeMock).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'custom-local', type: 'custom' }),
+      expect.objectContaining({ id: 'canvasland-newapi', type: 'custom' }),
       'sk-test',
       gatewayManager,
     );
   });
 
-  it('sets the default provider account and syncs runtime defaults', async () => {
+  it('sets the canvasland default provider account and syncs runtime defaults', async () => {
     providerServiceMock.getDefaultAccountId.mockResolvedValue('old-default');
     const gatewayManager = { debouncedReload: vi.fn() };
     const { createProvidersApi } = await import('@electron/services/providers-api');
@@ -478,10 +478,10 @@ describe('host services', () => {
     await expect(createProvidersApi({
       gatewayManager: gatewayManager as never,
       mainWindow: {} as never,
-    }).setDefaultAccount({ accountId: 'custom-local' })).resolves.toEqual({ success: true });
+    }).setDefaultAccount({ accountId: 'canvasland-newapi' })).resolves.toEqual({ success: true });
 
-    expect(providerServiceMock.setDefaultAccount).toHaveBeenCalledWith('custom-local');
-    expect(syncDefaultProviderToRuntimeMock).toHaveBeenCalledWith('custom-local', gatewayManager);
+    expect(providerServiceMock.setDefaultAccount).toHaveBeenCalledWith('canvasland-newapi');
+    expect(syncDefaultProviderToRuntimeMock).toHaveBeenCalledWith('canvasland-newapi', gatewayManager);
   });
 
   it('builds channel accounts from config without gateway rpc in config mode', async () => {
