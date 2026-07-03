@@ -14,6 +14,8 @@ import { toUserMessage } from '@/lib/error-message';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+const DEFAULT_CANVASLAND_UPDATE_FEED_URL = 'https://github.com/andy777chen/CanvaslandAI/releases/latest/download';
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -216,7 +218,7 @@ export function UpdateSettings() {
             data-testid="update-feed-url"
             value={feedUrlDraft}
             onChange={(event) => setFeedUrlDraft(event.target.value)}
-            placeholder="https://github.com/1472946558/clawX-main-2026/releases/latest/download"
+            placeholder={DEFAULT_CANVASLAND_UPDATE_FEED_URL}
             className="font-mono text-xs"
           />
           <Button data-testid="update-feed-url-save" onClick={handleSaveFeedUrl} disabled={savingFeedUrl} variant="outline" size="sm">

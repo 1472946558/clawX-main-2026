@@ -98,7 +98,7 @@ function createDefaultSettings(): AppSettings {
     updateChannel: 'stable',
     autoCheckUpdate: true,
     autoDownloadUpdate: false,
-    updateFeedUrl: 'https://github.com/1472946558/clawX-main-2026/releases/latest/download',
+    updateFeedUrl: 'https://github.com/andy777chen/CanvaslandAI/releases/latest/download',
     skippedVersions: [],
 
     // UI State

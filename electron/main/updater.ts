@@ -13,7 +13,7 @@ import { EventEmitter } from 'events';
 import { setQuitting } from './app-state';
 import { getSetting } from '../utils/store';
 
-const DEFAULT_UPDATE_FEED_URL = 'https://github.com/1472946558/clawX-main-2026/releases/latest/download';
+const DEFAULT_UPDATE_FEED_URL = 'https://github.com/andy777chen/CanvaslandAI/releases/latest/download';
 
 export interface UpdateStatus {
   status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';

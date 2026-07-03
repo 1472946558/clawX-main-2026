@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CreditCard, ExternalLink, KeyRound, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { CheckCircle2, CreditCard, KeyRound, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { CanvaslandBalanceResult } from '@shared/host-api/contract';
@@ -13,6 +13,8 @@ import { toUserMessage } from '@/lib/error-message';
 const CANVASLAND_ACCOUNT_ID = 'canvasland-newapi';
 const DEFAULT_MODEL_ID = 'gpt-4o-mini';
 const DEFAULT_BASE_URL = 'https://feiniu.space';
+const DEFAULT_QUOTA_PER_UNIT = 500000;
+const DEFAULT_RECHARGE_TIERS = [10, 20, 50, 100, 200, 500];
 
 type NewApiConnection = {
   _type?: string;
@@ -27,10 +29,6 @@ function normalizeRootUrl(url: string): string {
 function normalizeModelBaseUrl(url: string): string {
   const root = normalizeRootUrl(url);
   return root.endsWith('/v1') ? root : `${root}/v1`;
-}
-
-function getTopUpUrl(url: string): string {
-  return `${normalizeRootUrl(url)}/console/topup`;
 }
 
 function parseConnectionJson(value: string): NewApiConnection {
@@ -61,7 +59,16 @@ export function TokenTopUp() {
   }, [connectionJson]);
 
   const effectiveRootUrl = parsedConnection?.url ? normalizeRootUrl(parsedConnection.url) : savedRootUrl;
-  const effectiveTopUpUrl = balance?.topUpUrl || getTopUpUrl(effectiveRootUrl);
+  const rechargeTiers = useMemo(() => {
+    const amounts = balance?.topup?.amountOptions && balance.topup.amountOptions.length > 0
+      ? balance.topup.amountOptions
+      : DEFAULT_RECHARGE_TIERS;
+    const quotaPerUnit = balance?.quotaPerUnit || DEFAULT_QUOTA_PER_UNIT;
+    return amounts.slice(0, 8).map((amount) => ({
+      amount,
+      points: Math.round(amount * quotaPerUnit),
+    }));
+  }, [balance?.quotaPerUnit, balance?.topup?.amountOptions]);
 
   const refreshBalance = useCallback(async () => {
     setRefreshingBalance(true);
@@ -162,10 +169,6 @@ export function TokenTopUp() {
     }
   };
 
-  const handleOpenTopUp = () => {
-    void hostApi.shell.openExternal(effectiveTopUpUrl);
-  };
-
   return (
     <div data-testid="token-topup-page" className="flex flex-col -m-6 dark:bg-background h-[calc(100vh-2.5rem)] overflow-hidden">
       <div className="w-full max-w-5xl mx-auto flex flex-col h-full p-10 pt-16">
@@ -178,10 +181,6 @@ export function TokenTopUp() {
               {t('tokenTopUp.subtitle')}
             </p>
           </div>
-          <Button onClick={handleOpenTopUp} className="rounded-full h-10 px-5">
-            <ExternalLink className="h-4 w-4 mr-2" />
-            {t('tokenTopUp.openConsole')}
-          </Button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr] overflow-y-auto pb-10">
@@ -290,16 +289,25 @@ export function TokenTopUp() {
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.currentEndpoint')}</p>
                 <p className="mt-2 break-all font-mono text-sm text-foreground">{effectiveRootUrl}</p>
               </div>
-              {balance?.topup?.amountOptions && balance.topup.amountOptions.length > 0 && (
-                <div className="rounded-xl border border-black/5 dark:border-white/10 p-4">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.amountOptions')}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {balance.topup.amountOptions.slice(0, 8).map((amount) => (
-                      <Badge key={amount} variant="outline">{amount}</Badge>
-                    ))}
-                  </div>
+              <div data-testid="token-topup-recharge-tiers" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
+                <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.amountOptions')}</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {rechargeTiers.map((tier) => (
+                    <div key={tier.amount} className="rounded-lg bg-surface-input px-3 py-2">
+                      <p className="text-sm font-semibold text-foreground">${tier.amount}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {tier.points.toLocaleString()} {t('tokenTopUp.points')}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              )}
+              </div>
+              <div data-testid="token-topup-usage-records" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
+                <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.usageRecords')}</p>
+                <div className="mt-3 rounded-lg bg-surface-input px-3 py-5 text-center text-sm text-muted-foreground">
+                  {t('tokenTopUp.usageRecordsPending')}
+                </div>
+              </div>
               <div className="rounded-xl border border-dashed border-black/10 dark:border-white/10 p-4 text-sm text-muted-foreground">
                 {t('tokenTopUp.balanceNote')}
               </div>
@@ -311,10 +319,6 @@ export function TokenTopUp() {
               <Button data-testid="token-topup-refresh-balance" onClick={refreshBalance} disabled={refreshingBalance} variant="outline" className="w-full rounded-xl h-11 justify-center">
                 {refreshingBalance ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 {t('tokenTopUp.refreshBalance')}
-              </Button>
-              <Button data-testid="token-topup-open" onClick={handleOpenTopUp} variant="outline" className="w-full rounded-xl h-11 justify-center">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                {t('tokenTopUp.openTopUp')}
               </Button>
             </div>
           </section>

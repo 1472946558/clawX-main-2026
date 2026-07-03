@@ -1,6 +1,6 @@
 {
   "title": "Настройки",
-  "subtitle": "Настройте ваш опыт работы с ClawX",
+  "subtitle": "Настройте ваш опыт работы с canvasland",
   "appearance": {
     "title": "Общие",
     "description": "Настройте внешний вид",
@@ -11,7 +11,7 @@
     "language": "Язык",
     "menuLanguageUpdated": "Язык меню обновлён",
     "launchAtStartup": "Запуск при старте системы",
-    "launchAtStartupDesc": "Автоматически запускать ClawX при входе в систему"
+    "launchAtStartupDesc": "Автоматически запускать canvasland при входе в систему"
   },
   "aiProviders": {
     "title": "AI-провайдеры",
@@ -38,7 +38,7 @@
     "notRequired": "Не требуется",
     "empty": {
       "title": "Провайдеры не настроены",
-      "desc": "Добавьте AI-провайдера, чтобы начать использовать ClawX",
+      "desc": "Добавьте AI-провайдера, чтобы начать использовать canvasland",
       "cta": "Добавить первого провайдера"
     },
     "dialog": {
@@ -61,7 +61,7 @@
       "protocol": "Протокол",
       "advancedConfig": "Расширенная конфигурация",
       "userAgent": "User-Agent",
-      "userAgentPlaceholder": "ClawX/1.0",
+      "userAgentPlaceholder": "canvasland/1.0",
       "fallbackModels": "Резервные модели",
       "fallbackProviders": "Резервные провайдеры",
       "fallbackModelIds": "ID резервных моделей",
@@ -129,14 +129,14 @@
   },
   "gateway": {
     "title": "Шлюз",
-    "description": "Настройки шлюза OpenClaw",
+    "description": "Настройки шлюза приложения",
     "status": "Статус",
     "port": "Порт",
     "logs": "Журналы",
     "appLogs": "Журналы приложения",
     "openFolder": "Открыть папку",
     "autoStart": "Автозапуск шлюза",
-    "autoStartDesc": "Запускать шлюз при старте ClawX",
+    "autoStartDesc": "Запускать шлюз при старте canvasland",
     "proxyTitle": "Прокси",
     "proxyDesc": "Направлять трафик Electron и шлюза через локальный прокси-клиент.",
     "proxyServer": "Прокси-сервер",
@@ -157,7 +157,7 @@
   },
   "updates": {
     "title": "Обновления",
-    "description": "Поддерживайте ClawX в актуальном состоянии",
+    "description": "Поддерживайте canvasland в актуальном состоянии",
     "autoCheck": "Автопроверка обновлений",
     "autoCheckDesc": "Проверять обновления при запуске",
     "feedUrl": "URL источника обновлений",
@@ -194,13 +194,13 @@
     "whatsNew": "Что нового:",
     "errorDetails": "Детали ошибки:",
     "toast": {
-      "availableTitle": "Доступно обновление ClawX",
+      "availableTitle": "Доступно обновление canvasland",
       "availableDescription": "Доступна версия v{{version}}. Скачайте её, когда будете готовы.",
-      "downloadedTitle": "Обновление ClawX готово",
+      "downloadedTitle": "Обновление canvasland готово",
       "downloadedDescription": "Версия v{{version}} загружена. Перезапустите приложение для установки.",
       "unknownVersion": "новая"
     },
-    "help": "ClawX автоматически проверяет обновления и показывает уведомление перед загрузкой или установкой."
+    "help": "canvasland автоматически проверяет обновления и показывает уведомление перед загрузкой или установкой."
   },
   "advanced": {
     "title": "Дополнительные",
@@ -208,7 +208,7 @@
     "devMode": "Режим разработчика",
     "devModeDesc": "Показывать инструменты и ярлыки разработчика",
     "telemetry": "Анонимные данные об использовании",
-    "telemetryDesc": "Разрешить предоставление анонимных базовых данных об использовании для улучшения ClawX"
+    "telemetryDesc": "Разрешить предоставление анонимных базовых данных об использовании для улучшения canvasland"
   },
   "developer": {
     "title": "Разработчик",

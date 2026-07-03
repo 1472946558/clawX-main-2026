@@ -81,8 +81,8 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
       api: 'openai-completions',
       apiKeyEnv: 'OPENROUTER_API_KEY',
       headers: {
-        'HTTP-Referer': 'https://claw-x.com',
-        'X-OpenRouter-Title': 'ClawX',
+        'HTTP-Referer': 'https://github.com/andy777chen/CanvaslandAI',
+        'X-OpenRouter-Title': 'canvasland',
       },
     },
   },

@@ -201,13 +201,13 @@ export async function createMenu(language?: string): Promise<void> {
         {
           label: labels.help.documentation,
           click: async () => {
-            await shell.openExternal('https://claw-x.com');
+            await shell.openExternal('https://github.com/andy777chen/CanvaslandAI');
           },
         },
         {
           label: labels.help.reportIssue,
           click: async () => {
-            await shell.openExternal('https://github.com/ValueCell-ai/ClawX/issues');
+            await shell.openExternal('https://github.com/andy777chen/CanvaslandAI/issues');
           },
         },
         { type: 'separator' },

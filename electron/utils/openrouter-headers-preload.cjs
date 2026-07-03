@@ -38,8 +38,8 @@
       delete flat['X-Title'];
       delete flat['x-openrouter-title'];
       delete flat['X-OpenRouter-Title'];
-      flat['HTTP-Referer'] = 'https://claw-x.com';
-      flat['X-OpenRouter-Title'] = 'ClawX';
+      flat['HTTP-Referer'] = 'https://github.com/andy777chen/CanvaslandAI';
+      flat['X-OpenRouter-Title'] = 'canvasland';
       init.headers = flat;
     }
     return _f.call(globalThis, input, init);

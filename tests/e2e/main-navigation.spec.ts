@@ -41,7 +41,8 @@ test.describe('ClawX main navigation without setup flow', () => {
       await expect(page.getByTestId('token-topup-page')).toBeVisible();
       await expect(page.getByTestId('token-topup-connection-json')).toBeVisible();
       await expect(page.getByTestId('token-topup-refresh-balance')).toBeVisible();
-      await expect(page.getByTestId('token-topup-open')).toBeVisible();
+      await expect(page.getByTestId('token-topup-recharge-tiers')).toBeVisible();
+      await expect(page.getByTestId('token-topup-usage-records')).toBeVisible();
     } finally {
       await closeElectronApp(app);
     }

@@ -83,7 +83,7 @@ const defaultSettings = {
   proxyBypassRules: '<local>;localhost;127.0.0.1;::1',
   updateChannel: 'stable' as UpdateChannel,
   autoCheckUpdate: true,
-  updateFeedUrl: 'https://github.com/1472946558/clawX-main-2026/releases/latest/download',
+  updateFeedUrl: 'https://github.com/andy777chen/CanvaslandAI/releases/latest/download',
   sidebarCollapsed: false,
   sidebarWidth: 280,
   devModeUnlocked: false,

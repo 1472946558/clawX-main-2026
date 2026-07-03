@@ -55,11 +55,11 @@ npmRebuild: false
 # Settings > Updates when a customer-owned CDN/OSS directory is ready.
 publish:
   - provider: generic
-    url: https://github.com/1472946558/clawX-main-2026/releases/latest/download
+    url: https://github.com/andy777chen/CanvaslandAI/releases/latest/download
     useMultipleRangeRequest: false
   - provider: github
-    owner: "1472946558"
-    repo: clawX-main-2026
+    owner: "andy777chen"
+    repo: CanvaslandAI
 
 # macOS Configuration
 mac:
