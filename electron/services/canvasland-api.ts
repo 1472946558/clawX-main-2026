@@ -1,16 +1,30 @@
 import type {
+  BlueOceanPayConfig,
+  BlueOceanPayConfigPayload,
+  BlueOceanPayConfigResult,
+  BlueOceanPayCreatePaymentPayload,
+  BlueOceanPayPaymentResult,
+  BlueOceanPayQueryPayload,
+  BlueOceanPayQueryResult,
   CanvaslandBalanceResult,
   CanvaslandTopUpInfo,
   CanvaslandTopUpMethod,
   CanvaslandTokenUsage,
 } from '@shared/host-api/contract';
+import { createHash, randomBytes } from 'crypto';
 import type { CompleteHostServiceRegistry } from '../main/ipc/host-contract';
 import { proxyAwareFetch } from '../utils/proxy-fetch';
 import { getProviderService } from './providers/provider-service';
+import { getcanvaslandProviderStore } from './providers/store-instance';
+import { deleteProviderSecret, getProviderSecret, setProviderSecret } from './secrets/secret-store';
 import { isRecord } from './payload-utils';
+import { renderQrPngDataUrl } from '../utils/qr-png';
 
 const CANVASLAND_ACCOUNT_ID = 'canvasland-newapi';
+const BLUEOCEAN_SECRET_ID = 'canvasland-blueoceanpay';
+const BLUEOCEAN_CONFIG_KEY = 'blueOceanPay';
 const DEFAULT_ROOT_URL = 'https://feiniu.space';
+const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
 const DEFAULT_QUOTA_PER_UNIT = 500000;
 
 function normalizeRootUrl(url: string): string {
@@ -145,6 +159,133 @@ function formatQuota(
   return `$${usd.toFixed(2)}`;
 }
 
+function normalizeBlueOceanBaseUrl(url: string | undefined): string {
+  const trimmed = url?.trim().replace(/\/+$/, '');
+  return trimmed || DEFAULT_BLUEOCEAN_API_BASE_URL;
+}
+
+function normalizeOptionalUrl(url: string | undefined): string | undefined {
+  const trimmed = url?.trim();
+  return trimmed || undefined;
+}
+
+function generateOutTradeNo(): string {
+  const stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+  return `CL${stamp}${randomBytes(4).toString('hex').toUpperCase()}`;
+}
+
+function toBlueOceanSignValue(value: unknown): string {
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : String(value);
+  if (typeof value === 'boolean') return value ? '1' : '0';
+  return String(value);
+}
+
+function signBlueOceanPayload(payload: Record<string, unknown>, merchantKey: string): string {
+  const signString = Object.keys(payload)
+    .filter((key) => key !== 'sign')
+    .filter((key) => payload[key] !== undefined && payload[key] !== null && payload[key] !== '')
+    .sort()
+    .map((key) => `${key}=${toBlueOceanSignValue(payload[key])}`)
+    .join('&');
+  return createHash('md5')
+    .update(`${signString}&key=${merchantKey}`, 'utf8')
+    .digest('hex')
+    .toUpperCase();
+}
+
+async function getBlueOceanConfig(): Promise<BlueOceanPayConfig> {
+  const store = await getcanvaslandProviderStore();
+  const value = store.get(BLUEOCEAN_CONFIG_KEY) as BlueOceanPayConfig | undefined;
+  if (!value || typeof value !== 'object') {
+    return { apiBaseUrl: DEFAULT_BLUEOCEAN_API_BASE_URL };
+  }
+  return {
+    appid: typeof value.appid === 'string' ? value.appid : undefined,
+    apiBaseUrl: normalizeBlueOceanBaseUrl(value.apiBaseUrl),
+    notifyUrl: typeof value.notifyUrl === 'string' ? value.notifyUrl : undefined,
+  };
+}
+
+async function setBlueOceanConfig(config: BlueOceanPayConfig): Promise<void> {
+  const store = await getcanvaslandProviderStore();
+  store.set(BLUEOCEAN_CONFIG_KEY, {
+    appid: config.appid?.trim() || '',
+    apiBaseUrl: normalizeBlueOceanBaseUrl(config.apiBaseUrl),
+    notifyUrl: normalizeOptionalUrl(config.notifyUrl) || '',
+  });
+}
+
+async function getBlueOceanMerchantKey(): Promise<string | null> {
+  const secret = await getProviderSecret(BLUEOCEAN_SECRET_ID);
+  return secret?.type === 'api_key' ? secret.apiKey : null;
+}
+
+async function requireBlueOceanCredentials(): Promise<{
+  config: Required<Pick<BlueOceanPayConfig, 'appid' | 'apiBaseUrl'>> & Pick<BlueOceanPayConfig, 'notifyUrl'>;
+  merchantKey: string;
+}> {
+  const config = await getBlueOceanConfig();
+  const merchantKey = await getBlueOceanMerchantKey();
+  const appid = config.appid?.trim();
+  if (!appid || !merchantKey) {
+    throw new Error('BlueOceanPay is not configured');
+  }
+  return {
+    config: {
+      appid,
+      apiBaseUrl: normalizeBlueOceanBaseUrl(config.apiBaseUrl),
+      notifyUrl: normalizeOptionalUrl(config.notifyUrl),
+    },
+    merchantKey,
+  };
+}
+
+async function fetchBlueOceanJson(
+  apiBaseUrl: string,
+  path: string,
+  payload: Record<string, unknown>,
+): Promise<unknown> {
+  const response = await proxyAwareFetch(`${normalizeBlueOceanBaseUrl(apiBaseUrl)}${path}`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
+      'User-Agent': 'canvasland/1.0 NetType/WIFI Language/zh_CN',
+    },
+    body: JSON.stringify(payload),
+  });
+  const text = await response.text();
+  let parsed: unknown = null;
+  if (text) {
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      parsed = { message: text };
+    }
+  }
+  if (!response.ok) {
+    throw new Error(isRecord(parsed) && typeof parsed.message === 'string' ? parsed.message : `HTTP ${response.status}`);
+  }
+  return parsed;
+}
+
+function unwrapBlueOceanData(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) throw new Error('Invalid BlueOceanPay response');
+  const code = getNumber(value.code);
+  if (code !== 200) {
+    const message = typeof value.message === 'string' ? value.message : `BlueOceanPay error ${code ?? 'unknown'}`;
+    throw new Error(message);
+  }
+  const data = value.data;
+  if (!isRecord(data)) return {};
+  return data;
+}
+
+function toInt(value: unknown): number | undefined {
+  const number = getNumber(value);
+  return typeof number === 'number' ? Math.round(number) : undefined;
+}
+
 export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland'] {
   return {
     balance: async (): Promise<CanvaslandBalanceResult> => {
@@ -200,6 +341,115 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
           configured: true,
           endpoint,
           topUpUrl,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+    blueOceanConfig: async (): Promise<BlueOceanPayConfigResult> => {
+      const config = await getBlueOceanConfig();
+      const merchantKey = await getBlueOceanMerchantKey();
+      return {
+        success: true,
+        configured: Boolean(config.appid && merchantKey),
+        hasMerchantKey: Boolean(merchantKey),
+        config,
+      };
+    },
+    saveBlueOceanConfig: async (payload: BlueOceanPayConfigPayload): Promise<{ success: true }> => {
+      const appid = payload.appid?.trim();
+      if (!appid) throw new Error('BlueOceanPay appid is required');
+      const apiBaseUrl = normalizeBlueOceanBaseUrl(payload.apiBaseUrl);
+      const notifyUrl = normalizeOptionalUrl(payload.notifyUrl);
+      if (!/^https?:\/\//i.test(apiBaseUrl)) throw new Error('BlueOceanPay API base URL must use http or https');
+      if (notifyUrl && !/^https?:\/\//i.test(notifyUrl)) throw new Error('BlueOceanPay notify URL must use http or https');
+
+      await setBlueOceanConfig({ appid, apiBaseUrl, notifyUrl });
+      const merchantKey = payload.merchantKey?.trim();
+      if (merchantKey) {
+        await setProviderSecret({
+          type: 'api_key',
+          accountId: BLUEOCEAN_SECRET_ID,
+          apiKey: merchantKey,
+        });
+      }
+      return { success: true };
+    },
+    clearBlueOceanConfig: async (): Promise<{ success: true }> => {
+      const store = await getcanvaslandProviderStore();
+      store.delete(BLUEOCEAN_CONFIG_KEY);
+      await deleteProviderSecret(BLUEOCEAN_SECRET_ID);
+      return { success: true };
+    },
+    createBlueOceanWechatPayment: async (
+      payload: BlueOceanPayCreatePaymentPayload,
+    ): Promise<BlueOceanPayPaymentResult> => {
+      try {
+        const { config, merchantKey } = await requireBlueOceanCredentials();
+        const amount = Number(payload.amount);
+        if (!Number.isFinite(amount) || amount <= 0) {
+          throw new Error('Invalid payment amount');
+        }
+        const totalFee = Math.round(amount * 100);
+        const outTradeNo = generateOutTradeNo();
+        const requestPayload: Record<string, unknown> = {
+          appid: config.appid,
+          payment: 'wechat.qrcode',
+          total_fee: totalFee,
+          out_trade_no: outTradeNo,
+          body: payload.body?.trim() || 'canvasland wallet top-up',
+          attach: payload.points ? `points=${Math.round(payload.points)}` : undefined,
+          notify_url: config.notifyUrl,
+        };
+        requestPayload.sign = signBlueOceanPayload(requestPayload, merchantKey);
+        const raw = await fetchBlueOceanJson(config.apiBaseUrl, '/payment/pay', requestPayload);
+        const data = unwrapBlueOceanData(raw);
+        const qrcode = typeof data.qrcode === 'string' ? data.qrcode : '';
+        if (!qrcode) throw new Error('BlueOceanPay response did not include a QR code');
+        return {
+          success: true,
+          configured: true,
+          qrcode,
+          qrcodeDataUrl: renderQrPngDataUrl(qrcode),
+          outTradeNo: typeof data.out_trade_no === 'string' ? data.out_trade_no : outTradeNo,
+          sn: typeof data.sn === 'string' ? data.sn : undefined,
+          tradeState: typeof data.trade_state === 'string' ? data.trade_state : undefined,
+          totalFee: toInt(data.total_fee),
+          payAmount: toInt(data.pay_amount),
+          provider: typeof data.provider === 'string' ? data.provider : undefined,
+          raw: data,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          configured: (await getBlueOceanConfig()).appid ? Boolean(await getBlueOceanMerchantKey()) : false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+    queryBlueOceanPayment: async (payload: BlueOceanPayQueryPayload): Promise<BlueOceanPayQueryResult> => {
+      try {
+        const { config, merchantKey } = await requireBlueOceanCredentials();
+        const sn = payload.sn?.trim();
+        const outTradeNo = payload.outTradeNo?.trim();
+        if (!sn && !outTradeNo) throw new Error('Order number is required');
+        const requestPayload: Record<string, unknown> = {
+          appid: config.appid,
+          sn,
+          out_trade_no: outTradeNo,
+        };
+        requestPayload.sign = signBlueOceanPayload(requestPayload, merchantKey);
+        const raw = await fetchBlueOceanJson(config.apiBaseUrl, '/order/query', requestPayload);
+        const data = unwrapBlueOceanData(raw);
+        return {
+          success: true,
+          tradeState: typeof data.trade_state === 'string' ? data.trade_state : undefined,
+          outTradeNo: typeof data.out_trade_no === 'string' ? data.out_trade_no : outTradeNo,
+          sn: typeof data.sn === 'string' ? data.sn : sn,
+          raw: data,
+        };
+      } catch (error) {
+        return {
+          success: false,
           error: error instanceof Error ? error.message : String(error),
         };
       }

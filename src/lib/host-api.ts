@@ -2,6 +2,9 @@ import type {
   AgentCreatePayload,
   AgentProfileUpdatePayload,
   AgentUpdatePayload,
+  BlueOceanPayConfigPayload,
+  BlueOceanPayCreatePaymentPayload,
+  BlueOceanPayQueryPayload,
   ChannelAccountsPayload,
   ChannelSaveConfigPayload,
   ChannelTargetsPayload,
@@ -265,6 +268,17 @@ export const hostApi = {
   },
   canvasland: {
     balance: () => invokeHost('canvasland', 'balance'),
+    blueOceanConfig: () => invokeHost('canvasland', 'blueOceanConfig'),
+    saveBlueOceanConfig: (input: BlueOceanPayConfigPayload) => (
+      invokeHost('canvasland', 'saveBlueOceanConfig', input)
+    ),
+    clearBlueOceanConfig: () => invokeHost('canvasland', 'clearBlueOceanConfig'),
+    createBlueOceanWechatPayment: (input: BlueOceanPayCreatePaymentPayload) => (
+      invokeHost('canvasland', 'createBlueOceanWechatPayment', input)
+    ),
+    queryBlueOceanPayment: (input: BlueOceanPayQueryPayload) => (
+      invokeHost('canvasland', 'queryBlueOceanPayment', input)
+    ),
   },
   files: {
     stagePaths: (input: { filePaths: string[] }) => invokeHost('files', 'stagePaths', input),

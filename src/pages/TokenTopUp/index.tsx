@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CreditCard, KeyRound, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { CheckCircle2, CreditCard, KeyRound, Loader2, QrCode, RefreshCw, Settings2, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import type { CanvaslandBalanceResult } from '@shared/host-api/contract';
+import type {
+  BlueOceanPayConfigResult,
+  BlueOceanPayPaymentResult,
+  CanvaslandBalanceResult,
+} from '@shared/host-api/contract';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { hostApi } from '@/lib/host-api';
@@ -13,6 +18,7 @@ import { toUserMessage } from '@/lib/error-message';
 const CANVASLAND_ACCOUNT_ID = 'canvasland-newapi';
 const DEFAULT_MODEL_ID = 'gpt-4o-mini';
 const DEFAULT_BASE_URL = 'https://feiniu.space';
+const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
 const DEFAULT_QUOTA_PER_UNIT = 500000;
 const DEFAULT_RECHARGE_TIERS = [10, 20, 50, 100, 200, 500];
 
@@ -48,6 +54,17 @@ export function TokenTopUp() {
   const [savedRootUrl, setSavedRootUrl] = useState(DEFAULT_BASE_URL);
   const [balance, setBalance] = useState<CanvaslandBalanceResult | null>(null);
   const [refreshingBalance, setRefreshingBalance] = useState(false);
+  const [blueOceanConfig, setBlueOceanConfig] = useState<BlueOceanPayConfigResult | null>(null);
+  const [showBlueOceanForm, setShowBlueOceanForm] = useState(false);
+  const [blueOceanAppid, setBlueOceanAppid] = useState('');
+  const [blueOceanApiBaseUrl, setBlueOceanApiBaseUrl] = useState(DEFAULT_BLUEOCEAN_API_BASE_URL);
+  const [blueOceanMerchantKey, setBlueOceanMerchantKey] = useState('');
+  const [blueOceanNotifyUrl, setBlueOceanNotifyUrl] = useState('');
+  const [savingBlueOcean, setSavingBlueOcean] = useState(false);
+  const [clearingBlueOcean, setClearingBlueOcean] = useState(false);
+  const [creatingPaymentAmount, setCreatingPaymentAmount] = useState<number | null>(null);
+  const [wechatPayment, setWechatPayment] = useState<BlueOceanPayPaymentResult | null>(null);
+  const [queryingPayment, setQueryingPayment] = useState(false);
 
   const parsedConnection = useMemo(() => {
     if (!connectionJson.trim()) return null;
@@ -89,6 +106,24 @@ export function TokenTopUp() {
   useEffect(() => {
     void refreshBalance();
   }, [refreshBalance]);
+
+  const loadBlueOceanConfig = useCallback(async () => {
+    try {
+      const config = await hostApi.canvasland.blueOceanConfig();
+      setBlueOceanConfig(config);
+      setBlueOceanAppid(config.config?.appid || '');
+      setBlueOceanApiBaseUrl(config.config?.apiBaseUrl || DEFAULT_BLUEOCEAN_API_BASE_URL);
+      setBlueOceanNotifyUrl(config.config?.notifyUrl || '');
+      setBlueOceanMerchantKey('');
+      setShowBlueOceanForm(!config.configured);
+    } catch (error) {
+      toast.error(`${t('tokenTopUp.errors.blueOceanLoadFailed')}: ${toUserMessage(error)}`);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void loadBlueOceanConfig();
+  }, [loadBlueOceanConfig]);
 
   const handleSaveConnection = async () => {
     let connection: NewApiConnection;
@@ -166,6 +201,104 @@ export function TokenTopUp() {
       toast.error(`${t('tokenTopUp.errors.clearFailed')}: ${toUserMessage(error)}`);
     } finally {
       setClearing(false);
+    }
+  };
+
+  const handleSaveBlueOceanConfig = async () => {
+    const appid = blueOceanAppid.trim();
+    const apiBaseUrl = blueOceanApiBaseUrl.trim();
+    const merchantKey = blueOceanMerchantKey.trim();
+    if (!appid) {
+      toast.error(t('tokenTopUp.errors.blueOceanMissingAppid'));
+      return;
+    }
+    if (!apiBaseUrl) {
+      toast.error(t('tokenTopUp.errors.blueOceanMissingApiBaseUrl'));
+      return;
+    }
+    if (!blueOceanConfig?.hasMerchantKey && !merchantKey) {
+      toast.error(t('tokenTopUp.errors.blueOceanMissingMerchantKey'));
+      return;
+    }
+
+    setSavingBlueOcean(true);
+    try {
+      await hostApi.canvasland.saveBlueOceanConfig({
+        appid,
+        apiBaseUrl,
+        notifyUrl: blueOceanNotifyUrl.trim() || undefined,
+        merchantKey: merchantKey || undefined,
+      });
+      await loadBlueOceanConfig();
+      setShowBlueOceanForm(false);
+      toast.success(t('tokenTopUp.blueOceanSaved'));
+    } catch (error) {
+      toast.error(`${t('tokenTopUp.errors.blueOceanSaveFailed')}: ${toUserMessage(error)}`);
+    } finally {
+      setSavingBlueOcean(false);
+    }
+  };
+
+  const handleClearBlueOceanConfig = async () => {
+    setClearingBlueOcean(true);
+    try {
+      await hostApi.canvasland.clearBlueOceanConfig();
+      setWechatPayment(null);
+      await loadBlueOceanConfig();
+      setShowBlueOceanForm(true);
+      toast.success(t('tokenTopUp.blueOceanCleared'));
+    } catch (error) {
+      toast.error(`${t('tokenTopUp.errors.blueOceanClearFailed')}: ${toUserMessage(error)}`);
+    } finally {
+      setClearingBlueOcean(false);
+    }
+  };
+
+  const handleCreateWechatPayment = async (tier: { amount: number; points: number }) => {
+    setCreatingPaymentAmount(tier.amount);
+    try {
+      const payment = await hostApi.canvasland.createBlueOceanWechatPayment({
+        amount: tier.amount,
+        points: tier.points,
+        body: `canvasland wallet top-up ${tier.amount}`,
+      });
+      setWechatPayment(payment);
+      if (payment.success) {
+        toast.success(t('tokenTopUp.wechatQrCreated'));
+      } else {
+        toast.error(`${t('tokenTopUp.errors.blueOceanPaymentFailed')}: ${payment.error || t('tokenTopUp.notAvailable')}`);
+      }
+    } catch (error) {
+      toast.error(`${t('tokenTopUp.errors.blueOceanPaymentFailed')}: ${toUserMessage(error)}`);
+    } finally {
+      setCreatingPaymentAmount(null);
+    }
+  };
+
+  const handleQueryWechatPayment = async () => {
+    if (!wechatPayment?.sn && !wechatPayment?.outTradeNo) return;
+    setQueryingPayment(true);
+    try {
+      const result = await hostApi.canvasland.queryBlueOceanPayment({
+        sn: wechatPayment.sn,
+        outTradeNo: wechatPayment.outTradeNo,
+      });
+      if (result.success) {
+        setWechatPayment((current) => current ? {
+          ...current,
+          tradeState: result.tradeState || current.tradeState,
+          sn: result.sn || current.sn,
+          outTradeNo: result.outTradeNo || current.outTradeNo,
+          raw: result.raw || current.raw,
+        } : current);
+        toast.success(t('tokenTopUp.paymentStatusUpdated'));
+      } else {
+        toast.error(`${t('tokenTopUp.errors.blueOceanQueryFailed')}: ${result.error || t('tokenTopUp.notAvailable')}`);
+      }
+    } catch (error) {
+      toast.error(`${t('tokenTopUp.errors.blueOceanQueryFailed')}: ${toUserMessage(error)}`);
+    } finally {
+      setQueryingPayment(false);
     }
   };
 
@@ -293,15 +426,130 @@ export function TokenTopUp() {
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.amountOptions')}</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {rechargeTiers.map((tier) => (
-                    <div key={tier.amount} className="rounded-lg bg-surface-input px-3 py-2">
+                    <div key={tier.amount} className="rounded-lg bg-surface-input px-3 py-3">
                       <p className="text-sm font-semibold text-foreground">${tier.amount}</p>
                       <p className="text-xs text-muted-foreground">
                         {tier.points.toLocaleString()} {t('tokenTopUp.points')}
                       </p>
+                      <Button
+                        data-testid={`token-topup-wechat-${tier.amount}`}
+                        onClick={() => handleCreateWechatPayment(tier)}
+                        disabled={!blueOceanConfig?.configured || creatingPaymentAmount !== null}
+                        size="sm"
+                        className="mt-3 w-full rounded-lg"
+                      >
+                        {creatingPaymentAmount === tier.amount ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <QrCode className="h-4 w-4 mr-2" />
+                        )}
+                        {t('tokenTopUp.wechatPay')}
+                      </Button>
                     </div>
                   ))}
                 </div>
               </div>
+              <div data-testid="token-topup-blueocean-config" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.blueOceanTitle')}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{t('tokenTopUp.blueOceanDesc')}</p>
+                  </div>
+                  <Badge variant={blueOceanConfig?.configured ? 'success' : 'warning'}>
+                    {blueOceanConfig?.configured ? t('tokenTopUp.configured') : t('tokenTopUp.notConfigured')}
+                  </Badge>
+                </div>
+                {!showBlueOceanForm && blueOceanConfig?.configured ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button onClick={() => setShowBlueOceanForm(true)} variant="outline" size="sm" className="rounded-full">
+                      <Settings2 className="h-4 w-4 mr-2" />
+                      {t('tokenTopUp.changeBlueOcean')}
+                    </Button>
+                    <Button onClick={handleClearBlueOceanConfig} disabled={clearingBlueOcean} variant="outline" size="sm" className="rounded-full">
+                      {clearingBlueOcean ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                      {t('tokenTopUp.clearBlueOcean')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-4 grid gap-3">
+                    <div className="grid gap-2">
+                      <Label htmlFor="blueocean-appid">{t('tokenTopUp.blueOceanAppid')}</Label>
+                      <Input
+                        id="blueocean-appid"
+                        value={blueOceanAppid}
+                        onChange={(event) => setBlueOceanAppid(event.target.value)}
+                        className="rounded-xl bg-surface-input"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="blueocean-api-base-url">{t('tokenTopUp.blueOceanApiBaseUrl')}</Label>
+                      <Input
+                        id="blueocean-api-base-url"
+                        value={blueOceanApiBaseUrl}
+                        onChange={(event) => setBlueOceanApiBaseUrl(event.target.value)}
+                        className="rounded-xl bg-surface-input font-mono text-xs"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="blueocean-merchant-key">{t('tokenTopUp.blueOceanMerchantKey')}</Label>
+                      <Input
+                        id="blueocean-merchant-key"
+                        type="password"
+                        value={blueOceanMerchantKey}
+                        onChange={(event) => setBlueOceanMerchantKey(event.target.value)}
+                        placeholder={blueOceanConfig?.hasMerchantKey ? t('tokenTopUp.blueOceanMerchantKeyPlaceholderSaved') : ''}
+                        className="rounded-xl bg-surface-input font-mono text-xs"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="blueocean-notify-url">{t('tokenTopUp.blueOceanNotifyUrl')}</Label>
+                      <Input
+                        id="blueocean-notify-url"
+                        value={blueOceanNotifyUrl}
+                        onChange={(event) => setBlueOceanNotifyUrl(event.target.value)}
+                        placeholder="https://example.com/payments/blueocean/notify"
+                        className="rounded-xl bg-surface-input font-mono text-xs"
+                      />
+                      <p className="text-xs text-muted-foreground">{t('tokenTopUp.blueOceanNotifyHelp')}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={handleSaveBlueOceanConfig} disabled={savingBlueOcean} size="sm" className="rounded-full">
+                        {savingBlueOcean ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                        {t('tokenTopUp.saveBlueOcean')}
+                      </Button>
+                      <Button onClick={handleClearBlueOceanConfig} disabled={clearingBlueOcean} variant="outline" size="sm" className="rounded-full">
+                        {clearingBlueOcean ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                        {t('tokenTopUp.clearBlueOcean')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {wechatPayment?.qrcodeDataUrl && (
+                <div data-testid="token-topup-wechat-qr" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.wechatQrTitle')}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{t('tokenTopUp.scanToPay')}</p>
+                    </div>
+                    <Button onClick={handleQueryWechatPayment} disabled={queryingPayment} variant="outline" size="sm" className="rounded-full">
+                      {queryingPayment ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                      {t('tokenTopUp.queryPayment')}
+                    </Button>
+                  </div>
+                  <div className="mt-4 flex flex-col sm:flex-row gap-4">
+                    <div className="rounded-xl bg-white p-3 shadow-sm">
+                      <img src={wechatPayment.qrcodeDataUrl} alt={t('tokenTopUp.wechatQrTitle')} className="h-44 w-44" />
+                    </div>
+                    <div className="min-w-0 flex-1 rounded-xl bg-surface-input p-4 text-sm">
+                      <p className="text-muted-foreground">{t('tokenTopUp.paymentOrder')}</p>
+                      <p className="mt-1 break-all font-mono text-foreground">{wechatPayment.outTradeNo || wechatPayment.sn || '-'}</p>
+                      <p className="mt-4 text-muted-foreground">{t('tokenTopUp.paymentStatus')}</p>
+                      <p className="mt-1 font-mono text-foreground">{wechatPayment.tradeState || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div data-testid="token-topup-usage-records" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.usageRecords')}</p>
                 <div className="mt-3 rounded-lg bg-surface-input px-3 py-5 text-center text-sm text-muted-foreground">

@@ -419,6 +419,46 @@ export type CanvaslandBalanceResult = HostSuccess & {
   topup?: CanvaslandTopUpInfo;
   checkedAt?: string;
 };
+export type BlueOceanPayConfig = {
+  appid?: string;
+  apiBaseUrl?: string;
+  notifyUrl?: string;
+};
+export type BlueOceanPayConfigResult = HostSuccess & {
+  configured: boolean;
+  hasMerchantKey: boolean;
+  config?: BlueOceanPayConfig;
+};
+export type BlueOceanPayConfigPayload = BlueOceanPayConfig & {
+  merchantKey?: string;
+};
+export type BlueOceanPayCreatePaymentPayload = {
+  amount: number;
+  points?: number;
+  body?: string;
+};
+export type BlueOceanPayPaymentResult = HostSuccess & {
+  configured?: boolean;
+  qrcode?: string;
+  qrcodeDataUrl?: string;
+  outTradeNo?: string;
+  sn?: string;
+  tradeState?: string;
+  totalFee?: number;
+  payAmount?: number;
+  provider?: string;
+  raw?: JsonRecord;
+};
+export type BlueOceanPayQueryPayload = {
+  sn?: string;
+  outTradeNo?: string;
+};
+export type BlueOceanPayQueryResult = HostSuccess & {
+  tradeState?: string;
+  outTradeNo?: string;
+  sn?: string;
+  raw?: JsonRecord;
+};
 
 export type StagedFileResult = {
   id: string;
@@ -828,6 +868,11 @@ export type HostApiContract = {
   };
   canvasland: {
     balance: () => CanvaslandBalanceResult;
+    blueOceanConfig: () => BlueOceanPayConfigResult;
+    saveBlueOceanConfig: (payload: BlueOceanPayConfigPayload) => HostSuccess;
+    clearBlueOceanConfig: () => HostSuccess;
+    createBlueOceanWechatPayment: (payload: BlueOceanPayCreatePaymentPayload) => BlueOceanPayPaymentResult;
+    queryBlueOceanPayment: (payload: BlueOceanPayQueryPayload) => BlueOceanPayQueryResult;
   };
   files: {
     stagePaths: (payload: StagePathsPayload) => StagedFileResult[];
