@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type {
   BlueOceanPayConfigResult,
+  BlueOceanPayPaymentMethod,
   BlueOceanPayPaymentResult,
   CanvaslandBalanceResult,
 } from '@shared/host-api/contract';
@@ -63,7 +64,8 @@ export function TokenTopUp() {
   const [savingBlueOcean, setSavingBlueOcean] = useState(false);
   const [clearingBlueOcean, setClearingBlueOcean] = useState(false);
   const [creatingPaymentAmount, setCreatingPaymentAmount] = useState<number | null>(null);
-  const [wechatPayment, setWechatPayment] = useState<BlueOceanPayPaymentResult | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<BlueOceanPayPaymentMethod>('wechat.qrcode');
+  const [qrPayment, setQrPayment] = useState<BlueOceanPayPaymentResult | null>(null);
   const [queryingPayment, setQueryingPayment] = useState(false);
 
   const parsedConnection = useMemo(() => {
@@ -77,15 +79,12 @@ export function TokenTopUp() {
 
   const effectiveRootUrl = parsedConnection?.url ? normalizeRootUrl(parsedConnection.url) : savedRootUrl;
   const rechargeTiers = useMemo(() => {
-    const amounts = balance?.topup?.amountOptions && balance.topup.amountOptions.length > 0
-      ? balance.topup.amountOptions
-      : DEFAULT_RECHARGE_TIERS;
     const quotaPerUnit = balance?.quotaPerUnit || DEFAULT_QUOTA_PER_UNIT;
-    return amounts.slice(0, 8).map((amount) => ({
+    return DEFAULT_RECHARGE_TIERS.map((amount) => ({
       amount,
       points: Math.round(amount * quotaPerUnit),
     }));
-  }, [balance?.quotaPerUnit, balance?.topup?.amountOptions]);
+  }, [balance?.quotaPerUnit]);
 
   const refreshBalance = useCallback(async () => {
     setRefreshingBalance(true);
@@ -243,7 +242,7 @@ export function TokenTopUp() {
     setClearingBlueOcean(true);
     try {
       await hostApi.canvasland.clearBlueOceanConfig();
-      setWechatPayment(null);
+      setQrPayment(null);
       await loadBlueOceanConfig();
       setShowBlueOceanForm(true);
       toast.success(t('tokenTopUp.blueOceanCleared'));
@@ -254,17 +253,18 @@ export function TokenTopUp() {
     }
   };
 
-  const handleCreateWechatPayment = async (tier: { amount: number; points: number }) => {
+  const handleCreateQrPayment = async (tier: { amount: number; points: number }) => {
     setCreatingPaymentAmount(tier.amount);
     try {
       const payment = await hostApi.canvasland.createBlueOceanWechatPayment({
         amount: tier.amount,
         points: tier.points,
         body: `canvasland wallet top-up ${tier.amount}`,
+        paymentMethod: selectedPaymentMethod,
       });
-      setWechatPayment(payment);
+      setQrPayment(payment);
       if (payment.success) {
-        toast.success(t('tokenTopUp.wechatQrCreated'));
+        toast.success(t('tokenTopUp.paymentQrCreated'));
       } else {
         toast.error(`${t('tokenTopUp.errors.blueOceanPaymentFailed')}: ${payment.error || t('tokenTopUp.notAvailable')}`);
       }
@@ -275,16 +275,16 @@ export function TokenTopUp() {
     }
   };
 
-  const handleQueryWechatPayment = async () => {
-    if (!wechatPayment?.sn && !wechatPayment?.outTradeNo) return;
+  const handleQueryQrPayment = async () => {
+    if (!qrPayment?.sn && !qrPayment?.outTradeNo) return;
     setQueryingPayment(true);
     try {
       const result = await hostApi.canvasland.queryBlueOceanPayment({
-        sn: wechatPayment.sn,
-        outTradeNo: wechatPayment.outTradeNo,
+        sn: qrPayment.sn,
+        outTradeNo: qrPayment.outTradeNo,
       });
       if (result.success) {
-        setWechatPayment((current) => current ? {
+        setQrPayment((current) => current ? {
           ...current,
           tradeState: result.tradeState || current.tradeState,
           sn: result.sn || current.sn,
@@ -422,6 +422,27 @@ export function TokenTopUp() {
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.currentEndpoint')}</p>
                 <p className="mt-2 break-all font-mono text-sm text-foreground">{effectiveRootUrl}</p>
               </div>
+              <div data-testid="token-topup-payment-method" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
+                <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.paymentMethod')}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={selectedPaymentMethod === 'wechat.qrcode' ? 'default' : 'outline'}
+                    onClick={() => setSelectedPaymentMethod('wechat.qrcode')}
+                    className="rounded-lg"
+                  >
+                    {t('tokenTopUp.wechatPay')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={selectedPaymentMethod === 'alipay.qrcode' ? 'default' : 'outline'}
+                    onClick={() => setSelectedPaymentMethod('alipay.qrcode')}
+                    className="rounded-lg"
+                  >
+                    {t('tokenTopUp.alipayPay')}
+                  </Button>
+                </div>
+              </div>
               <div data-testid="token-topup-recharge-tiers" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.amountOptions')}</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -432,8 +453,8 @@ export function TokenTopUp() {
                         {tier.points.toLocaleString()} {t('tokenTopUp.points')}
                       </p>
                       <Button
-                        data-testid={`token-topup-wechat-${tier.amount}`}
-                        onClick={() => handleCreateWechatPayment(tier)}
+                        data-testid={`token-topup-payment-qr-${tier.amount}`}
+                        onClick={() => handleCreateQrPayment(tier)}
                         disabled={!blueOceanConfig?.configured || creatingPaymentAmount !== null}
                         size="sm"
                         className="mt-3 w-full rounded-lg"
@@ -443,7 +464,7 @@ export function TokenTopUp() {
                         ) : (
                           <QrCode className="h-4 w-4 mr-2" />
                         )}
-                        {t('tokenTopUp.wechatPay')}
+                        {t('tokenTopUp.createPaymentQr')}
                       </Button>
                     </div>
                   ))}
@@ -525,27 +546,31 @@ export function TokenTopUp() {
                   </div>
                 )}
               </div>
-              {wechatPayment?.qrcodeDataUrl && (
-                <div data-testid="token-topup-wechat-qr" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
+              {qrPayment?.qrcodeDataUrl && (
+                <div data-testid="token-topup-payment-qr" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.wechatQrTitle')}</p>
+                      <p className="text-xs font-medium uppercase text-muted-foreground">
+                        {qrPayment.paymentMethod === 'alipay.qrcode'
+                          ? t('tokenTopUp.alipayQrTitle')
+                          : t('tokenTopUp.wechatQrTitle')}
+                      </p>
                       <p className="mt-1 text-sm text-muted-foreground">{t('tokenTopUp.scanToPay')}</p>
                     </div>
-                    <Button onClick={handleQueryWechatPayment} disabled={queryingPayment} variant="outline" size="sm" className="rounded-full">
+                    <Button onClick={handleQueryQrPayment} disabled={queryingPayment} variant="outline" size="sm" className="rounded-full">
                       {queryingPayment ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                       {t('tokenTopUp.queryPayment')}
                     </Button>
                   </div>
                   <div className="mt-4 flex flex-col sm:flex-row gap-4">
                     <div className="rounded-xl bg-white p-3 shadow-sm">
-                      <img src={wechatPayment.qrcodeDataUrl} alt={t('tokenTopUp.wechatQrTitle')} className="h-44 w-44" />
+                      <img src={qrPayment.qrcodeDataUrl} alt={t('tokenTopUp.paymentQrTitle')} className="h-44 w-44" />
                     </div>
                     <div className="min-w-0 flex-1 rounded-xl bg-surface-input p-4 text-sm">
                       <p className="text-muted-foreground">{t('tokenTopUp.paymentOrder')}</p>
-                      <p className="mt-1 break-all font-mono text-foreground">{wechatPayment.outTradeNo || wechatPayment.sn || '-'}</p>
+                      <p className="mt-1 break-all font-mono text-foreground">{qrPayment.outTradeNo || qrPayment.sn || '-'}</p>
                       <p className="mt-4 text-muted-foreground">{t('tokenTopUp.paymentStatus')}</p>
-                      <p className="mt-1 font-mono text-foreground">{wechatPayment.tradeState || '-'}</p>
+                      <p className="mt-1 font-mono text-foreground">{qrPayment.tradeState || '-'}</p>
                     </div>
                   </div>
                 </div>

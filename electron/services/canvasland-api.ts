@@ -3,6 +3,7 @@ import type {
   BlueOceanPayConfigPayload,
   BlueOceanPayConfigResult,
   BlueOceanPayCreatePaymentPayload,
+  BlueOceanPayPaymentMethod,
   BlueOceanPayPaymentResult,
   BlueOceanPayQueryPayload,
   BlueOceanPayQueryResult,
@@ -26,6 +27,10 @@ const BLUEOCEAN_CONFIG_KEY = 'blueOceanPay';
 const DEFAULT_ROOT_URL = 'https://feiniu.space';
 const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
 const DEFAULT_QUOTA_PER_UNIT = 500000;
+const BLUEOCEAN_QR_PAYMENT_METHODS = new Set<BlueOceanPayPaymentMethod>([
+  'wechat.qrcode',
+  'alipay.qrcode',
+]);
 
 function normalizeRootUrl(url: string): string {
   const trimmed = url.trim().replace(/\/+$/, '');
@@ -286,6 +291,12 @@ function toInt(value: unknown): number | undefined {
   return typeof number === 'number' ? Math.round(number) : undefined;
 }
 
+function normalizeBlueOceanPaymentMethod(value: unknown): BlueOceanPayPaymentMethod {
+  return typeof value === 'string' && BLUEOCEAN_QR_PAYMENT_METHODS.has(value as BlueOceanPayPaymentMethod)
+    ? value as BlueOceanPayPaymentMethod
+    : 'wechat.qrcode';
+}
+
 export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland'] {
   return {
     balance: async (): Promise<CanvaslandBalanceResult> => {
@@ -391,9 +402,10 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
         }
         const totalFee = Math.round(amount * 100);
         const outTradeNo = generateOutTradeNo();
+        const paymentMethod = normalizeBlueOceanPaymentMethod(payload.paymentMethod);
         const requestPayload: Record<string, unknown> = {
           appid: config.appid,
-          payment: 'wechat.qrcode',
+          payment: paymentMethod,
           total_fee: totalFee,
           out_trade_no: outTradeNo,
           body: payload.body?.trim() || 'canvasland wallet top-up',
@@ -408,6 +420,7 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
         return {
           success: true,
           configured: true,
+          paymentMethod,
           qrcode,
           qrcodeDataUrl: renderQrPngDataUrl(qrcode),
           outTradeNo: typeof data.out_trade_no === 'string' ? data.out_trade_no : outTradeNo,
@@ -415,7 +428,7 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
           tradeState: typeof data.trade_state === 'string' ? data.trade_state : undefined,
           totalFee: toInt(data.total_fee),
           payAmount: toInt(data.pay_amount),
-          provider: typeof data.provider === 'string' ? data.provider : undefined,
+          provider: typeof data.provider === 'string' ? data.provider : paymentMethod.split('.')[0],
           raw: data,
         };
       } catch (error) {

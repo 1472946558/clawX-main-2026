@@ -432,13 +432,16 @@ export type BlueOceanPayConfigResult = HostSuccess & {
 export type BlueOceanPayConfigPayload = BlueOceanPayConfig & {
   merchantKey?: string;
 };
+export type BlueOceanPayPaymentMethod = 'wechat.qrcode' | 'alipay.qrcode';
 export type BlueOceanPayCreatePaymentPayload = {
   amount: number;
   points?: number;
   body?: string;
+  paymentMethod?: BlueOceanPayPaymentMethod;
 };
 export type BlueOceanPayPaymentResult = HostSuccess & {
   configured?: boolean;
+  paymentMethod?: BlueOceanPayPaymentMethod;
   qrcode?: string;
   qrcodeDataUrl?: string;
   outTradeNo?: string;
