@@ -462,6 +462,49 @@ export type BlueOceanPayQueryResult = HostSuccess & {
   sn?: string;
   raw?: JsonRecord;
 };
+export type EpayPaymentMethod = 'wxpay' | 'alipay';
+export type EpayConfig = {
+  gatewayUrl?: string;
+  pid?: string;
+  notifyUrl?: string;
+  returnUrl?: string;
+  siteName?: string;
+};
+export type EpayConfigResult = HostSuccess & {
+  configured: boolean;
+  hasMerchantKey: boolean;
+  config?: EpayConfig;
+};
+export type EpayConfigPayload = EpayConfig & {
+  merchantKey?: string;
+};
+export type EpayCreatePaymentPayload = {
+  amount: number;
+  points?: number;
+  paymentMethod: EpayPaymentMethod;
+  name?: string;
+};
+export type EpayPaymentResult = HostSuccess & {
+  configured?: boolean;
+  paymentMethod?: EpayPaymentMethod;
+  qrcode?: string;
+  qrcodeDataUrl?: string;
+  payUrl?: string;
+  outTradeNo?: string;
+  tradeNo?: string;
+  status?: number;
+  raw?: JsonRecord;
+};
+export type EpayQueryPayload = {
+  tradeNo?: string;
+  outTradeNo?: string;
+};
+export type EpayQueryResult = HostSuccess & {
+  tradeNo?: string;
+  outTradeNo?: string;
+  status?: number;
+  raw?: JsonRecord;
+};
 
 export type StagedFileResult = {
   id: string;
@@ -876,6 +919,11 @@ export type HostApiContract = {
     clearBlueOceanConfig: () => HostSuccess;
     createBlueOceanWechatPayment: (payload: BlueOceanPayCreatePaymentPayload) => BlueOceanPayPaymentResult;
     queryBlueOceanPayment: (payload: BlueOceanPayQueryPayload) => BlueOceanPayQueryResult;
+    epayConfig: () => EpayConfigResult;
+    saveEpayConfig: (payload: EpayConfigPayload) => HostSuccess;
+    clearEpayConfig: () => HostSuccess;
+    createEpayPayment: (payload: EpayCreatePaymentPayload) => EpayPaymentResult;
+    queryEpayPayment: (payload: EpayQueryPayload) => EpayQueryResult;
   };
   files: {
     stagePaths: (payload: StagePathsPayload) => StagedFileResult[];

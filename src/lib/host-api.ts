@@ -13,6 +13,9 @@ import type {
   CronSessionHistoryPayload,
   DialogMessagePayload,
   DialogOpenPayload,
+  EpayConfigPayload,
+  EpayCreatePaymentPayload,
+  EpayQueryPayload,
   FilePreviewTreeOptions,
   FileReadBinaryOptions,
   ImageGenerationSettingsPayload,
@@ -278,6 +281,17 @@ export const hostApi = {
     ),
     queryBlueOceanPayment: (input: BlueOceanPayQueryPayload) => (
       invokeHost('canvasland', 'queryBlueOceanPayment', input)
+    ),
+    epayConfig: () => invokeHost('canvasland', 'epayConfig'),
+    saveEpayConfig: (input: EpayConfigPayload) => (
+      invokeHost('canvasland', 'saveEpayConfig', input)
+    ),
+    clearEpayConfig: () => invokeHost('canvasland', 'clearEpayConfig'),
+    createEpayPayment: (input: EpayCreatePaymentPayload) => (
+      invokeHost('canvasland', 'createEpayPayment', input)
+    ),
+    queryEpayPayment: (input: EpayQueryPayload) => (
+      invokeHost('canvasland', 'queryEpayPayment', input)
     ),
   },
   files: {

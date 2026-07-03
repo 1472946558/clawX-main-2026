@@ -11,6 +11,14 @@ import type {
   CanvaslandTopUpInfo,
   CanvaslandTopUpMethod,
   CanvaslandTokenUsage,
+  EpayConfig,
+  EpayConfigPayload,
+  EpayConfigResult,
+  EpayCreatePaymentPayload,
+  EpayPaymentMethod,
+  EpayPaymentResult,
+  EpayQueryPayload,
+  EpayQueryResult,
 } from '@shared/host-api/contract';
 import { createHash, randomBytes } from 'crypto';
 import type { CompleteHostServiceRegistry } from '../main/ipc/host-contract';
@@ -24,6 +32,8 @@ import { renderQrPngDataUrl } from '../utils/qr-png';
 const CANVASLAND_ACCOUNT_ID = 'canvasland-newapi';
 const BLUEOCEAN_SECRET_ID = 'canvasland-blueoceanpay';
 const BLUEOCEAN_CONFIG_KEY = 'blueOceanPay';
+const EPAY_SECRET_ID = 'canvasland-epay';
+const EPAY_CONFIG_KEY = 'epay';
 const DEFAULT_ROOT_URL = 'https://feiniu.space';
 const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
 const DEFAULT_QUOTA_PER_UNIT = 500000;
@@ -31,6 +41,7 @@ const BLUEOCEAN_QR_PAYMENT_METHODS = new Set<BlueOceanPayPaymentMethod>([
   'wechat.qrcode',
   'alipay.qrcode',
 ]);
+const EPAY_PAYMENT_METHODS = new Set<EpayPaymentMethod>(['wxpay', 'alipay']);
 
 function normalizeRootUrl(url: string): string {
   const trimmed = url.trim().replace(/\/+$/, '');
@@ -174,6 +185,10 @@ function normalizeOptionalUrl(url: string | undefined): string | undefined {
   return trimmed || undefined;
 }
 
+function normalizeEpayGatewayUrl(url: string | undefined): string {
+  return url?.trim().replace(/\/+$/, '') || '';
+}
+
 function generateOutTradeNo(): string {
   const stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
   return `CL${stamp}${randomBytes(4).toString('hex').toUpperCase()}`;
@@ -196,6 +211,127 @@ function signBlueOceanPayload(payload: Record<string, unknown>, merchantKey: str
     .update(`${signString}&key=${merchantKey}`, 'utf8')
     .digest('hex')
     .toUpperCase();
+}
+
+function signEpayPayload(payload: Record<string, unknown>, merchantKey: string): string {
+  const signString = Object.keys(payload)
+    .filter((key) => key !== 'sign' && key !== 'sign_type')
+    .filter((key) => payload[key] !== undefined && payload[key] !== null && payload[key] !== '')
+    .sort()
+    .map((key) => `${key}=${String(payload[key])}`)
+    .join('&');
+  return createHash('md5')
+    .update(`${signString}${merchantKey}`, 'utf8')
+    .digest('hex')
+    .toLowerCase();
+}
+
+async function getEpayConfig(): Promise<EpayConfig> {
+  const store = await getcanvaslandProviderStore();
+  const value = store.get(EPAY_CONFIG_KEY) as EpayConfig | undefined;
+  if (!value || typeof value !== 'object') return {};
+  return {
+    gatewayUrl: typeof value.gatewayUrl === 'string' ? normalizeEpayGatewayUrl(value.gatewayUrl) : undefined,
+    pid: typeof value.pid === 'string' ? value.pid : undefined,
+    notifyUrl: typeof value.notifyUrl === 'string' ? value.notifyUrl : undefined,
+    returnUrl: typeof value.returnUrl === 'string' ? value.returnUrl : undefined,
+    siteName: typeof value.siteName === 'string' ? value.siteName : undefined,
+  };
+}
+
+async function setEpayConfig(config: EpayConfig): Promise<void> {
+  const store = await getcanvaslandProviderStore();
+  store.set(EPAY_CONFIG_KEY, {
+    gatewayUrl: normalizeEpayGatewayUrl(config.gatewayUrl),
+    pid: config.pid?.trim() || '',
+    notifyUrl: normalizeOptionalUrl(config.notifyUrl) || '',
+    returnUrl: normalizeOptionalUrl(config.returnUrl) || '',
+    siteName: config.siteName?.trim() || 'canvasland',
+  });
+}
+
+async function getEpayMerchantKey(): Promise<string | null> {
+  const secret = await getProviderSecret(EPAY_SECRET_ID);
+  return secret?.type === 'api_key' ? secret.apiKey : null;
+}
+
+async function requireEpayCredentials(): Promise<{
+  config: Required<Pick<EpayConfig, 'gatewayUrl' | 'pid' | 'notifyUrl' | 'returnUrl'>> & Pick<EpayConfig, 'siteName'>;
+  merchantKey: string;
+}> {
+  const config = await getEpayConfig();
+  const merchantKey = await getEpayMerchantKey();
+  const gatewayUrl = normalizeEpayGatewayUrl(config.gatewayUrl);
+  const pid = config.pid?.trim();
+  const notifyUrl = normalizeOptionalUrl(config.notifyUrl);
+  const returnUrl = normalizeOptionalUrl(config.returnUrl);
+  if (!gatewayUrl || !pid || !merchantKey || !notifyUrl || !returnUrl) {
+    throw new Error('Epay is not configured');
+  }
+  return {
+    config: {
+      gatewayUrl,
+      pid,
+      notifyUrl,
+      returnUrl,
+      siteName: config.siteName?.trim() || 'canvasland',
+    },
+    merchantKey,
+  };
+}
+
+function normalizeEpayPaymentMethod(value: unknown): EpayPaymentMethod {
+  return typeof value === 'string' && EPAY_PAYMENT_METHODS.has(value as EpayPaymentMethod)
+    ? value as EpayPaymentMethod
+    : 'wxpay';
+}
+
+function epayUrl(gatewayUrl: string, path: string): string {
+  return `${normalizeEpayGatewayUrl(gatewayUrl)}${path}`;
+}
+
+async function fetchEpayJson(
+  gatewayUrl: string,
+  path: string,
+  payload: Record<string, unknown>,
+): Promise<unknown> {
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined || value === null || value === '') continue;
+    body.set(key, String(value));
+  }
+  const response = await proxyAwareFetch(epayUrl(gatewayUrl, path), {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+      'User-Agent': 'canvasland/1.0',
+    },
+    body: body.toString(),
+  });
+  const text = await response.text();
+  let parsed: unknown = null;
+  if (text) {
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      parsed = { msg: text };
+    }
+  }
+  if (!response.ok) {
+    throw new Error(isRecord(parsed) && typeof parsed.msg === 'string' ? parsed.msg : `HTTP ${response.status}`);
+  }
+  return parsed;
+}
+
+function unwrapEpayData(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) throw new Error('Invalid Epay response');
+  const code = getNumber(value.code);
+  if (code !== 1) {
+    const message = typeof value.msg === 'string' ? value.msg : `Epay error ${code ?? 'unknown'}`;
+    throw new Error(message);
+  }
+  return value;
 }
 
 async function getBlueOceanConfig(): Promise<BlueOceanPayConfig> {
@@ -458,6 +594,151 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
           tradeState: typeof data.trade_state === 'string' ? data.trade_state : undefined,
           outTradeNo: typeof data.out_trade_no === 'string' ? data.out_trade_no : outTradeNo,
           sn: typeof data.sn === 'string' ? data.sn : sn,
+          raw: data,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+    epayConfig: async (): Promise<EpayConfigResult> => {
+      const config = await getEpayConfig();
+      const merchantKey = await getEpayMerchantKey();
+      return {
+        success: true,
+        configured: Boolean(config.gatewayUrl && config.pid && config.notifyUrl && config.returnUrl && merchantKey),
+        hasMerchantKey: Boolean(merchantKey),
+        config,
+      };
+    },
+    saveEpayConfig: async (payload: EpayConfigPayload): Promise<{ success: true }> => {
+      const gatewayUrl = normalizeEpayGatewayUrl(payload.gatewayUrl);
+      const pid = payload.pid?.trim();
+      const notifyUrl = normalizeOptionalUrl(payload.notifyUrl);
+      const returnUrl = normalizeOptionalUrl(payload.returnUrl);
+      if (!gatewayUrl) throw new Error('Epay gateway URL is required');
+      if (!/^https?:\/\//i.test(gatewayUrl)) throw new Error('Epay gateway URL must use http or https');
+      if (!pid) throw new Error('Epay merchant ID is required');
+      if (!notifyUrl) throw new Error('Epay notify URL is required');
+      if (!/^https?:\/\//i.test(notifyUrl)) throw new Error('Epay notify URL must use http or https');
+      if (!returnUrl) throw new Error('Epay return URL is required');
+      if (!/^https?:\/\//i.test(returnUrl)) throw new Error('Epay return URL must use http or https');
+
+      await setEpayConfig({
+        gatewayUrl,
+        pid,
+        notifyUrl,
+        returnUrl,
+        siteName: payload.siteName?.trim() || 'canvasland',
+      });
+      const merchantKey = payload.merchantKey?.trim();
+      if (merchantKey) {
+        await setProviderSecret({
+          type: 'api_key',
+          accountId: EPAY_SECRET_ID,
+          apiKey: merchantKey,
+        });
+      }
+      return { success: true };
+    },
+    clearEpayConfig: async (): Promise<{ success: true }> => {
+      const store = await getcanvaslandProviderStore();
+      store.delete(EPAY_CONFIG_KEY);
+      await deleteProviderSecret(EPAY_SECRET_ID);
+      return { success: true };
+    },
+    createEpayPayment: async (payload: EpayCreatePaymentPayload): Promise<EpayPaymentResult> => {
+      try {
+        const { config, merchantKey } = await requireEpayCredentials();
+        const amount = Number(payload.amount);
+        if (!Number.isFinite(amount) || amount <= 0) throw new Error('Invalid payment amount');
+        const paymentMethod = normalizeEpayPaymentMethod(payload.paymentMethod);
+        const outTradeNo = generateOutTradeNo();
+        const requestPayload: Record<string, unknown> = {
+          pid: config.pid,
+          type: paymentMethod,
+          out_trade_no: outTradeNo,
+          notify_url: config.notifyUrl,
+          return_url: config.returnUrl,
+          name: payload.name?.trim() || `canvasland ${Math.round(payload.points || 0).toLocaleString()} points`,
+          money: amount.toFixed(2),
+          sitename: config.siteName || 'canvasland',
+          param: payload.points ? `points=${Math.round(payload.points)}` : undefined,
+          sign_type: 'MD5',
+        };
+        requestPayload.sign = signEpayPayload(requestPayload, merchantKey);
+        const raw = await fetchEpayJson(config.gatewayUrl, '/mapi.php', requestPayload);
+        const data = unwrapEpayData(raw);
+        const qrcode = typeof data.qrcode === 'string'
+          ? data.qrcode
+          : typeof data.code_url === 'string'
+            ? data.code_url
+            : typeof data.payurl === 'string'
+              ? data.payurl
+              : typeof data.url === 'string'
+                ? data.url
+                : '';
+        const payUrl = typeof data.payurl === 'string'
+          ? data.payurl
+          : typeof data.url === 'string'
+            ? data.url
+            : undefined;
+        if (!qrcode) throw new Error('Epay response did not include a QR code or pay URL');
+        return {
+          success: true,
+          configured: true,
+          paymentMethod,
+          qrcode,
+          qrcodeDataUrl: renderQrPngDataUrl(qrcode),
+          payUrl,
+          outTradeNo: typeof data.out_trade_no === 'string' ? data.out_trade_no : outTradeNo,
+          tradeNo: typeof data.trade_no === 'string' ? data.trade_no : undefined,
+          status: toInt(data.status),
+          raw: data,
+        };
+      } catch (error) {
+        const config = await getEpayConfig();
+        return {
+          success: false,
+          configured: Boolean(config.gatewayUrl && config.pid && await getEpayMerchantKey()),
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+    queryEpayPayment: async (payload: EpayQueryPayload): Promise<EpayQueryResult> => {
+      try {
+        const { config, merchantKey } = await requireEpayCredentials();
+        const query = new URLSearchParams();
+        query.set('act', 'order');
+        query.set('pid', config.pid);
+        query.set('key', merchantKey);
+        if (payload.tradeNo?.trim()) query.set('trade_no', payload.tradeNo.trim());
+        if (payload.outTradeNo?.trim()) query.set('out_trade_no', payload.outTradeNo.trim());
+        if (!query.has('trade_no') && !query.has('out_trade_no')) throw new Error('Order number is required');
+        const response = await proxyAwareFetch(epayUrl(config.gatewayUrl, `/api.php?${query.toString()}`), {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': 'canvasland/1.0',
+          },
+        });
+        const text = await response.text();
+        let parsed: unknown = null;
+        if (text) {
+          try {
+            parsed = JSON.parse(text) as unknown;
+          } catch {
+            parsed = { msg: text };
+          }
+        }
+        if (!response.ok) throw new Error(isRecord(parsed) && typeof parsed.msg === 'string' ? parsed.msg : `HTTP ${response.status}`);
+        const data = unwrapEpayData(parsed);
+        return {
+          success: true,
+          tradeNo: typeof data.trade_no === 'string' ? data.trade_no : payload.tradeNo,
+          outTradeNo: typeof data.out_trade_no === 'string' ? data.out_trade_no : payload.outTradeNo,
+          status: toInt(data.status),
           raw: data,
         };
       } catch (error) {

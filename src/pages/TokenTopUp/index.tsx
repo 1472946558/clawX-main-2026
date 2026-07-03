@@ -3,10 +3,10 @@ import { CheckCircle2, CreditCard, KeyRound, Loader2, QrCode, RefreshCw, Setting
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type {
-  BlueOceanPayConfigResult,
-  BlueOceanPayPaymentMethod,
-  BlueOceanPayPaymentResult,
   CanvaslandBalanceResult,
+  EpayConfigResult,
+  EpayPaymentMethod,
+  EpayPaymentResult,
 } from '@shared/host-api/contract';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,9 +19,14 @@ import { toUserMessage } from '@/lib/error-message';
 const CANVASLAND_ACCOUNT_ID = 'canvasland-newapi';
 const DEFAULT_MODEL_ID = 'gpt-4o-mini';
 const DEFAULT_BASE_URL = 'https://feiniu.space';
-const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
-const DEFAULT_QUOTA_PER_UNIT = 500000;
-const DEFAULT_RECHARGE_TIERS = [10, 20, 50, 100, 200, 500];
+const DEFAULT_RECHARGE_TIERS = [
+  { amount: 10, points: 10000 },
+  { amount: 20, points: 20000 },
+  { amount: 50, points: 55000 },
+  { amount: 100, points: 120000 },
+  { amount: 200, points: 250000 },
+  { amount: 500, points: 700000 },
+];
 
 type NewApiConnection = {
   _type?: string;
@@ -55,17 +60,19 @@ export function TokenTopUp() {
   const [savedRootUrl, setSavedRootUrl] = useState(DEFAULT_BASE_URL);
   const [balance, setBalance] = useState<CanvaslandBalanceResult | null>(null);
   const [refreshingBalance, setRefreshingBalance] = useState(false);
-  const [blueOceanConfig, setBlueOceanConfig] = useState<BlueOceanPayConfigResult | null>(null);
-  const [showBlueOceanForm, setShowBlueOceanForm] = useState(false);
-  const [blueOceanAppid, setBlueOceanAppid] = useState('');
-  const [blueOceanApiBaseUrl, setBlueOceanApiBaseUrl] = useState(DEFAULT_BLUEOCEAN_API_BASE_URL);
-  const [blueOceanMerchantKey, setBlueOceanMerchantKey] = useState('');
-  const [blueOceanNotifyUrl, setBlueOceanNotifyUrl] = useState('');
-  const [savingBlueOcean, setSavingBlueOcean] = useState(false);
-  const [clearingBlueOcean, setClearingBlueOcean] = useState(false);
+  const [epayConfig, setEpayConfig] = useState<EpayConfigResult | null>(null);
+  const [showEpayForm, setShowEpayForm] = useState(false);
+  const [epayGatewayUrl, setEpayGatewayUrl] = useState('');
+  const [epayPid, setEpayPid] = useState('');
+  const [epayMerchantKey, setEpayMerchantKey] = useState('');
+  const [epayNotifyUrl, setEpayNotifyUrl] = useState('');
+  const [epayReturnUrl, setEpayReturnUrl] = useState('');
+  const [epaySiteName, setEpaySiteName] = useState('canvasland');
+  const [savingEpay, setSavingEpay] = useState(false);
+  const [clearingEpay, setClearingEpay] = useState(false);
   const [creatingPaymentAmount, setCreatingPaymentAmount] = useState<number | null>(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<BlueOceanPayPaymentMethod>('wechat.qrcode');
-  const [qrPayment, setQrPayment] = useState<BlueOceanPayPaymentResult | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<EpayPaymentMethod>('wxpay');
+  const [qrPayment, setQrPayment] = useState<EpayPaymentResult | null>(null);
   const [queryingPayment, setQueryingPayment] = useState(false);
 
   const parsedConnection = useMemo(() => {
@@ -79,12 +86,8 @@ export function TokenTopUp() {
 
   const effectiveRootUrl = parsedConnection?.url ? normalizeRootUrl(parsedConnection.url) : savedRootUrl;
   const rechargeTiers = useMemo(() => {
-    const quotaPerUnit = balance?.quotaPerUnit || DEFAULT_QUOTA_PER_UNIT;
-    return DEFAULT_RECHARGE_TIERS.map((amount) => ({
-      amount,
-      points: Math.round(amount * quotaPerUnit),
-    }));
-  }, [balance?.quotaPerUnit]);
+    return DEFAULT_RECHARGE_TIERS;
+  }, []);
 
   const refreshBalance = useCallback(async () => {
     setRefreshingBalance(true);
@@ -106,23 +109,25 @@ export function TokenTopUp() {
     void refreshBalance();
   }, [refreshBalance]);
 
-  const loadBlueOceanConfig = useCallback(async () => {
+  const loadEpayConfig = useCallback(async () => {
     try {
-      const config = await hostApi.canvasland.blueOceanConfig();
-      setBlueOceanConfig(config);
-      setBlueOceanAppid(config.config?.appid || '');
-      setBlueOceanApiBaseUrl(config.config?.apiBaseUrl || DEFAULT_BLUEOCEAN_API_BASE_URL);
-      setBlueOceanNotifyUrl(config.config?.notifyUrl || '');
-      setBlueOceanMerchantKey('');
-      setShowBlueOceanForm(!config.configured);
+      const config = await hostApi.canvasland.epayConfig();
+      setEpayConfig(config);
+      setEpayGatewayUrl(config.config?.gatewayUrl || '');
+      setEpayPid(config.config?.pid || '');
+      setEpayNotifyUrl(config.config?.notifyUrl || '');
+      setEpayReturnUrl(config.config?.returnUrl || '');
+      setEpaySiteName(config.config?.siteName || 'canvasland');
+      setEpayMerchantKey('');
+      setShowEpayForm(!config.configured);
     } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.blueOceanLoadFailed')}: ${toUserMessage(error)}`);
+      toast.error(`${t('tokenTopUp.errors.epayLoadFailed')}: ${toUserMessage(error)}`);
     }
   }, [t]);
 
   useEffect(() => {
-    void loadBlueOceanConfig();
-  }, [loadBlueOceanConfig]);
+    void loadEpayConfig();
+  }, [loadEpayConfig]);
 
   const handleSaveConnection = async () => {
     let connection: NewApiConnection;
@@ -203,100 +208,112 @@ export function TokenTopUp() {
     }
   };
 
-  const handleSaveBlueOceanConfig = async () => {
-    const appid = blueOceanAppid.trim();
-    const apiBaseUrl = blueOceanApiBaseUrl.trim();
-    const merchantKey = blueOceanMerchantKey.trim();
-    if (!appid) {
-      toast.error(t('tokenTopUp.errors.blueOceanMissingAppid'));
+  const handleSaveEpayConfig = async () => {
+    const gatewayUrl = epayGatewayUrl.trim();
+    const pid = epayPid.trim();
+    const merchantKey = epayMerchantKey.trim();
+    const notifyUrl = epayNotifyUrl.trim();
+    const returnUrl = epayReturnUrl.trim();
+    if (!gatewayUrl) {
+      toast.error(t('tokenTopUp.errors.epayMissingGatewayUrl'));
       return;
     }
-    if (!apiBaseUrl) {
-      toast.error(t('tokenTopUp.errors.blueOceanMissingApiBaseUrl'));
+    if (!pid) {
+      toast.error(t('tokenTopUp.errors.epayMissingPid'));
       return;
     }
-    if (!blueOceanConfig?.hasMerchantKey && !merchantKey) {
-      toast.error(t('tokenTopUp.errors.blueOceanMissingMerchantKey'));
+    if (!epayConfig?.hasMerchantKey && !merchantKey) {
+      toast.error(t('tokenTopUp.errors.epayMissingMerchantKey'));
+      return;
+    }
+    if (!notifyUrl) {
+      toast.error(t('tokenTopUp.errors.epayMissingNotifyUrl'));
+      return;
+    }
+    if (!returnUrl) {
+      toast.error(t('tokenTopUp.errors.epayMissingReturnUrl'));
       return;
     }
 
-    setSavingBlueOcean(true);
+    setSavingEpay(true);
     try {
-      await hostApi.canvasland.saveBlueOceanConfig({
-        appid,
-        apiBaseUrl,
-        notifyUrl: blueOceanNotifyUrl.trim() || undefined,
+      await hostApi.canvasland.saveEpayConfig({
+        gatewayUrl,
+        pid,
+        notifyUrl,
+        returnUrl,
+        siteName: epaySiteName.trim() || 'canvasland',
         merchantKey: merchantKey || undefined,
       });
-      await loadBlueOceanConfig();
-      setShowBlueOceanForm(false);
-      toast.success(t('tokenTopUp.blueOceanSaved'));
+      await loadEpayConfig();
+      setShowEpayForm(false);
+      toast.success(t('tokenTopUp.epaySaved'));
     } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.blueOceanSaveFailed')}: ${toUserMessage(error)}`);
+      toast.error(`${t('tokenTopUp.errors.epaySaveFailed')}: ${toUserMessage(error)}`);
     } finally {
-      setSavingBlueOcean(false);
+      setSavingEpay(false);
     }
   };
 
-  const handleClearBlueOceanConfig = async () => {
-    setClearingBlueOcean(true);
+  const handleClearEpayConfig = async () => {
+    setClearingEpay(true);
     try {
-      await hostApi.canvasland.clearBlueOceanConfig();
+      await hostApi.canvasland.clearEpayConfig();
       setQrPayment(null);
-      await loadBlueOceanConfig();
-      setShowBlueOceanForm(true);
-      toast.success(t('tokenTopUp.blueOceanCleared'));
+      await loadEpayConfig();
+      setShowEpayForm(true);
+      toast.success(t('tokenTopUp.epayCleared'));
     } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.blueOceanClearFailed')}: ${toUserMessage(error)}`);
+      toast.error(`${t('tokenTopUp.errors.epayClearFailed')}: ${toUserMessage(error)}`);
     } finally {
-      setClearingBlueOcean(false);
+      setClearingEpay(false);
     }
   };
 
   const handleCreateQrPayment = async (tier: { amount: number; points: number }) => {
     setCreatingPaymentAmount(tier.amount);
     try {
-      const payment = await hostApi.canvasland.createBlueOceanWechatPayment({
+      const payment = await hostApi.canvasland.createEpayPayment({
         amount: tier.amount,
         points: tier.points,
-        body: `canvasland wallet top-up ${tier.amount}`,
+        name: `canvasland ${tier.points.toLocaleString()} ${t('tokenTopUp.points')}`,
         paymentMethod: selectedPaymentMethod,
       });
       setQrPayment(payment);
       if (payment.success) {
         toast.success(t('tokenTopUp.paymentQrCreated'));
       } else {
-        toast.error(`${t('tokenTopUp.errors.blueOceanPaymentFailed')}: ${payment.error || t('tokenTopUp.notAvailable')}`);
+        toast.error(`${t('tokenTopUp.errors.epayPaymentFailed')}: ${payment.error || t('tokenTopUp.notAvailable')}`);
       }
     } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.blueOceanPaymentFailed')}: ${toUserMessage(error)}`);
+      toast.error(`${t('tokenTopUp.errors.epayPaymentFailed')}: ${toUserMessage(error)}`);
     } finally {
       setCreatingPaymentAmount(null);
     }
   };
 
   const handleQueryQrPayment = async () => {
-    if (!qrPayment?.sn && !qrPayment?.outTradeNo) return;
+    if (!qrPayment?.tradeNo && !qrPayment?.outTradeNo) return;
     setQueryingPayment(true);
     try {
-      const result = await hostApi.canvasland.queryBlueOceanPayment({
-        sn: qrPayment.sn,
+      const result = await hostApi.canvasland.queryEpayPayment({
+        tradeNo: qrPayment.tradeNo,
         outTradeNo: qrPayment.outTradeNo,
       });
       if (result.success) {
         setQrPayment((current) => current ? {
           ...current,
-          tradeState: result.tradeState || current.tradeState,
-          sn: result.sn || current.sn,
+          status: result.status ?? current.status,
+          tradeNo: result.tradeNo || current.tradeNo,
           outTradeNo: result.outTradeNo || current.outTradeNo,
           raw: result.raw || current.raw,
         } : current);
         toast.success(t('tokenTopUp.paymentStatusUpdated'));
       } else {
-        toast.error(`${t('tokenTopUp.errors.blueOceanQueryFailed')}: ${result.error || t('tokenTopUp.notAvailable')}`);
+        toast.error(`${t('tokenTopUp.errors.epayQueryFailed')}: ${result.error || t('tokenTopUp.notAvailable')}`);
       }
     } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.blueOceanQueryFailed')}: ${toUserMessage(error)}`);
+      toast.error(`${t('tokenTopUp.errors.epayQueryFailed')}: ${toUserMessage(error)}`);
     } finally {
       setQueryingPayment(false);
     }
@@ -427,16 +444,16 @@ export function TokenTopUp() {
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <Button
                     type="button"
-                    variant={selectedPaymentMethod === 'wechat.qrcode' ? 'default' : 'outline'}
-                    onClick={() => setSelectedPaymentMethod('wechat.qrcode')}
+                    variant={selectedPaymentMethod === 'wxpay' ? 'default' : 'outline'}
+                    onClick={() => setSelectedPaymentMethod('wxpay')}
                     className="rounded-lg"
                   >
                     {t('tokenTopUp.wechatPay')}
                   </Button>
                   <Button
                     type="button"
-                    variant={selectedPaymentMethod === 'alipay.qrcode' ? 'default' : 'outline'}
-                    onClick={() => setSelectedPaymentMethod('alipay.qrcode')}
+                    variant={selectedPaymentMethod === 'alipay' ? 'default' : 'outline'}
+                    onClick={() => setSelectedPaymentMethod('alipay')}
                     className="rounded-lg"
                   >
                     {t('tokenTopUp.alipayPay')}
@@ -448,14 +465,14 @@ export function TokenTopUp() {
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {rechargeTiers.map((tier) => (
                     <div key={tier.amount} className="rounded-lg bg-surface-input px-3 py-3">
-                      <p className="text-sm font-semibold text-foreground">${tier.amount}</p>
+                      <p className="text-sm font-semibold text-foreground">¥{tier.amount}</p>
                       <p className="text-xs text-muted-foreground">
                         {tier.points.toLocaleString()} {t('tokenTopUp.points')}
                       </p>
                       <Button
                         data-testid={`token-topup-payment-qr-${tier.amount}`}
                         onClick={() => handleCreateQrPayment(tier)}
-                        disabled={!blueOceanConfig?.configured || creatingPaymentAmount !== null}
+                        disabled={!epayConfig?.configured || creatingPaymentAmount !== null}
                         size="sm"
                         className="mt-3 w-full rounded-lg"
                       >
@@ -470,77 +487,97 @@ export function TokenTopUp() {
                   ))}
                 </div>
               </div>
-              <div data-testid="token-topup-blueocean-config" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
+              <div data-testid="token-topup-epay-config" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.blueOceanTitle')}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{t('tokenTopUp.blueOceanDesc')}</p>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.epayTitle')}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{t('tokenTopUp.epayDesc')}</p>
                   </div>
-                  <Badge variant={blueOceanConfig?.configured ? 'success' : 'warning'}>
-                    {blueOceanConfig?.configured ? t('tokenTopUp.configured') : t('tokenTopUp.notConfigured')}
+                  <Badge variant={epayConfig?.configured ? 'success' : 'warning'}>
+                    {epayConfig?.configured ? t('tokenTopUp.configured') : t('tokenTopUp.notConfigured')}
                   </Badge>
                 </div>
-                {!showBlueOceanForm && blueOceanConfig?.configured ? (
+                {!showEpayForm && epayConfig?.configured ? (
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Button onClick={() => setShowBlueOceanForm(true)} variant="outline" size="sm" className="rounded-full">
+                    <Button onClick={() => setShowEpayForm(true)} variant="outline" size="sm" className="rounded-full">
                       <Settings2 className="h-4 w-4 mr-2" />
-                      {t('tokenTopUp.changeBlueOcean')}
+                      {t('tokenTopUp.changeEpay')}
                     </Button>
-                    <Button onClick={handleClearBlueOceanConfig} disabled={clearingBlueOcean} variant="outline" size="sm" className="rounded-full">
-                      {clearingBlueOcean ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                      {t('tokenTopUp.clearBlueOcean')}
+                    <Button onClick={handleClearEpayConfig} disabled={clearingEpay} variant="outline" size="sm" className="rounded-full">
+                      {clearingEpay ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                      {t('tokenTopUp.clearEpay')}
                     </Button>
                   </div>
                 ) : (
                   <div className="mt-4 grid gap-3">
                     <div className="grid gap-2">
-                      <Label htmlFor="blueocean-appid">{t('tokenTopUp.blueOceanAppid')}</Label>
+                      <Label htmlFor="epay-gateway-url">{t('tokenTopUp.epayGatewayUrl')}</Label>
                       <Input
-                        id="blueocean-appid"
-                        value={blueOceanAppid}
-                        onChange={(event) => setBlueOceanAppid(event.target.value)}
+                        id="epay-gateway-url"
+                        value={epayGatewayUrl}
+                        onChange={(event) => setEpayGatewayUrl(event.target.value)}
+                        placeholder="https://pay.example.com"
+                        className="rounded-xl bg-surface-input font-mono text-xs"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="epay-pid">{t('tokenTopUp.epayPid')}</Label>
+                      <Input
+                        id="epay-pid"
+                        value={epayPid}
+                        onChange={(event) => setEpayPid(event.target.value)}
+                        className="rounded-xl bg-surface-input font-mono text-xs"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="epay-merchant-key">{t('tokenTopUp.epayMerchantKey')}</Label>
+                      <Input
+                        id="epay-merchant-key"
+                        type="password"
+                        value={epayMerchantKey}
+                        onChange={(event) => setEpayMerchantKey(event.target.value)}
+                        placeholder={epayConfig?.hasMerchantKey ? t('tokenTopUp.epayMerchantKeyPlaceholderSaved') : ''}
+                        className="rounded-xl bg-surface-input font-mono text-xs"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="epay-notify-url">{t('tokenTopUp.epayNotifyUrl')}</Label>
+                      <Input
+                        id="epay-notify-url"
+                        value={epayNotifyUrl}
+                        onChange={(event) => setEpayNotifyUrl(event.target.value)}
+                        placeholder="https://example.com/payments/epay/notify"
+                        className="rounded-xl bg-surface-input font-mono text-xs"
+                      />
+                      <p className="text-xs text-muted-foreground">{t('tokenTopUp.epayNotifyHelp')}</p>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="epay-return-url">{t('tokenTopUp.epayReturnUrl')}</Label>
+                      <Input
+                        id="epay-return-url"
+                        value={epayReturnUrl}
+                        onChange={(event) => setEpayReturnUrl(event.target.value)}
+                        placeholder="https://example.com/payments/success"
+                        className="rounded-xl bg-surface-input font-mono text-xs"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="epay-site-name">{t('tokenTopUp.epaySiteName')}</Label>
+                      <Input
+                        id="epay-site-name"
+                        value={epaySiteName}
+                        onChange={(event) => setEpaySiteName(event.target.value)}
                         className="rounded-xl bg-surface-input"
                       />
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="blueocean-api-base-url">{t('tokenTopUp.blueOceanApiBaseUrl')}</Label>
-                      <Input
-                        id="blueocean-api-base-url"
-                        value={blueOceanApiBaseUrl}
-                        onChange={(event) => setBlueOceanApiBaseUrl(event.target.value)}
-                        className="rounded-xl bg-surface-input font-mono text-xs"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="blueocean-merchant-key">{t('tokenTopUp.blueOceanMerchantKey')}</Label>
-                      <Input
-                        id="blueocean-merchant-key"
-                        type="password"
-                        value={blueOceanMerchantKey}
-                        onChange={(event) => setBlueOceanMerchantKey(event.target.value)}
-                        placeholder={blueOceanConfig?.hasMerchantKey ? t('tokenTopUp.blueOceanMerchantKeyPlaceholderSaved') : ''}
-                        className="rounded-xl bg-surface-input font-mono text-xs"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="blueocean-notify-url">{t('tokenTopUp.blueOceanNotifyUrl')}</Label>
-                      <Input
-                        id="blueocean-notify-url"
-                        value={blueOceanNotifyUrl}
-                        onChange={(event) => setBlueOceanNotifyUrl(event.target.value)}
-                        placeholder="https://example.com/payments/blueocean/notify"
-                        className="rounded-xl bg-surface-input font-mono text-xs"
-                      />
-                      <p className="text-xs text-muted-foreground">{t('tokenTopUp.blueOceanNotifyHelp')}</p>
-                    </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={handleSaveBlueOceanConfig} disabled={savingBlueOcean} size="sm" className="rounded-full">
-                        {savingBlueOcean ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                        {t('tokenTopUp.saveBlueOcean')}
+                      <Button onClick={handleSaveEpayConfig} disabled={savingEpay} size="sm" className="rounded-full">
+                        {savingEpay ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                        {t('tokenTopUp.saveEpay')}
                       </Button>
-                      <Button onClick={handleClearBlueOceanConfig} disabled={clearingBlueOcean} variant="outline" size="sm" className="rounded-full">
-                        {clearingBlueOcean ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                        {t('tokenTopUp.clearBlueOcean')}
+                      <Button onClick={handleClearEpayConfig} disabled={clearingEpay} variant="outline" size="sm" className="rounded-full">
+                        {clearingEpay ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                        {t('tokenTopUp.clearEpay')}
                       </Button>
                     </div>
                   </div>
@@ -551,7 +588,7 @@ export function TokenTopUp() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-medium uppercase text-muted-foreground">
-                        {qrPayment.paymentMethod === 'alipay.qrcode'
+                        {qrPayment.paymentMethod === 'alipay'
                           ? t('tokenTopUp.alipayQrTitle')
                           : t('tokenTopUp.wechatQrTitle')}
                       </p>
@@ -568,9 +605,13 @@ export function TokenTopUp() {
                     </div>
                     <div className="min-w-0 flex-1 rounded-xl bg-surface-input p-4 text-sm">
                       <p className="text-muted-foreground">{t('tokenTopUp.paymentOrder')}</p>
-                      <p className="mt-1 break-all font-mono text-foreground">{qrPayment.outTradeNo || qrPayment.sn || '-'}</p>
+                      <p className="mt-1 break-all font-mono text-foreground">{qrPayment.outTradeNo || qrPayment.tradeNo || '-'}</p>
                       <p className="mt-4 text-muted-foreground">{t('tokenTopUp.paymentStatus')}</p>
-                      <p className="mt-1 font-mono text-foreground">{qrPayment.tradeState || '-'}</p>
+                      <p className="mt-1 font-mono text-foreground">
+                        {typeof qrPayment.status === 'number'
+                          ? qrPayment.status === 1 ? t('tokenTopUp.paymentPaid') : t('tokenTopUp.paymentUnpaid')
+                          : '-'}
+                      </p>
                     </div>
                   </div>
                 </div>
