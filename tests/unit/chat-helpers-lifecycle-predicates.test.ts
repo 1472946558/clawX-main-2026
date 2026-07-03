@@ -8,10 +8,10 @@ import type { RawMessage } from '@/stores/chat';
 
 /**
  * Cross-protocol coverage for the lifecycle predicates that drive whether
- * ClawX's UI keeps the Thinking… indicator / Execution Graph "active" or
+ * canvasland's UI keeps the Thinking… indicator / Execution Graph "active" or
  * tears them down.
  *
- * In production, ClawX consumes already-normalized messages from the OpenClaw
+ * In production, canvasland consumes already-normalized messages from the OpenClaw
  * Gateway (camelCase, Anthropic-style content blocks). But the helpers are
  * written defensively so they also work when:
  *   - Anthropic Messages API output is passed through unchanged (snake_case,
@@ -245,7 +245,7 @@ describe('isToolOnlyMessage', () => {
  * Composite assertion: the trio `isToolOnlyMessage(msg) || hasPendingToolUse(msg)`
  * is the actual gate used by `applyLoadedMessages` and the runtime `final`
  * handler. This block proves that gate behaves consistently across all three
- * provider protocols ClawX may encounter.
+ * provider protocols canvasland may encounter.
  */
 describe('lifecycle gate (isToolOnlyMessage || hasPendingToolUse)', () => {
   const gate = (msg: RawMessage) => isToolOnlyMessage(msg) || hasPendingToolUse(msg);

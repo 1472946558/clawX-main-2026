@@ -1,6 +1,6 @@
 {
     "title": "梦境",
-    "subtitle": "在 ClawX 内查看 OpenClaw 的记忆信号、梦境日记和维护操作。",
+    "subtitle": "在 canvasland 内查看 OpenClaw 的记忆信号、梦境日记和维护操作。",
     "openFullUi": "打开完整 Dreams",
     "gatewayNotReady": "OpenClaw 网关仍在启动或已断开。网关可用后会加载 Dreams 数据。",
     "metrics": {

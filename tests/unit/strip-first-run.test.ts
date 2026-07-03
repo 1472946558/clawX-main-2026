@@ -19,10 +19,10 @@ vi.mock('os', async () => {
 });
 
 import {
-  ensureClawXContext,
-  ensureClawXDefaultIdentity,
-  ensureClawXIdentityFile,
-  mergeClawXSection,
+  ensurecanvaslandContext,
+  ensurecanvaslandDefaultIdentity,
+  ensurecanvaslandIdentityFile,
+  mergecanvaslandSection,
   stripFirstRunSection,
 } from '../../electron/utils/openclaw-workspace';
 
@@ -133,9 +133,9 @@ describe('stripFirstRunSection', () => {
 
   it('still changes AGENTS content when only First Run is removed', () => {
     const section = [
-      '## ClawX Environment',
+      '## canvasland Environment',
       '',
-      'You are ClawX.',
+      'You are canvasland.',
     ].join('\n');
     const original = [
       '# AGENTS.md',
@@ -149,15 +149,15 @@ describe('stripFirstRunSection', () => {
       'Read SOUL.md first.',
       '',
       '<!-- clawx:begin -->',
-      '## ClawX Environment',
+      '## canvasland Environment',
       '',
-      'You are ClawX.',
+      'You are canvasland.',
       '<!-- clawx:end -->',
       '',
     ].join('\n');
 
     const stripped = stripFirstRunSection(original);
-    const merged = mergeClawXSection(stripped, section);
+    const merged = mergecanvaslandSection(stripped, section);
 
     expect(merged).not.toBe(original);
     expect(merged).not.toContain('## First Run');
@@ -167,14 +167,14 @@ describe('stripFirstRunSection', () => {
   });
 });
 
-describe('ensureClawXIdentityFile', () => {
-  it('writes a default ClawX identity when the workspace has none', async () => {
+describe('ensurecanvaslandIdentityFile', () => {
+  it('writes a default canvasland identity when the workspace has none', async () => {
     const workspaceDir = join(testHome, '.openclaw', 'workspace');
     await mkdir(workspaceDir, { recursive: true });
 
-    await ensureClawXIdentityFile(workspaceDir);
+    await ensurecanvaslandIdentityFile(workspaceDir);
 
-    await expect(readFile(join(workspaceDir, 'IDENTITY.md'), 'utf-8')).resolves.toContain('ClawX');
+    await expect(readFile(join(workspaceDir, 'IDENTITY.md'), 'utf-8')).resolves.toContain('canvasland');
   });
 
   it('replaces the untouched OpenClaw identity template but preserves custom identities', async () => {
@@ -200,12 +200,12 @@ describe('ensureClawXIdentityFile', () => {
       'utf-8',
     );
 
-    await ensureClawXIdentityFile(workspaceDir);
-    await expect(readFile(join(workspaceDir, 'IDENTITY.md'), 'utf-8')).resolves.toContain('ClawX');
+    await ensurecanvaslandIdentityFile(workspaceDir);
+    await expect(readFile(join(workspaceDir, 'IDENTITY.md'), 'utf-8')).resolves.toContain('canvasland');
     await expect(readFile(join(workspaceDir, 'IDENTITY.md'), 'utf-8')).resolves.not.toContain('pick something you like');
 
     await writeFile(join(workspaceDir, 'IDENTITY.md'), '# IDENTITY.md\n\n- **Name:** Paisley\n', 'utf-8');
-    await ensureClawXIdentityFile(workspaceDir);
+    await ensurecanvaslandIdentityFile(workspaceDir);
     await expect(readFile(join(workspaceDir, 'IDENTITY.md'), 'utf-8')).resolves.toBe('# IDENTITY.md\n\n- **Name:** Paisley\n');
   });
 
@@ -214,22 +214,22 @@ describe('ensureClawXIdentityFile', () => {
     await mkdir(workspaceDir, { recursive: true });
     await writeFile(join(workspaceDir, 'BOOTSTRAP.md'), 'chat-first bootstrap', 'utf-8');
 
-    await ensureClawXIdentityFile(workspaceDir);
+    await ensurecanvaslandIdentityFile(workspaceDir);
 
     await expect(access(join(workspaceDir, 'BOOTSTRAP.md'))).rejects.toThrow();
-    await expect(readFile(join(workspaceDir, 'IDENTITY.md'), 'utf-8')).resolves.toContain('ClawX');
+    await expect(readFile(join(workspaceDir, 'IDENTITY.md'), 'utf-8')).resolves.toContain('canvasland');
   });
 });
 
-describe('ensureClawXDefaultIdentity', () => {
+describe('ensurecanvaslandDefaultIdentity', () => {
   it('creates the default workspace and seeds IDENTITY.md for startup-owned workspaces', async () => {
-    await ensureClawXDefaultIdentity();
+    await ensurecanvaslandDefaultIdentity();
 
-    await expect(readFile(join(testHome, '.openclaw', 'workspace', 'IDENTITY.md'), 'utf-8')).resolves.toContain('ClawX');
+    await expect(readFile(join(testHome, '.openclaw', 'workspace', 'IDENTITY.md'), 'utf-8')).resolves.toContain('canvasland');
   });
 });
 
-describe('ensureClawXContext', () => {
+describe('ensurecanvaslandContext', () => {
   it('does not wait for missing files in non-default agent workspaces', async () => {
     const openclawDir = join(testHome, '.openclaw');
     const defaultWorkspace = join(openclawDir, 'workspace-main');
@@ -250,13 +250,13 @@ describe('ensureClawXContext', () => {
     );
 
     const result = await Promise.race([
-      ensureClawXContext().then(() => 'done'),
+      ensurecanvaslandContext().then(() => 'done'),
       new Promise((resolve) => setTimeout(() => resolve('timeout'), 200)),
     ]);
 
     expect(result).toBe('done');
-    await expect(readFile(join(defaultWorkspace, 'AGENTS.md'), 'utf-8')).resolves.toContain('## ClawX Environment');
-    await expect(readFile(join(defaultWorkspace, 'TOOLS.md'), 'utf-8')).resolves.toContain('## ClawX Tool Notes');
+    await expect(readFile(join(defaultWorkspace, 'AGENTS.md'), 'utf-8')).resolves.toContain('## canvasland Environment');
+    await expect(readFile(join(defaultWorkspace, 'TOOLS.md'), 'utf-8')).resolves.toContain('## canvasland Tool Notes');
     await expect(access(join(agentWorkspace, 'AGENTS.md'))).rejects.toThrow();
     await expect(access(join(agentWorkspace, 'TOOLS.md'))).rejects.toThrow();
   });
@@ -276,7 +276,7 @@ describe('ensureClawXContext', () => {
     );
 
     const result = await Promise.race([
-      ensureClawXContext().then(() => 'done'),
+      ensurecanvaslandContext().then(() => 'done'),
       new Promise((resolve) => setTimeout(() => resolve('timeout'), 200)),
     ]);
 

@@ -11,7 +11,7 @@ touchedAreas:
 expectedUserBehavior:
   - Opening Skills Explore returns marketplace entries when the official ClawHub JSON API is reachable.
   - Searching skills returns marketplace entries without depending on a cached static mirror registry.
-  - If the official JSON API is unavailable or returns non-JSON, ClawX falls back to the existing ClawHub CLI behavior.
+  - If the official JSON API is unavailable or returns non-JSON, canvasland falls back to the existing ClawHub CLI behavior.
 requiredProfiles:
   - fast
 requiredTests:

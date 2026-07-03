@@ -80,7 +80,7 @@ const htmlFileHistory = [
     timestamp: Date.now(),
   },
 ];
-test.describe('ClawX chat file changes', () => {
+test.describe('canvasland chat file changes', () => {
   test('shows line stats on generated file cards', async ({ launchElectronApp }) => {
     const app = await launchElectronApp({ skipSetup: true });
 

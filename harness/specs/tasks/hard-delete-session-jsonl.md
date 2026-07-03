@@ -40,7 +40,7 @@ docs:
   required: true
 ---
 
-Conversation deletion in ClawX runs entirely on the Main process — the
+Conversation deletion in canvasland runs entirely on the Main process — the
 OpenClaw Gateway does not expose a `sessions.delete` RPC. Historically the
 operation was a soft delete: the live `<id>.jsonl` transcript was renamed to
 `<id>.deleted.jsonl` so `sessions.list` would skip it. This task replaces

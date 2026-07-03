@@ -345,7 +345,7 @@ export function Dreams() {
       await rpc<unknown>('config.patch', {
         raw: buildDreamingEnabledPatchRaw(enabled),
         baseHash: snapshot.hash,
-        note: enabled ? 'Enable memory dreaming from ClawX Dreams.' : 'Disable memory dreaming from ClawX Dreams.',
+        note: enabled ? 'Enable memory dreaming from canvasland Dreams.' : 'Disable memory dreaming from canvasland Dreams.',
       }, 30_000);
       const message = enabled ? t('actions.enableSuccess') : t('actions.disableSuccess');
       setDreaming((current) => ({ ...(current ?? {}), enabled }));

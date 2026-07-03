@@ -1,6 +1,6 @@
 {
     "title": "Dreams",
-    "subtitle": "Просматривайте сигналы памяти OpenClaw, дневник снов и простое обслуживание прямо в ClawX.",
+    "subtitle": "Просматривайте сигналы памяти OpenClaw, дневник снов и простое обслуживание прямо в canvasland.",
     "openFullUi": "Открыть полный Dreams",
     "gatewayNotReady": "OpenClaw Gateway еще запускается или отключен. Данные Dreams загрузятся, когда gateway станет доступен.",
     "metrics": {

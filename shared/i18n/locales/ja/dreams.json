@@ -1,6 +1,6 @@
 {
     "title": "Dreams",
-    "subtitle": "OpenClaw の記憶シグナル、夢日記、メンテナンス操作を ClawX 内で確認します。",
+    "subtitle": "OpenClaw の記憶シグナル、夢日記、メンテナンス操作を canvasland 内で確認します。",
     "openFullUi": "完全版 Dreams を開く",
     "gatewayNotReady": "OpenClaw Gateway は起動中または未接続です。接続後に Dreams データを読み込みます。",
     "metrics": {

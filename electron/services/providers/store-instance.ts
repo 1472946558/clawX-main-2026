@@ -2,7 +2,7 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let providerStore: any = null;
 
-export async function getClawXProviderStore() {
+export async function getcanvaslandProviderStore() {
   if (!providerStore) {
     const Store = (await import('electron-store')).default;
     providerStore = new Store({

@@ -1,8 +1,8 @@
 appId: land.canvas.clawx.desktop
-productName: canvasland-clawX-Windows
+productName: canvasland-Windows
 copyright: Copyright © 2026 canvasland
 compression: maximum
-artifactName: canvasland-clawX-Windows-${version}.${ext}
+artifactName: canvasland-Windows-${version}.${ext}
 
 directories:
   output: release
@@ -86,8 +86,8 @@ mac:
   entitlementsInherit: entitlements.mac.plist
   notarize: true
   extendInfo:
-    NSMicrophoneUsageDescription: ClawX requires microphone access for voice features
-    NSCameraUsageDescription: ClawX requires camera access for video features
+    NSMicrophoneUsageDescription: canvasland requires microphone access for voice features
+    NSCameraUsageDescription: canvasland requires camera access for video features
 
 dmg:
   # Explicit volume size prevents dmg-builder@1.2.0 auto-calculation from
@@ -134,7 +134,7 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: canvasland
-  uninstallDisplayName: canvasland-clawX-Windows
+  uninstallDisplayName: canvasland-Windows
   license: LICENSE
   include: scripts/installer.nsh
   installerIcon: resources/icons/icon.ico
@@ -161,13 +161,13 @@ linux:
       arch:
         - x64
   category: Utility
-  maintainer: ClawX Team <public@valuecell.ai>
-  vendor: ClawX
+  maintainer: canvasland Team <public@valuecell.ai>
+  vendor: canvasland
   synopsis: AI Assistant powered by OpenClaw
-  description: ClawX is a graphical AI assistant application that integrates with OpenClaw Gateway to provide intelligent automation and assistance across multiple messaging platforms.
+  description: canvasland is a graphical AI assistant application that integrates with OpenClaw Gateway to provide intelligent automation and assistance across multiple messaging platforms.
   desktop:
     entry:
-      Name: ClawX
+      Name: canvasland
       Comment: AI Assistant powered by OpenClaw
       Categories: Utility;Network;
       Keywords: ai;assistant;automation;chat;

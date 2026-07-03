@@ -33,7 +33,7 @@ function imageToDataUrl(image) {
 function buildProvider() {
   return createOpenAiCompatibleImageGenerationProvider({
     id: PROVIDER_ID,
-    label: 'ClawX OpenAI Images',
+    label: 'canvasland OpenAI Images',
     defaultModel: DEFAULT_MODEL,
     models: [DEFAULT_MODEL],
     defaultBaseUrl: DEFAULT_BASE_URL,
@@ -98,18 +98,18 @@ function buildProvider() {
       fileNamePrefix: 'clawx-image',
       sniffMimeType: true,
     },
-    missingApiKeyError: 'ClawX OpenAI image API key missing',
+    missingApiKeyError: 'canvasland OpenAI image API key missing',
     failureLabels: {
-      generate: 'ClawX OpenAI image generation failed',
-      edit: 'ClawX OpenAI image edit failed',
+      generate: 'canvasland OpenAI image generation failed',
+      edit: 'canvasland OpenAI image edit failed',
     },
   });
 }
 
 export const pluginEntry = definePluginEntry({
   id: PROVIDER_ID,
-  name: 'ClawX OpenAI Image',
-  description: 'Independent OpenAI-compatible image generation provider managed by ClawX.',
+  name: 'canvasland OpenAI Image',
+  description: 'Independent OpenAI-compatible image generation provider managed by canvasland.',
   register(api) {
     api.registerImageGenerationProvider(buildProvider());
   },

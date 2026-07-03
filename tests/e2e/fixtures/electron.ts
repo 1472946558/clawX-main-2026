@@ -127,7 +127,7 @@ async function seedE2eSettings(userDataDir: string): Promise<void> {
   await writeFile(settingsPath, JSON.stringify({ language: 'en' }, null, 2), 'utf-8');
 }
 
-async function launchClawXElectron(
+async function launchcanvaslandElectron(
   homeDir: string,
   userDataDir: string,
   options: LaunchElectronOptions = {},
@@ -186,7 +186,7 @@ export const test = base.extend<ElectronFixtures>({
   },
 
   launchElectronApp: async ({ homeDir, userDataDir }, provideLauncher) => {
-    await provideLauncher(async (options?: LaunchElectronOptions) => await launchClawXElectron(homeDir, userDataDir, options));
+    await provideLauncher(async (options?: LaunchElectronOptions) => await launchcanvaslandElectron(homeDir, userDataDir, options));
   },
 
   electronApp: async ({ launchElectronApp }, provideElectronApp) => {

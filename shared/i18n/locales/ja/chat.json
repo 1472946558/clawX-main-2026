@@ -2,7 +2,7 @@
     "gatewayNotRunning": "ゲートウェイが停止中",
     "gatewayRequired": "チャットを利用するには OpenClaw ゲートウェイが実行されている必要があります。自動的に起動するか、設定から起動できます。",
     "welcome": {
-        "title": "ClawX チャット",
+        "title": "canvasland チャット",
         "subtitle": "お手伝いできることはありますか？",
         "askQuestions": "タスク対応",
         "askQuestionsDesc": "タスク指向の依頼に対応します",
@@ -75,7 +75,7 @@
         "errors": {
             "outsideSandbox": "サンドボックス外のパスのため拒否しました",
             "outsideSandboxTitle": "このファイルを読み取れません",
-            "outsideSandboxHint": "ClawX はこのパスを読み取れませんでした。ファイルが移動または削除されたか、現在のアカウントにアクセス権がない可能性があります。ファイルマネージャーで表示できます。",
+            "outsideSandboxHint": "canvasland はこのパスを読み取れませんでした。ファイルが移動または削除されたか、現在のアカウントにアクセス権がない可能性があります。ファイルマネージャーで表示できます。",
             "readOnlyRoot": "このファイルは読み取り専用領域（内蔵スキルなど）にあり、変更できません",
             "tooLarge": "ファイルが大きすぎます（{{size}}）。プレビューを無効化しました",
             "binary": "バイナリファイルのためテキストプレビューはできません",
@@ -85,7 +85,7 @@
             "unsupportedFormatTitle": "このファイル形式は内蔵プレビューまたは差分表示に未対応です",
             "unsupportedFormatHint": "現在、内蔵プレビューと差分表示は直接読み取れるテキスト/Markdown 系ファイルのみ対応しています。ファイルマネージャーで開いてください。",
             "largeBinaryOpenTitle": "このファイルは大きいため内蔵プレビューできません",
-            "largeBinaryOpenHint": "このファイルは {{size}} です。ClawX では内蔵プレビューできませんが、確認後にシステム既定のアプリで開けます。",
+            "largeBinaryOpenHint": "このファイルは {{size}} です。canvasland では内蔵プレビューできませんが、確認後にシステム既定のアプリで開けます。",
             "openInFinderFailed": "ファイルマネージャーで表示できません",
             "openFailed": "開けませんでした: {{error}}"
         },
@@ -141,7 +141,7 @@
         "eyebrow": "実行ビュー",
         "title": "タスクの流れ",
         "emptyTitle": "まだ構造化されたステップはありません",
-        "emptyBody": "実行が始まると、ClawX は思考・ツール呼び出し・最終化の状態をここに表示します。",
+        "emptyBody": "実行が始まると、canvasland は思考・ツール呼び出し・最終化の状態をここに表示します。",
         "status": {
             "idle": "待機中",
             "running_one": "進行中 1 件",

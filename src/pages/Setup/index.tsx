@@ -327,7 +327,7 @@ function WelcomeContent({
     <div data-testid="setup-welcome-step" className="space-y-6">
       <div className="text-center">
         <div className="mb-4 flex justify-center">
-          <img src={clawxIcon} alt="ClawX" className="h-16 w-16" />
+          <img src={clawxIcon} alt="canvasland" className="h-16 w-16" />
         </div>
         <h2 className="text-xl font-serif font-normal tracking-tight">{t('agentProfile.title')}</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">

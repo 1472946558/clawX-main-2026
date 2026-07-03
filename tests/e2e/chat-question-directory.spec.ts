@@ -28,7 +28,7 @@ const seededHistory = [
   { role: 'assistant', content: 'Here is the final action plan.', timestamp: 1007 },
 ];
 
-test.describe('ClawX chat question directory', () => {
+test.describe('canvasland chat question directory', () => {
   test('shows a toolbar button that opens a clickable in-conversation question directory', async ({ launchElectronApp }) => {
     const app = await launchElectronApp({ skipSetup: true });
 

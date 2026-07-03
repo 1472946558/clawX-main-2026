@@ -16,7 +16,7 @@ function stableStringify(value: unknown): string {
   return `{${entries.join(',')}}`;
 }
 
-test.describe('ClawX chat session date grouping', () => {
+test.describe('canvasland chat session date grouping', () => {
   test('shows four collapsible history buckets with only recent buckets expanded', async ({ launchElectronApp }) => {
     const app = await launchElectronApp({ skipSetup: true });
     const nowMs = Date.now();

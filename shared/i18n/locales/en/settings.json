@@ -266,7 +266,7 @@
   },
   "about": {
     "title": "About",
-    "appName": "ClawX",
+    "appName": "canvasland",
     "tagline": "Graphical AI Assistant",
     "basedOn": "Based on OpenClaw",
     "version": "Version {{version}}",

@@ -42,7 +42,7 @@ docs:
 
 ## Background
 
-ClawX already models Agent identity through OpenClaw workspace bootstrap files such as
+canvasland already models Agent identity through OpenClaw workspace bootstrap files such as
 `IDENTITY.md`, `SOUL.md`, and `AGENTS.md`. The first-run setup should collect the main Agent
 profile up front and persist it through the same typed host-api boundary used by the rest of the
 renderer.

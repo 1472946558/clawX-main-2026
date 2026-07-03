@@ -266,7 +266,7 @@
   },
   "about": {
     "title": "バージョン情報",
-    "appName": "ClawX",
+    "appName": "canvasland",
     "tagline": "グラフィカル AI アシスタント",
     "basedOn": "OpenClaw ベース",
     "version": "バージョン {{version}}",

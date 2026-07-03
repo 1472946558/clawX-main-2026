@@ -11,7 +11,7 @@ function stableStringify(value: unknown): string {
   return `{${entries.join(',')}}`;
 }
 
-test.describe('ClawX chat run state events', () => {
+test.describe('canvasland chat run state events', () => {
   test('keeps stop control active across non-terminal runtime events and clears it on run.ended', async ({ launchElectronApp }) => {
     const app = await launchElectronApp({ skipSetup: true });
 

@@ -507,7 +507,7 @@ describe('ProviderService.listAccountsKeyInfo', () => {
     ]);
   });
 
-  it('falls back to ClawX local secrets when OpenClaw has no runtime key', async () => {
+  it('falls back to canvasland local secrets when OpenClaw has no runtime key', async () => {
     mocks.listProviderAccounts.mockResolvedValue([
       makeAccount({
         id: 'openrouter-ui-account-id',

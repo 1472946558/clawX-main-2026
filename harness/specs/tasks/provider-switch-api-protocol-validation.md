@@ -3,7 +3,7 @@ id: provider-switch-api-protocol-validation
 title: Reject invalid OpenClaw api protocol writes and self-heal stale entries
 scenario: gateway-backend-communication
 taskType: runtime-bridge
-intent: Prevent ClawX from writing models.providers.*.api values outside the OpenClaw allowlist into openclaw.json, and opportunistically prune pre-existing invalid entries when the user switches default provider so a clean switch can rescue the Gateway from Invalid-config restart loops.
+intent: Prevent canvasland from writing models.providers.*.api values outside the OpenClaw allowlist into openclaw.json, and opportunistically prune pre-existing invalid entries when the user switches default provider so a clean switch can rescue the Gateway from Invalid-config restart loops.
 touchedAreas:
   - harness/specs/tasks/provider-switch-api-protocol-validation.md
   - electron/shared/providers/registry.ts
@@ -42,7 +42,7 @@ A historical bug in [electron/shared/providers/registry.ts](electron/shared/prov
 `api` enum (`openai-completions | openai-responses | openai-codex-responses | anthropic-messages |
 google-generative-ai | github-copilot | bedrock-converse-stream | ollama | azure-openai-responses`).
 
-When the user selected OpenRouter as their default provider, ClawX wrote that invalid value into
+When the user selected OpenRouter as their default provider, canvasland wrote that invalid value into
 `~/.openclaw/openclaw.json` and then sent SIGUSR1 to the running Gateway. The Gateway's
 `assertValidGatewayStartupConfigSnapshot` rejected the config, tore down all channels (close code
 1012), entered the `startup_failed` state, but kept the OS process alive. The Main process then

@@ -56,7 +56,7 @@ const seededHistory = [
 
 const CLOUD_ARTIFACT_PATH = '/opt/cursor/artifacts/chat_table_header_light.png';
 
-test.describe('ClawX chat table header styling', () => {
+test.describe('canvasland chat table header styling', () => {
   test('renders markdown table headers with transparent background and bold text in light theme', async ({ launchElectronApp }, testInfo) => {
     const app = await launchElectronApp({ skipSetup: true });
 

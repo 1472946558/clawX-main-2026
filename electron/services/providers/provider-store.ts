@@ -1,6 +1,6 @@
 import type { ProviderAccount, ProviderConfig, ProviderType } from '../../shared/providers/types';
 import { getProviderDefinition } from '../../shared/providers/registry';
-import { getClawXProviderStore } from './store-instance';
+import { getcanvaslandProviderStore } from './store-instance';
 
 
 function inferAuthMode(type: ProviderType): ProviderAccount['authMode'] {
@@ -58,26 +58,26 @@ export function providerAccountToConfig(account: ProviderAccount): ProviderConfi
 }
 
 export async function listProviderAccounts(): Promise<ProviderAccount[]> {
-  const store = await getClawXProviderStore();
+  const store = await getcanvaslandProviderStore();
   const accounts = store.get('providerAccounts') as Record<string, ProviderAccount> | undefined;
   return Object.values(accounts ?? {});
 }
 
 export async function getProviderAccount(accountId: string): Promise<ProviderAccount | null> {
-  const store = await getClawXProviderStore();
+  const store = await getcanvaslandProviderStore();
   const accounts = store.get('providerAccounts') as Record<string, ProviderAccount> | undefined;
   return accounts?.[accountId] ?? null;
 }
 
 export async function saveProviderAccount(account: ProviderAccount): Promise<void> {
-  const store = await getClawXProviderStore();
+  const store = await getcanvaslandProviderStore();
   const accounts = (store.get('providerAccounts') ?? {}) as Record<string, ProviderAccount>;
   accounts[account.id] = account;
   store.set('providerAccounts', accounts);
 }
 
 export async function deleteProviderAccount(accountId: string): Promise<void> {
-  const store = await getClawXProviderStore();
+  const store = await getcanvaslandProviderStore();
   const accounts = (store.get('providerAccounts') ?? {}) as Record<string, ProviderAccount>;
   delete accounts[accountId];
   store.set('providerAccounts', accounts);
@@ -88,7 +88,7 @@ export async function deleteProviderAccount(accountId: string): Promise<void> {
 }
 
 export async function setDefaultProviderAccount(accountId: string): Promise<void> {
-  const store = await getClawXProviderStore();
+  const store = await getcanvaslandProviderStore();
   store.set('defaultProviderAccountId', accountId);
 
   const accounts = (store.get('providerAccounts') ?? {}) as Record<string, ProviderAccount>;
@@ -99,6 +99,6 @@ export async function setDefaultProviderAccount(accountId: string): Promise<void
 }
 
 export async function getDefaultProviderAccountId(): Promise<string | undefined> {
-  const store = await getClawXProviderStore();
+  const store = await getcanvaslandProviderStore();
   return store.get('defaultProviderAccountId') as string | undefined;
 }

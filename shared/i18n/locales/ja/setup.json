@@ -1,7 +1,7 @@
 {
     "steps": {
         "welcome": {
-            "title": "ClawXへようこそ",
+            "title": "canvaslandへようこそ",
             "description": "AIアシスタントの設定準備が整いました"
         },
         "runtime": {
@@ -22,12 +22,12 @@
         },
         "complete": {
             "title": "完了！",
-            "description": "ClawXを使用する準備が整いました"
+            "description": "canvaslandを使用する準備が整いました"
         }
     },
     "welcome": {
-        "title": "ClawXへようこそ",
-        "description": "ClawXはOpenClawのグラフィカルインターフェースで、お気に入りのメッセージングプラットフォームでAIアシスタントを簡単に使用できます。",
+        "title": "canvaslandへようこそ",
+        "description": "canvaslandはOpenClawのグラフィカルインターフェースで、お気に入りのメッセージングプラットフォームでAIアシスタントを簡単に使用できます。",
         "features": {
             "noCommand": "コマンドライン不要",
             "modernUI": "モダンで美しいインターフェース",
@@ -37,11 +37,11 @@
     },
     "agentProfile": {
         "title": "Agent の人格を設定",
-        "description": "メイン Agent の名前と人格を設定してから、ClawX がローカル実行環境のセットアップを続けます。",
-        "defaultName": "ClawX",
-        "defaultPersona": "あなたは ClawX、簡潔で有能かつ実用的なデスクトップ AI Agent です。まずユーザーの作業を解決し、必要なときは重要な判断を説明し、温かいが冗長ではない口調で対応します。",
+        "description": "メイン Agent の名前と人格を設定してから、canvasland がローカル実行環境のセットアップを続けます。",
+        "defaultName": "canvasland",
+        "defaultPersona": "あなたは canvasland、簡潔で有能かつ実用的なデスクトップ AI Agent です。まずユーザーの作業を解決し、必要なときは重要な判断を説明し、温かいが冗長ではない口調で対応します。",
         "nameLabel": "Agent 名",
-        "namePlaceholder": "ClawX",
+        "namePlaceholder": "canvasland",
         "personaLabel": "Agent 人格",
         "personaPlaceholder": "この Agent がどのように考え、話し、支援するべきかを説明してください。",
         "personaHint": "この内容はメイン Agent のワークスペースに保存され、起動時のコンテキストとして使われます。",
@@ -126,7 +126,7 @@
     },
     "complete": {
         "title": "セットアップ完了！",
-        "subtitle": "ClawXの構成が完了し、使用準備が整いました。AIアシスタントとのチャットを開始できます。",
+        "subtitle": "canvaslandの構成が完了し、使用準備が整いました。AIアシスタントとのチャットを開始できます。",
         "provider": "AI プロバイダー",
         "components": "コンポーネント",
         "gateway": "ゲートウェイ",

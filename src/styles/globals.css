@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ──────────────────────────────────────────────────────────────────────────
- * ClawX design tokens — CSS variable layer
+ * canvasland design tokens — CSS variable layer
  * ──────────────────────────────────────────────────────────────────────────
  *
  * This file is the *CSS variable layer only*. HSL channel triplets are
@@ -16,9 +16,9 @@
  *      / ...). The standard shadcn/ui palette — do not rename or remove,
  *      Radix-driven components read these directly.
  *
- *   2. ClawX surface tokens (--surface-modal / --surface-input /
+ *   2. canvasland surface tokens (--surface-modal / --surface-input /
  *      --surface-sidebar). Three light-mode "cream paper" layers added
- *      by ClawX. In dark mode each one is redirected to an existing
+ *      by canvasland. In dark mode each one is redirected to an existing
  *      shadcn token (--card / --muted / --background) so we don't have
  *      to maintain a second dark-cream palette.
  *
@@ -117,7 +117,7 @@
 @layer base {
   :root {
     /* ── shadcn semantic tokens (light) ─────────────────────────── */
-    /* Lightened ClawX cream page background; gentler than pure white
+    /* Lightened canvasland cream page background; gentler than pure white
      *           for long sessions in front of the editor. */
     --background: 45 30% 96.6%;
     --foreground: 222.2 84% 4.9%;
@@ -140,7 +140,7 @@
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
 
-    /* ── ClawX cream surfaces (light) ────────────────────────────
+    /* ── canvasland cream surfaces (light) ────────────────────────────
      *
      * Three stacked cream layers — think "a cream paper laid on top
      * of a slightly paler cream paper". The contrast between layers
@@ -160,7 +160,7 @@
     --surface-input: 45 22% 94%;
     --surface-sidebar: 45 16% 94%;
 
-    /* ── ClawX usage accents (light) ─────────────────────────────
+    /* ── canvasland usage accents (light) ─────────────────────────────
      *
      * Three semantic accents reused everywhere that we visualise
      * token usage / activity. Mirrors the Cron page convention so
@@ -350,7 +350,7 @@
   @apply bg-muted-foreground/30;
 }
 
-/* Monaco's default light diff theme is pure white; keep it aligned with ClawX's cream app background. */
+/* Monaco's default light diff theme is pure white; keep it aligned with canvasland's cream app background. */
 :root:not(.dark) .clawx-diff-editor .monaco-diff-editor,
 :root:not(.dark) .clawx-diff-editor .monaco-editor,
 :root:not(.dark) .clawx-diff-editor .monaco-editor-background,

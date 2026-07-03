@@ -39,7 +39,7 @@ const seededHistory = [
   },
 ];
 
-test.describe('ClawX chat LaTeX rendering', () => {
+test.describe('canvasland chat LaTeX rendering', () => {
   test('renders KaTeX markup for $...$, $$...$$, \\(...\\) and \\[...\\] delimiters', async ({ launchElectronApp }) => {
     const app = await launchElectronApp({ skipSetup: true });
 

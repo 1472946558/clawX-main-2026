@@ -244,7 +244,7 @@ async function sanitizeConfig(
     }
 
     // Mirror production logic: bundled provider plugins are only preserved when
-    // the provider is actually active, while ClawX-critical bundled plugins are
+    // the provider is actually active, while canvasland-critical bundled plugins are
     // preserved via a small explicit list.
     const bundledAll = new Set(bundledPlugins?.all ?? []);
     const providersByPluginId = bundledPlugins?.providersByPluginId ?? {};

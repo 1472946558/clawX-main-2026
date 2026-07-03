@@ -5,7 +5,7 @@
  * iframe with a sandbox instead of being injected into the React tree.
  * We allow scripts so simple interactive demo pages still work, but do
  * not grant same-origin/top-navigation/popups; the iframe therefore gets
- * an opaque origin and cannot reach back into the ClawX renderer.
+ * an opaque origin and cannot reach back into the canvasland renderer.
  */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';

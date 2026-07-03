@@ -9,7 +9,7 @@ function stableStringify(value: unknown): string {
   return `{${entries.join(',')}}`;
 }
 
-test.describe('ClawX startup chat history recovery', () => {
+test.describe('canvasland startup chat history recovery', () => {
   test('retries an initial chat.history timeout and eventually renders history', async ({ launchElectronApp }) => {
     const app = await launchElectronApp({ skipSetup: true });
 

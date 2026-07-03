@@ -1,8 +1,8 @@
-## ClawX Tool Notes
+## canvasland Tool Notes
 
 ### uv (Python)
 
-- `uv` is bundled with ClawX and on PATH. Do NOT use bare `python` or `pip`.
+- `uv` is bundled with canvasland and on PATH. Do NOT use bare `python` or `pip`.
 - Run scripts: `uv run python <script>` | Install packages: `uv pip install <package>`
 
 ### Browser

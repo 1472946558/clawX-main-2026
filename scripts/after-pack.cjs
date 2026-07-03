@@ -435,7 +435,7 @@ function patchBrokenModules(nodeModulesDir) {
               const patched = [
                 original,
                 '',
-                '// ClawX patch: add LRUCache named export for Node.js 22+ ESM interop',
+                '// canvasland patch: add LRUCache named export for Node.js 22+ ESM interop',
                 'if (typeof module.exports === "function" && !module.exports.LRUCache) {',
                 '  module.exports.LRUCache = module.exports;',
                 '}',
@@ -736,7 +736,7 @@ exports.default = async function afterPack(context) {
   //     the top-level node_modules/ as well.
   const buildExtDir = join(__dirname, '..', 'build', 'openclaw', 'dist', 'extensions');
   const packExtDir = join(openclawRoot, 'dist', 'extensions');
-  // ClawX always uses the official @larksuite/openclaw-lark plugin for Feishu.
+  // canvasland always uses the official @larksuite/openclaw-lark plugin for Feishu.
   // The built-in openclaw dist/extensions/feishu tree is redundant, and on macOS
   // its mirrored runtime deps significantly increase codesign file pressure.
   rmSync(join(packExtDir, 'feishu'), { recursive: true, force: true });
@@ -913,7 +913,7 @@ exports.default = async function afterPack(context) {
               const patched = [
                 original,
                 '',
-                '// ClawX patch: add LRUCache named export for Node.js 22+ ESM interop',
+                '// canvasland patch: add LRUCache named export for Node.js 22+ ESM interop',
                 'if (typeof module.exports === "function" && !module.exports.LRUCache) {',
                 '  module.exports.LRUCache = module.exports;',
                 '}',

@@ -1,6 +1,6 @@
 {
     "title": "Dreams",
-    "subtitle": "Review OpenClaw memory signals, diary entries, and dreaming maintenance from ClawX.",
+    "subtitle": "Review OpenClaw memory signals, diary entries, and dreaming maintenance from canvasland.",
     "openFullUi": "Open Full Dreams",
     "gatewayNotReady": "OpenClaw Gateway is still starting or disconnected. Dreams data will load once the gateway is reachable.",
     "metrics": {

@@ -47,10 +47,10 @@ Plugin lifecycle management covers bundled and external plugins as one system wi
 Lifecycle stages:
 
 - Declare: plugin manifests describe package identity, source expectations, compatibility, and provided capabilities.
-- Discover: ClawX scans bundled and external sources and produces a factual inventory. Discovery does not choose active owners.
-- Resolve: ClawX chooses canonical package/capability owners, applies migration rules, and marks conflicts before config activation.
-- Materialize: ClawX installs, upgrades, copies, links, or verifies the physical package selected by resolution.
-- Validate: ClawX verifies package manifests, dependencies, capability config, ownership uniqueness, and startup requirements.
+- Discover: canvasland scans bundled and external sources and produces a factual inventory. Discovery does not choose active owners.
+- Resolve: canvasland chooses canonical package/capability owners, applies migration rules, and marks conflicts before config activation.
+- Materialize: canvasland installs, upgrades, copies, links, or verifies the physical package selected by resolution.
+- Validate: canvasland verifies package manifests, dependencies, capability config, ownership uniqueness, and startup requirements.
 - Activate: only resolved and validated capabilities enter final OpenClaw runtime config.
 - Recover: failed upgrades, stale registrations, conflicts, and removed channels converge to a single diagnosable state with rollback or cleanup paths.
 - Package: cleanup and pruning keep packaged artifacts small without deleting target runtime assets; macOS universal packages keep both x64 and arm64 native payloads.

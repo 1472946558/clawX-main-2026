@@ -1,7 +1,7 @@
 {
     "steps": {
         "welcome": {
-            "title": "Welcome to ClawX",
+            "title": "Welcome to canvasland",
             "description": "Your AI assistant is ready to be configured"
         },
         "runtime": {
@@ -22,12 +22,12 @@
         },
         "complete": {
             "title": "All Set!",
-            "description": "ClawX is ready to use"
+            "description": "canvasland is ready to use"
         }
     },
     "welcome": {
-        "title": "Welcome to ClawX",
-        "description": "ClawX is a graphical interface for OpenClaw, making it easy to use AI assistants across your favorite messaging platforms.",
+        "title": "Welcome to canvasland",
+        "description": "canvasland is a graphical interface for OpenClaw, making it easy to use AI assistants across your favorite messaging platforms.",
         "features": {
             "noCommand": "Zero command-line required",
             "modernUI": "Modern, beautiful interface",
@@ -37,11 +37,11 @@
     },
     "agentProfile": {
         "title": "Set up your Agent",
-        "description": "Give the main Agent a name and persona before ClawX finishes the local runtime setup.",
-        "defaultName": "ClawX",
-        "defaultPersona": "You are ClawX, a concise, capable, and practical desktop AI agent. Help the user solve the task first, explain key decisions when useful, and stay warm without being verbose.",
+        "description": "Give the main Agent a name and persona before canvasland finishes the local runtime setup.",
+        "defaultName": "canvasland",
+        "defaultPersona": "You are canvasland, a concise, capable, and practical desktop AI agent. Help the user solve the task first, explain key decisions when useful, and stay warm without being verbose.",
         "nameLabel": "Agent name",
-        "namePlaceholder": "ClawX",
+        "namePlaceholder": "canvasland",
         "personaLabel": "Agent persona",
         "personaPlaceholder": "Describe how this Agent should think, speak, and help.",
         "personaHint": "This is saved to the main Agent workspace and used as bootstrap context.",
@@ -126,7 +126,7 @@
     },
     "complete": {
         "title": "Setup Complete!",
-        "subtitle": "ClawX is configured and ready to use. You can now start chatting with your AI assistant.",
+        "subtitle": "canvasland is configured and ready to use. You can now start chatting with your AI assistant.",
         "provider": "AI Provider",
         "components": "Components",
         "gateway": "Gateway",

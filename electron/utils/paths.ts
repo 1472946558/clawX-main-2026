@@ -62,21 +62,21 @@ export function getOpenClawSkillsDir(): string {
 }
 
 /**
- * Get ClawX config directory
+ * Get canvasland config directory
  */
-export function getClawXConfigDir(): string {
+export function getcanvaslandConfigDir(): string {
   return join(homedir(), '.clawx');
 }
 
 /**
- * Get ClawX logs directory
+ * Get canvasland logs directory
  */
 export function getLogsDir(): string {
   return join(getElectronApp().getPath('userData'), 'logs');
 }
 
 /**
- * Get ClawX data directory
+ * Get canvasland data directory
  */
 export function getDataDir(): string {
   return getElectronApp().getPath('userData');

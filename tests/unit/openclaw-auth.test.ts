@@ -1698,7 +1698,7 @@ describe('syncOpenAiCompatibleImageRelay', () => {
     await rm(testUserData, { recursive: true, force: true });
   });
 
-  it('writes a ClawX-owned provider with a custom image base URL without changing OpenAI chat config', async () => {
+  it('writes a canvasland-owned provider with a custom image base URL without changing OpenAI chat config', async () => {
     await writeOpenClawJson({
       models: {
         providers: {
@@ -1734,7 +1734,7 @@ describe('syncOpenAiCompatibleImageRelay', () => {
     expect((auth.profiles['clawx-openai-image:default'] as Record<string, unknown>).key).toBe('sk-relay-test');
   });
 
-  it('removes only the ClawX image provider when relay is disabled', async () => {
+  it('removes only the canvasland image provider when relay is disabled', async () => {
     await writeOpenClawJson({
       models: {
         providers: {

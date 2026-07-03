@@ -9,7 +9,7 @@ import {
   readOpenAiCompatibleImageRelayState,
   syncOpenAiCompatibleImageRelay,
 } from './openclaw-auth';
-import { ensureClawXOpenAiImagePluginInstalled } from './plugin-install';
+import { ensurecanvaslandOpenAiImagePluginInstalled } from './plugin-install';
 import { listAgentsSnapshot, type AgentsSnapshot } from './agent-config';
 import { expandPath } from './paths';
 import {
@@ -227,9 +227,9 @@ export async function setImageGenerationConfig(
     } else {
       delete defaults.imageGenerationModel;
     }
-    // ClawX image generation is configured as one explicit custom endpoint.
+    // canvasland image generation is configured as one explicit custom endpoint.
     // Keep OpenClaw from appending other authenticated image providers such as
-    // minimax-portal/image-01 after the configured ClawX image provider.
+    // minimax-portal/image-01 after the configured canvasland image provider.
     defaults.mediaGenerationAutoProviderFallback = false;
 
     agents.defaults = defaults;
@@ -365,7 +365,7 @@ export async function applyOpenAiImageRelaySettings(params: {
     imageModelIds,
   });
   if (params.enabled) {
-    ensureClawXOpenAiImagePluginInstalled();
+    ensurecanvaslandOpenAiImagePluginInstalled();
   }
 }
 

@@ -38,7 +38,7 @@ const seededHistory = [
   },
 ];
 
-test.describe('ClawX assistant reply Markdown styling', () => {
+test.describe('canvasland assistant reply Markdown styling', () => {
   test('renders assistant text as plain Markdown while keeping user prompts bubbled', async ({ launchElectronApp }, testInfo) => {
     const app = await launchElectronApp({ skipSetup: true });
 

@@ -510,7 +510,7 @@ describe('agent config lifecycle', () => {
     expect(agentIds).not.toContain('1');
   });
 
-  it('seeds a default ClawX IDENTITY.md for newly created agent workspaces', async () => {
+  it('seeds a default canvasland IDENTITY.md for newly created agent workspaces', async () => {
     await writeOpenClawJson({
       agents: {
         list: [{ id: 'main', name: 'Main', default: true }],
@@ -521,7 +521,7 @@ describe('agent config lifecycle', () => {
 
     await createAgent('Research');
 
-    await expect(readFile(join(testHome, '.openclaw', 'workspace-research', 'IDENTITY.md'), 'utf8')).resolves.toContain('ClawX');
+    await expect(readFile(join(testHome, '.openclaw', 'workspace-research', 'IDENTITY.md'), 'utf8')).resolves.toContain('canvasland');
   });
 
   it('updates the main agent profile and writes persona bootstrap files', async () => {

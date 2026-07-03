@@ -316,7 +316,7 @@ export async function trimBundledOpenClawSkillsAndConfigs(
 }
 
 /**
- * Built-in skills bundled with ClawX that should be pre-deployed to
+ * Built-in skills bundled with canvasland that should be pre-deployed to
  * ~/.openclaw/skills/ on first launch.  These come from the openclaw package's
  * extensions directory and are available in both dev and packaged builds.
  */

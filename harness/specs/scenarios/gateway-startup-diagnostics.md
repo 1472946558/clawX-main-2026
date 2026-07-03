@@ -20,16 +20,16 @@ requiredRules:
   - docs-sync
 ---
 
-Use this spec when ClawX shows the Gateway as starting/running but UI data does not refresh, Dreams cannot load, or Gateway RPC calls time out after a restart.
+Use this spec when canvasland shows the Gateway as starting/running but UI data does not refresh, Dreams cannot load, or Gateway RPC calls time out after a restart.
 
-ClawX should prefer OpenClaw-native signals over stderr string matching:
+canvasland should prefer OpenClaw-native signals over stderr string matching:
 
 - `system-presence` proves the core RPC router is serving requests.
 - `health` provides the Gateway health snapshot; use cached `probe:false` first.
 - `status` provides presence, health, stateVersion, uptime, and session defaults.
 - `channels.status` is the channel capability signal.
 - `doctor.memory.status` is the memory/dreams capability signal.
-- `gateway.ready`, `health`, and `presence` events should update ClawX's main-process capability cache.
+- `gateway.ready`, `health`, and `presence` events should update canvasland's main-process capability cache.
 
 stderr is supporting evidence only. It should not be the primary source for deciding whether the Gateway is ready, blocked, or should be restarted.
 
@@ -47,7 +47,7 @@ Treat these as the same incident family until proven otherwise:
 Important distinction:
 
 - **Port ready** only means the process is listening.
-- **Handshake ready** only means ClawX connected to the Gateway socket.
+- **Handshake ready** only means canvasland connected to the Gateway socket.
 - **RPC ready** means a cheap call such as `system-presence` succeeds.
 
 UI features that depend on Gateway runtime data must prefer RPC-ready evidence over port-ready evidence.
@@ -67,7 +67,7 @@ lsof -nP -iTCP:18789 -sTCP:LISTEN || true
 lsof -nP -iTCP:5173 -sTCP:LISTEN || true
 ```
 
-2. Read recent ClawX logs:
+2. Read recent canvasland logs:
 
 ```bash
 tail -n 160 "$HOME/Library/Application Support/clawx/logs/clawx-$(date +%F).log"
@@ -106,7 +106,7 @@ Before sampling, state:
 
 Do not proceed without explicit user agreement when:
 
-- Sampling a process that is not clearly the ClawX-owned Gateway child.
+- Sampling a process that is not clearly the canvasland-owned Gateway child.
 - Increasing sample duration above 5 seconds or repeating samples many times.
 - Collecting process environment, open files, memory dumps, trace archives, or any artifact likely to contain secrets.
 - Killing, restarting, or force-cleaning Gateway while active tasks, cron jobs, or user-visible work may be running.
@@ -130,7 +130,7 @@ When analyzing a sample, report a compact summary:
 
 - Main-thread state: idle, synchronous fs I/O, network connect, CPU-bound JS, or unknown.
 - Dominant stack signature, such as `uv_fs_open` under plugin runtime setup.
-- Whether the finding points to ClawX-owned prelaunch cleanup, OpenClaw runtime startup cost, active user work, or inconclusive data.
+- Whether the finding points to canvasland-owned prelaunch cleanup, OpenClaw runtime startup cost, active user work, or inconclusive data.
 - Recommended next action and whether it requires another user approval.
 
 ## Known Causes
@@ -212,7 +212,7 @@ Symptoms:
 
 Expected handling:
 
-- Explain to users that restart cost is dominated by active Gateway work, not by ClawX UI rendering.
+- Explain to users that restart cost is dominated by active Gateway work, not by canvasland UI rendering.
 - Avoid triggering full Gateway restart for feature toggles when a narrower config reload or plugin RPC is available.
 
 ## Remediation Order
@@ -260,7 +260,7 @@ pnpm exec openclaw gateway call status >/tmp/clawx-status.json
 - Dreams page can refresh once the Gateway process is running and RPC-ready.
 - `doctor.memory.status` and `doctor.memory.dreamDiary` return when Dreams is enabled.
 - `doctor.memory.*` and `channels.status` failures degrade their capability only and do not trigger Gateway restart.
-- Logs no longer repeat stale runtime cache or escaped managed-skill symlink warnings for entries ClawX can safely clean.
+- Logs no longer repeat stale runtime cache or escaped managed-skill symlink warnings for entries canvasland can safely clean.
 
 ## Required Regression Coverage
 
@@ -288,4 +288,4 @@ When sharing findings:
 - Quote log patterns and timing metrics, not full memory doctor output.
 - Redact tokens, account identifiers, device IDs, and channel recipients.
 - State whether the failure is port readiness, handshake readiness, or RPC readiness.
-- Separate ClawX-owned cleanup issues from OpenClaw runtime initialization cost.
+- Separate canvasland-owned cleanup issues from OpenClaw runtime initialization cost.

@@ -125,13 +125,13 @@ export async function launchGatewayProcess(options: {
   // The OpenClaw gateway advertises `_openclaw-gw._tcp.local` on every
   // active network interface using a hardcoded `openclaw.local` hostname,
   // which causes:
-  //   - cross-machine name collisions when multiple OpenClaw/ClawX peers
+  //   - cross-machine name collisions when multiple OpenClaw/canvasland peers
   //     share a LAN (each falls back to "<name> (OpenClaw) (2)")
   //   - self-collisions on multi-homed hosts (Wi-Fi + Tailscale + utun ...)
-  //   - "ghost" record collisions after an unclean ClawX exit, because
+  //   - "ghost" record collisions after an unclean canvasland exit, because
   //     SIGKILL prevents ciao from emitting the mDNS goodbye record.
   //
-  // ClawX has no UI for LAN gateway discovery today, so the advertiser is
+  // canvasland has no UI for LAN gateway discovery today, so the advertiser is
   // pure log noise.  `OPENCLAW_DISABLE_BONJOUR=1` short-circuits
   // `startGatewayBonjourAdvertiser()` (openclaw `src/infra/bonjour.ts`,
   // `isDisabledByEnv()`).  Set after the `forkEnv` spread so any

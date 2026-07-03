@@ -1,4 +1,4 @@
-; ClawX Custom NSIS Installer/Uninstaller Script
+; canvasland Custom NSIS Installer/Uninstaller Script
 ;
 ; Install: enables long paths, adds resources\cli to user PATH for openclaw CLI.
 ; Uninstall: removes the PATH entry and optionally deletes user data.
@@ -18,7 +18,7 @@ Var /GLOBAL clawxRollbackDir
 !macroend
 
 !ifndef BUILD_UNINSTALLER
-Function ClawXMoveLegacyInstallDir
+Function canvaslandMoveLegacyInstallDir
   Exch $R6
 
   ${if} $R6 == ""
@@ -29,7 +29,7 @@ Function ClawXMoveLegacyInstallDir
   ${endIf}
 
   IfFileExists "$R6\" 0 _clawx_legacy_move_done
-    DetailPrint "Moving previous ClawX installation at $R6 out of the way..."
+    DetailPrint "Moving previous canvasland installation at $R6 out of the way..."
     SetOutPath $TEMP
     nsExec::ExecToStack `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Get-CimInstance -ClassName Win32_Process | Where-Object { $$_.ExecutablePath -and $$_.ExecutablePath.StartsWith('$R6', [System.StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"`
     Pop $0
@@ -54,7 +54,7 @@ Function ClawXMoveLegacyInstallDir
       ClearErrors
       Rename "$R6" "$R6._stale_$R8"
       IfErrors 0 _clawx_legacy_stale_moved
-      DetailPrint "Removing previous ClawX installation at $R6..."
+      DetailPrint "Removing previous canvasland installation at $R6..."
       nsExec::ExecToStack 'cmd.exe /c rd /s /q "$R6"'
       Pop $0
       Pop $1
@@ -70,7 +70,7 @@ FunctionEnd
 !macro clawxMoveLegacyInstallDir ROOT_KEY
   ReadRegStr $R6 ${ROOT_KEY} "${INSTALL_REGISTRY_KEY}" InstallLocation
   Push $R6
-  Call ClawXMoveLegacyInstallDir
+  Call canvaslandMoveLegacyInstallDir
 !macroend
 !endif
 
@@ -79,7 +79,7 @@ FunctionEnd
   ; Make stage logs visible on assisted installers (defaults to hidden).
   SetDetailsPrint both
   DetailPrint "Preparing installation..."
-  DetailPrint "Extracting ClawX runtime files. This can take a few minutes on slower disks or while antivirus scanning is active."
+  DetailPrint "Extracting canvasland runtime files. This can take a few minutes on slower disks or while antivirus scanning is active."
 
   ${nsProcess::FindProcess} "${APP_EXECUTABLE_FILENAME}" $R0
 
@@ -107,7 +107,7 @@ FunctionEnd
     DetailPrint `Closing running "${PRODUCT_NAME}"...`
 
     # Kill ALL processes whose executable lives inside $INSTDIR.
-    # This covers ClawX.exe (multiple Electron processes), openclaw-gateway.exe,
+    # This covers canvasland.exe (multiple Electron processes), openclaw-gateway.exe,
     # python.exe (skills runtime), uv.exe (package manager), and any other
     # child process that might hold file locks in the installation directory.
     #
@@ -140,7 +140,7 @@ FunctionEnd
       ${nsProcess::Unload}
   ${endIf}
 
-  ; Even if ClawX.exe was not detected as running, orphan child processes
+  ; Even if canvasland.exe was not detected as running, orphan child processes
   ; (python.exe, openclaw-gateway.exe, uv.exe, etc.) from a previous crash
   ; or unclean shutdown may still hold file locks inside $INSTDIR.
   ; Unconditionally kill any process whose executable lives in the install dir.
@@ -149,7 +149,7 @@ FunctionEnd
   Pop $1
 
   ; Always kill known process names as a belt-and-suspenders approach.
-  ; PowerShell path-based kill may miss processes if the old ClawX was installed
+  ; PowerShell path-based kill may miss processes if the old canvasland was installed
   ; in a different directory than $INSTDIR (e.g., per-machine -> per-user migration).
   ; taskkill is name-based and catches processes regardless of their install location.
   nsExec::ExecToStack 'taskkill /F /T /IM "${APP_EXECUTABLE_FILENAME}"'
@@ -168,7 +168,7 @@ FunctionEnd
   ; Do not continue while the old UI process is still alive. Continuing in that
   ; state can leave the running old process/window in place, making the user see
   ; the old version after an otherwise successful extract.  Use process-list
-  ; commands instead of nsProcess here: field diagnostics showed ClawX.exe can
+  ; commands instead of nsProcess here: field diagnostics showed canvasland.exe can
   ; remain alive while the old installer still reports success; this check must
   ; fail closed even when taskkill or the nsProcess plugin misses/elevates poorly.
   StrCpy $R7 0
@@ -194,7 +194,7 @@ FunctionEnd
       ${if} $R7 < 5
         Goto _clawx_verify_closed
       ${endIf}
-      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "ClawX is still running and cannot be replaced safely. Please close ClawX and retry installation." /SD IDCANCEL IDRETRY _clawx_verify_closed
+      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "canvasland is still running and cannot be replaced safely. Please close canvasland and retry installation." /SD IDCANCEL IDRETRY _clawx_verify_closed
       SetErrorLevel 2
       Quit
     ${endIf}
@@ -218,7 +218,7 @@ FunctionEnd
   ; locked files.  electron-builder's extractUsing7za macro extracts to a
   ; temp folder first, then uses `CopyFiles /SILENT` to copy into $INSTDIR.
   ; If ANY file in $INSTDIR is still locked, CopyFiles fails and triggers a
-  ; "Can't modify ClawX's files" retry loop -> "ClawX 无法关闭" dialog.
+  ; "Can't modify canvasland's files" retry loop -> "canvasland 无法关闭" dialog.
   ;
   ; Strategy: rename (move) the old $INSTDIR out of the way.  Rename works
   ; even when AV/indexer have files open for reading (they use
@@ -260,7 +260,7 @@ FunctionEnd
       RMDir "$INSTDIR"
       IfFileExists "$INSTDIR\" 0 _recreate_clean_instdir
         DetailPrint "Failed to remove previous installation directory; aborting to avoid leaving the old version installed."
-        MessageBox MB_OK|MB_ICONEXCLAMATION "Unable to replace the previous ClawX installation because files are still locked. Please close ClawX and retry installation." /SD IDOK
+        MessageBox MB_OK|MB_ICONEXCLAMATION "Unable to replace the previous canvasland installation because files are still locked. Please close canvasland and retry installation." /SD IDOK
         SetErrorLevel 2
         Quit
       _recreate_clean_instdir:
@@ -291,7 +291,7 @@ FunctionEnd
 !macroend
 
 ; Override electron-builder's handleUninstallResult to prevent the
-; "ClawX 无法关闭" retry dialog when the old uninstaller fails.
+; "canvasland 无法关闭" retry dialog when the old uninstaller fails.
 ;
 ; During upgrades, electron-builder copies the old uninstaller to a temp dir
 ; and runs it silently.  The old uninstaller uses atomicRMDir to rename every
@@ -326,7 +326,7 @@ FunctionEnd
   ; Now that the new files and current-hive registry entries have been written,
   ; remove stale entries from the opposite hive so Windows Apps & Features does
   ; not continue showing the old version after cross-hive upgrades.
-  DetailPrint "Clearing stale ClawX registry entries from the opposite install scope..."
+  DetailPrint "Clearing stale canvasland registry entries from the opposite install scope..."
   ${if} $installMode == "all"
     DeleteRegKey HKCU "${UNINSTALL_REGISTRY_KEY}"
     DeleteRegKey HKCU "${INSTALL_REGISTRY_KEY}"
@@ -343,7 +343,7 @@ FunctionEnd
   ClearErrors
 
   ; Async cleanup of old dirs left by the rename loop in customCheckAppRunning.
-  ; Wait 60s before starting deletion to avoid I/O contention with ClawX's
+  ; Wait 60s before starting deletion to avoid I/O contention with canvasland's
   ; first launch (Windows Defender scan, ASAR mapping, etc.).
   ; ExecShell SW_HIDE is completely detached from NSIS and avoids pipe blocking.
   IfFileExists "$INSTDIR._stale_0\" 0 _ci_stale_cleaned
@@ -416,11 +416,11 @@ FunctionEnd
 
   ; Ask user if they want to remove AppData (preserves .openclaw)
   MessageBox MB_YESNO|MB_ICONQUESTION \
-    "Do you want to remove ClawX application data?$\r$\n$\r$\nThis will delete:$\r$\n  • AppData\Local\clawx (local app data)$\r$\n  • AppData\Roaming\clawx (roaming app data)$\r$\n$\r$\nYour .openclaw folder (configuration & skills) will be preserved.$\r$\nSelect 'No' to keep all data for future reinstallation." \
+    "Do you want to remove canvasland application data?$\r$\n$\r$\nThis will delete:$\r$\n  • AppData\Local\clawx (local app data)$\r$\n  • AppData\Roaming\clawx (roaming app data)$\r$\n$\r$\nYour .openclaw folder (configuration & skills) will be preserved.$\r$\nSelect 'No' to keep all data for future reinstallation." \
     /SD IDNO IDYES _cu_removeData IDNO _cu_skipRemove
 
   _cu_removeData:
-    ; Kill any lingering ClawX processes (and their child process trees) to
+    ; Kill any lingering canvasland processes (and their child process trees) to
     ; release file locks on electron-store JSON files, Gateway sockets, etc.
     ${nsProcess::FindProcess} "${APP_EXECUTABLE_FILENAME}" $R0
     ${if} $R0 == 0

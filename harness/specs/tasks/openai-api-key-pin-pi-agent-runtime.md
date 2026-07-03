@@ -3,7 +3,7 @@ id: openai-api-key-pin-pi-agent-runtime
 title: Pin the embedded "pi" agent runtime on OpenAI provider entries to avoid the unbundled "codex" harness
 scenario: gateway-backend-communication
 taskType: runtime-bridge
-intent: Stop OpenClaw from auto-routing OpenAI provider entries (api.openai.com baseUrl) to the externally-bundled "codex" agent harness, which is not registered in the shipped ClawX/OpenClaw distribution and causes chats/heartbeats to fail with `Requested agent harness "codex" is not registered.`. Pin `agentRuntime.id = "pi"` on every `models.providers.openai` and `models.providers.openai-codex` entry ClawX writes, and self-heal existing on-disk entries before provider switches and before Gateway launch so upgrading users do not have to re-save their provider manually.
+intent: Stop OpenClaw from auto-routing OpenAI provider entries (api.openai.com baseUrl) to the externally-bundled "codex" agent harness, which is not registered in the shipped canvasland/OpenClaw distribution and causes chats/heartbeats to fail with `Requested agent harness "codex" is not registered.`. Pin `agentRuntime.id = "pi"` on every `models.providers.openai` and `models.providers.openai-codex` entry canvasland writes, and self-heal existing on-disk entries before provider switches and before Gateway launch so upgrading users do not have to re-save their provider manually.
 touchedAreas:
   - harness/specs/tasks/openai-api-key-pin-pi-agent-runtime.md
   - electron/utils/openclaw-auth.ts
@@ -13,8 +13,8 @@ touchedAreas:
 expectedUserBehavior:
   - Configuring OpenAI with an API key (default `https://api.openai.com/v1` baseUrl) and starting a chat succeeds without `Requested agent harness "codex" is not registered.` from the Gateway.
   - OpenAI browser-OAuth/Codex accounts that use the runtime provider key `openai-codex` also run through the embedded `pi` runtime unless the user has explicitly configured a different installed harness.
-  - Upgrading from an earlier ClawX build that wrote `openai` or `openai-codex` provider entries without `agentRuntime` self-heals those entries on the next provider switch and during pre-launch config sanitization before Gateway reads the config.
-  - A pre-existing user-supplied non-empty `agentRuntime.id` is preserved; the ClawX pin only fills missing runtime policy.
+  - Upgrading from an earlier canvasland build that wrote `openai` or `openai-codex` provider entries without `agentRuntime` self-heals those entries on the next provider switch and during pre-launch config sanitization before Gateway reads the config.
+  - A pre-existing user-supplied non-empty `agentRuntime.id` is preserved; the canvasland pin only fills missing runtime policy.
 requiredProfiles:
   - fast
   - comms
@@ -26,7 +26,7 @@ requiredRules:
 requiredTests:
   - tests/unit/openclaw-auth.test.ts
 acceptance:
-  - `electron/utils/openclaw-auth.ts` applies a shared OpenAI runtime-pin helper from all ClawX write/self-heal paths and pins `agentRuntime: { id: 'pi' }` on `models.providers.openai` and `models.providers.openai-codex` entries that lack a non-empty runtime id.
+  - `electron/utils/openclaw-auth.ts` applies a shared OpenAI runtime-pin helper from all canvasland write/self-heal paths and pins `agentRuntime: { id: 'pi' }` on `models.providers.openai` and `models.providers.openai-codex` entries that lack a non-empty runtime id.
   - `syncProviderConfigToOpenClaw(...)`, `setOpenClawDefaultModel(...)`, and `setOpenClawDefaultModelWithOverride(...)` continue to pin OpenAI provider entries through `upsertOpenClawProviderEntry`.
   - `ensureOpenClawProviderAgentRuntimePins()` still repairs legacy on-disk entries and is invoked inside `syncDefaultProviderToRuntime` right after `pruneInvalidApiProviderEntries`, before either the OAuth or non-OAuth branch runs.
   - `sanitizeOpenClawConfig()` repairs missing OpenAI runtime pins during Gateway pre-launch sanitization so a stale config cannot boot into the unregistered `codex` harness path.
@@ -44,7 +44,7 @@ OpenClaw 2026.5+ ships a provider-routing policy
 [node_modules/openclaw/dist/openai-codex-routing-qYpDQzyG.js](node_modules/openclaw/dist/openai-codex-routing-qYpDQzyG.js))
 that can route OpenAI-compatible official endpoints through a separate
 `codex` agent harness. The intent is to give OpenAI/Codex accounts a richer
-trajectory, but the shipped ClawX distribution does not register an agent
+trajectory, but the shipped canvasland distribution does not register an agent
 harness with id `"codex"`.
 
 When an OpenAI provider entry lacks an explicit runtime pin, affected chat and
@@ -55,7 +55,7 @@ Requested agent harness "codex" is not registered.
 ```
 
 Provider-side validation can still pass (credentials and protocol are valid);
-the failure is about agent harness selection. ClawX therefore writes an
+the failure is about agent harness selection. canvasland therefore writes an
 explicit `agentRuntime: { id: "pi" }` for OpenAI provider entries that it owns.
 OpenClaw's policy resolver honours explicit provider/model runtime policy
 before falling into the codex auto-routing heuristic.

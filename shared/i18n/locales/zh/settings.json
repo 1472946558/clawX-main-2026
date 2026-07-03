@@ -266,7 +266,7 @@
   },
   "about": {
     "title": "关于",
-    "appName": "ClawX",
+    "appName": "canvasland",
     "tagline": "图形化 AI 助手",
     "basedOn": "基于 OpenClaw",
     "version": "版本 {{version}}",
