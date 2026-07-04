@@ -703,42 +703,44 @@ export function TokenTopUp() {
                 </div>
                 <div data-testid="token-topup-payment-method" className="mt-4 rounded-lg border border-black/5 bg-surface-input p-4 dark:border-white/10">
                   <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.paymentMethod')}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3 w-full sm:max-w-[50%]">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant={selectedPaymentKind === 'wechat' ? 'default' : 'outline'}
+                        onClick={() => setSelectedPaymentKind('wechat')}
+                        className="rounded-lg"
+                      >
+                        {t('tokenTopUp.wechatPay')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={selectedPaymentKind === 'alipay' ? 'default' : 'outline'}
+                        onClick={() => setSelectedPaymentKind('alipay')}
+                        className="rounded-lg"
+                      >
+                        {t('tokenTopUp.alipayPay')}
+                      </Button>
+                    </div>
                     <Button
-                      type="button"
-                      variant={selectedPaymentKind === 'wechat' ? 'default' : 'outline'}
-                      onClick={() => setSelectedPaymentKind('wechat')}
-                      className="rounded-lg"
+                      data-testid="token-topup-create-selected-payment-qr"
+                      onClick={handleCreateSelectedQrPayment}
+                      disabled={
+                        creatingPaymentKey !== null
+                        || !selectedRechargeTier
+                        || selectedRechargeTier.amount < TEST_MIN_RECHARGE_AMOUNT
+                        || !selectedPaymentConfigured
+                      }
+                      className="mt-4 w-full rounded-lg"
                     >
-                      {t('tokenTopUp.wechatPay')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={selectedPaymentKind === 'alipay' ? 'default' : 'outline'}
-                      onClick={() => setSelectedPaymentKind('alipay')}
-                      className="rounded-lg"
-                    >
-                      {t('tokenTopUp.alipayPay')}
+                      {creatingPaymentKey ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <QrCode className="h-4 w-4 mr-2" />
+                      )}
+                      {t('tokenTopUp.createPaymentQr')}
                     </Button>
                   </div>
-                  <Button
-                    data-testid="token-topup-create-selected-payment-qr"
-                    onClick={handleCreateSelectedQrPayment}
-                    disabled={
-                      creatingPaymentKey !== null
-                      || !selectedRechargeTier
-                      || selectedRechargeTier.amount < TEST_MIN_RECHARGE_AMOUNT
-                      || !selectedPaymentConfigured
-                    }
-                    className="mt-4 w-full rounded-lg"
-                  >
-                    {creatingPaymentKey ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <QrCode className="h-4 w-4 mr-2" />
-                    )}
-                    {t('tokenTopUp.createPaymentQr')}
-                  </Button>
                 </div>
               </div>
               {selectedPaymentKind === 'wechat' ? (
