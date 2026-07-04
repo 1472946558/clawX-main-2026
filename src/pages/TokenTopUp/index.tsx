@@ -21,6 +21,8 @@ const CANVASLAND_ACCOUNT_ID = 'canvasland-newapi';
 const DEFAULT_MODEL_ID = 'gpt-4o-mini';
 const DEFAULT_BASE_URL = 'https://feiniu.space';
 const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
+const DEFAULT_EPAY_GATEWAY_URL = 'https://mzf.mapay.cc/xpay/epay';
+const DEFAULT_EPAY_PID = '11222';
 const DEFAULT_RECHARGE_TIERS = [
   { amount: 10, points: 10000 },
   { amount: 20, points: 20000 },
@@ -76,7 +78,6 @@ export function TokenTopUp() {
   const [savedRootUrl, setSavedRootUrl] = useState(DEFAULT_BASE_URL);
   const [balance, setBalance] = useState<CanvaslandBalanceResult | null>(null);
   const [refreshingBalance, setRefreshingBalance] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>('blueocean');
   const [blueOceanConfig, setBlueOceanConfig] = useState<BlueOceanPayConfigResult | null>(null);
   const [showBlueOceanForm, setShowBlueOceanForm] = useState(false);
   const [blueOceanAppid, setBlueOceanAppid] = useState('');
@@ -87,8 +88,8 @@ export function TokenTopUp() {
   const [clearingBlueOcean, setClearingBlueOcean] = useState(false);
   const [epayConfig, setEpayConfig] = useState<EpayConfigResult | null>(null);
   const [showEpayForm, setShowEpayForm] = useState(false);
-  const [epayGatewayUrl, setEpayGatewayUrl] = useState('');
-  const [epayPid, setEpayPid] = useState('');
+  const [epayGatewayUrl, setEpayGatewayUrl] = useState(DEFAULT_EPAY_GATEWAY_URL);
+  const [epayPid, setEpayPid] = useState(DEFAULT_EPAY_PID);
   const [epayMerchantKey, setEpayMerchantKey] = useState('');
   const [epayNotifyUrl, setEpayNotifyUrl] = useState('');
   const [epayReturnUrl, setEpayReturnUrl] = useState('');
@@ -152,8 +153,8 @@ export function TokenTopUp() {
     try {
       const config = await hostApi.canvasland.epayConfig();
       setEpayConfig(config);
-      setEpayGatewayUrl(config.config?.gatewayUrl || '');
-      setEpayPid(config.config?.pid || '');
+      setEpayGatewayUrl(config.config?.gatewayUrl || DEFAULT_EPAY_GATEWAY_URL);
+      setEpayPid(config.config?.pid || DEFAULT_EPAY_PID);
       setEpayNotifyUrl(config.config?.notifyUrl || '');
       setEpayReturnUrl(config.config?.returnUrl || '');
       setEpaySiteName(config.config?.siteName || 'canvasland');
@@ -364,17 +365,17 @@ export function TokenTopUp() {
     setCreatingPaymentAmount(tier.amount);
     try {
       let payment: QrPaymentState;
-      if (selectedProvider === 'blueocean') {
+      if (selectedPaymentKind === 'wechat') {
         const result: BlueOceanPayPaymentResult = await hostApi.canvasland.createBlueOceanWechatPayment({
           amount: tier.amount,
           points: tier.points,
           body: `canvasland ${tier.points.toLocaleString()} ${t('tokenTopUp.points')}`,
-          paymentMethod: selectedPaymentKind === 'wechat' ? 'wechat.qrcode' : 'alipay.qrcode',
+          paymentMethod: 'wechat.qrcode',
         });
         payment = {
           success: result.success,
           provider: 'blueocean',
-          paymentKind: selectedPaymentKind,
+          paymentKind: 'wechat',
           qrcodeDataUrl: result.qrcodeDataUrl,
           outTradeNo: result.outTradeNo,
           sn: result.sn,
@@ -386,12 +387,12 @@ export function TokenTopUp() {
           amount: tier.amount,
           points: tier.points,
           name: `canvasland ${tier.points.toLocaleString()} ${t('tokenTopUp.points')}`,
-          paymentMethod: selectedPaymentKind === 'wechat' ? 'wxpay' : 'alipay',
+          paymentMethod: 'alipay',
         });
         payment = {
           success: result.success,
           provider: 'epay',
-          paymentKind: selectedPaymentKind,
+          paymentKind: 'alipay',
           qrcodeDataUrl: result.qrcodeDataUrl,
           outTradeNo: result.outTradeNo,
           tradeNo: result.tradeNo,
@@ -576,27 +577,6 @@ export function TokenTopUp() {
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.currentEndpoint')}</p>
                 <p className="mt-2 break-all font-mono text-sm text-foreground">{effectiveRootUrl}</p>
               </div>
-              <div data-testid="token-topup-payment-provider" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
-                <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.paymentProvider')}</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant={selectedProvider === 'blueocean' ? 'default' : 'outline'}
-                    onClick={() => setSelectedProvider('blueocean')}
-                    className="rounded-lg"
-                  >
-                    {t('tokenTopUp.blueOceanPay')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={selectedProvider === 'epay' ? 'default' : 'outline'}
-                    onClick={() => setSelectedProvider('epay')}
-                    className="rounded-lg"
-                  >
-                    {t('tokenTopUp.epayPay')}
-                  </Button>
-                </div>
-              </div>
               <div data-testid="token-topup-payment-method" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.paymentMethod')}</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
@@ -632,7 +612,7 @@ export function TokenTopUp() {
                         onClick={() => handleCreateQrPayment(tier)}
                         disabled={
                           creatingPaymentAmount !== null
-                          || (selectedProvider === 'blueocean' ? !blueOceanConfig?.configured : !epayConfig?.configured)
+                          || (selectedPaymentKind === 'wechat' ? !blueOceanConfig?.configured : !epayConfig?.configured)
                         }
                         size="sm"
                         className="mt-3 w-full rounded-lg"
@@ -648,7 +628,7 @@ export function TokenTopUp() {
                   ))}
                 </div>
               </div>
-              {selectedProvider === 'blueocean' ? (
+              {selectedPaymentKind === 'wechat' ? (
                 <div data-testid="token-topup-blueocean-config" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -851,7 +831,7 @@ export function TokenTopUp() {
                         {qrPayment.provider === 'blueocean'
                           ? qrPayment.tradeState || '-'
                           : typeof qrPayment.status === 'number'
-                          ? qrPayment.status === 1 ? t('tokenTopUp.paymentPaid') : t('tokenTopUp.paymentUnpaid')
+                          ? qrPayment.status === 7 ? t('tokenTopUp.paymentPaid') : t('tokenTopUp.paymentUnpaid')
                           : '-'}
                       </p>
                     </div>

@@ -41,7 +41,7 @@ const BLUEOCEAN_QR_PAYMENT_METHODS = new Set<BlueOceanPayPaymentMethod>([
   'wechat.qrcode',
   'alipay.qrcode',
 ]);
-const EPAY_PAYMENT_METHODS = new Set<EpayPaymentMethod>(['wxpay', 'alipay']);
+const EPAY_PAYMENT_METHODS = new Set<EpayPaymentMethod>(['alipay']);
 
 function normalizeRootUrl(url: string): string {
   const trimmed = url.trim().replace(/\/+$/, '');
@@ -213,17 +213,28 @@ function signBlueOceanPayload(payload: Record<string, unknown>, merchantKey: str
     .toUpperCase();
 }
 
-function signEpayPayload(payload: Record<string, unknown>, merchantKey: string): string {
-  const signString = Object.keys(payload)
-    .filter((key) => key !== 'sign' && key !== 'sign_type')
-    .filter((key) => payload[key] !== undefined && payload[key] !== null && payload[key] !== '')
+function toEpaySignValue(value: unknown): string {
+  if (isRecord(value)) {
+    return `{${Object.keys(value)
+      .filter((key) => value[key] !== undefined && value[key] !== null && value[key] !== '')
+      .sort()
+      .map((key) => `${key}=${toEpaySignValue(value[key])}`)
+      .join('&')}}`;
+  }
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  return String(value);
+}
+
+function signEpayParam(param: Record<string, unknown>, apiKey: string): string {
+  const signString = Object.keys(param)
+    .filter((key) => param[key] !== undefined && param[key] !== null && param[key] !== '')
     .sort()
-    .map((key) => `${key}=${String(payload[key])}`)
+    .map((key) => `${key}=${toEpaySignValue(param[key])}`)
     .join('&');
-  return createHash('md5')
-    .update(`${signString}${merchantKey}`, 'utf8')
+  return createHash('sha256')
+    .update(`${signString}&key=${apiKey}`, 'utf8')
     .digest('hex')
-    .toLowerCase();
+    .toUpperCase();
 }
 
 async function getEpayConfig(): Promise<EpayConfig> {
@@ -283,7 +294,7 @@ async function requireEpayCredentials(): Promise<{
 function normalizeEpayPaymentMethod(value: unknown): EpayPaymentMethod {
   return typeof value === 'string' && EPAY_PAYMENT_METHODS.has(value as EpayPaymentMethod)
     ? value as EpayPaymentMethod
-    : 'wxpay';
+    : 'alipay';
 }
 
 function epayUrl(gatewayUrl: string, path: string): string {
@@ -293,21 +304,21 @@ function epayUrl(gatewayUrl: string, path: string): string {
 async function fetchEpayJson(
   gatewayUrl: string,
   path: string,
-  payload: Record<string, unknown>,
+  param: Record<string, unknown>,
+  apiKey: string,
 ): Promise<unknown> {
-  const body = new URLSearchParams();
-  for (const [key, value] of Object.entries(payload)) {
-    if (value === undefined || value === null || value === '') continue;
-    body.set(key, String(value));
-  }
+  const body = {
+    sign: signEpayParam(param, apiKey),
+    param,
+  };
   const response = await proxyAwareFetch(epayUrl(gatewayUrl, path), {
     method: 'POST',
     headers: {
       Accept: 'application/json',
-      'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+      'Content-Type': 'application/json; charset=utf-8',
       'User-Agent': 'canvasland/1.0',
     },
-    body: body.toString(),
+    body: JSON.stringify(body),
   });
   const text = await response.text();
   let parsed: unknown = null;
@@ -319,7 +330,14 @@ async function fetchEpayJson(
     }
   }
   if (!response.ok) {
-    throw new Error(isRecord(parsed) && typeof parsed.msg === 'string' ? parsed.msg : `HTTP ${response.status}`);
+    const message = isRecord(parsed)
+      ? typeof parsed.message === 'string'
+        ? parsed.message
+        : typeof parsed.msg === 'string'
+          ? parsed.msg
+          : `HTTP ${response.status}`
+      : `HTTP ${response.status}`;
+    throw new Error(message);
   }
   return parsed;
 }
@@ -328,10 +346,14 @@ function unwrapEpayData(value: unknown): Record<string, unknown> {
   if (!isRecord(value)) throw new Error('Invalid Epay response');
   const code = getNumber(value.code);
   if (code !== 1) {
-    const message = typeof value.msg === 'string' ? value.msg : `Epay error ${code ?? 'unknown'}`;
+    const message = typeof value.message === 'string'
+      ? value.message
+      : typeof value.msg === 'string'
+        ? value.msg
+        : `Epay error ${code ?? 'unknown'}`;
     throw new Error(message);
   }
-  return value;
+  return isRecord(value.data) ? value.data : {};
 }
 
 async function getBlueOceanConfig(): Promise<BlueOceanPayConfig> {
@@ -657,19 +679,34 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
         const paymentMethod = normalizeEpayPaymentMethod(payload.paymentMethod);
         const outTradeNo = generateOutTradeNo();
         const requestPayload: Record<string, unknown> = {
-          pid: config.pid,
-          type: paymentMethod,
-          out_trade_no: outTradeNo,
-          notify_url: config.notifyUrl,
-          return_url: config.returnUrl,
-          name: payload.name?.trim() || `canvasland ${Math.round(payload.points || 0).toLocaleString()} points`,
-          money: amount.toFixed(2),
-          sitename: config.siteName || 'canvasland',
-          param: payload.points ? `points=${Math.round(payload.points)}` : undefined,
-          sign_type: 'MD5',
+          epayAccount: config.pid,
+          version: 'V2.0.0',
+          merchantName: config.siteName || 'canvasland',
+          merchantOrderNo: outTradeNo,
+          amount: amount.toFixed(2),
+          paymentCurrency: 'CNY',
+          checkOutType: '0',
+          currency: 'CNY',
+          notifyUrl: config.notifyUrl,
+          successUrl: config.returnUrl,
+          failUrl: config.returnUrl,
+          successUrlMethod: 'GET',
+          failUrlMethod: 'GET',
+          remark: payload.name?.trim() || `canvasland ${Math.round(payload.points || 0).toLocaleString()} points`,
+          language: 'CN',
+          extendFields: payload.points
+            ? {
+                paymentMethod,
+                points: String(Math.round(payload.points)),
+              }
+            : undefined,
         };
-        requestPayload.sign = signEpayPayload(requestPayload, merchantKey);
-        const raw = await fetchEpayJson(config.gatewayUrl, '/mapi.php', requestPayload);
+        const raw = await fetchEpayJson(
+          config.gatewayUrl,
+          '/capi/openapi/gateway/sendTransaction',
+          requestPayload,
+          merchantKey,
+        );
         const data = unwrapEpayData(raw);
         const qrcode = typeof data.qrcode === 'string'
           ? data.qrcode
@@ -679,12 +716,16 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
               ? data.payurl
               : typeof data.url === 'string'
                 ? data.url
+                : typeof data.epayUrl === 'string'
+                  ? data.epayUrl
                 : '';
         const payUrl = typeof data.payurl === 'string'
           ? data.payurl
           : typeof data.url === 'string'
             ? data.url
-            : undefined;
+            : typeof data.epayUrl === 'string'
+              ? data.epayUrl
+              : undefined;
         if (!qrcode) throw new Error('Epay response did not include a QR code or pay URL');
         return {
           success: true,
@@ -693,8 +734,8 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
           qrcode,
           qrcodeDataUrl: renderQrPngDataUrl(qrcode),
           payUrl,
-          outTradeNo: typeof data.out_trade_no === 'string' ? data.out_trade_no : outTradeNo,
-          tradeNo: typeof data.trade_no === 'string' ? data.trade_no : undefined,
+          outTradeNo: typeof data.merchantOrderNo === 'string' ? data.merchantOrderNo : outTradeNo,
+          tradeNo: typeof data.epayOrderNo === 'string' ? data.epayOrderNo : undefined,
           status: toInt(data.status),
           raw: data,
         };
@@ -710,34 +751,23 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
     queryEpayPayment: async (payload: EpayQueryPayload): Promise<EpayQueryResult> => {
       try {
         const { config, merchantKey } = await requireEpayCredentials();
-        const query = new URLSearchParams();
-        query.set('act', 'order');
-        query.set('pid', config.pid);
-        query.set('key', merchantKey);
-        if (payload.tradeNo?.trim()) query.set('trade_no', payload.tradeNo.trim());
-        if (payload.outTradeNo?.trim()) query.set('out_trade_no', payload.outTradeNo.trim());
-        if (!query.has('trade_no') && !query.has('out_trade_no')) throw new Error('Order number is required');
-        const response = await proxyAwareFetch(epayUrl(config.gatewayUrl, `/api.php?${query.toString()}`), {
-          headers: {
-            Accept: 'application/json',
-            'User-Agent': 'canvasland/1.0',
+        const merchantOrderNo = payload.outTradeNo?.trim();
+        if (!merchantOrderNo) throw new Error('Order number is required');
+        const raw = await fetchEpayJson(
+          config.gatewayUrl,
+          '/capi/openapi/payinApi/queryTransaction',
+          {
+            epayAccount: config.pid,
+            version: 'V2.0.0',
+            merchantOrderNo,
           },
-        });
-        const text = await response.text();
-        let parsed: unknown = null;
-        if (text) {
-          try {
-            parsed = JSON.parse(text) as unknown;
-          } catch {
-            parsed = { msg: text };
-          }
-        }
-        if (!response.ok) throw new Error(isRecord(parsed) && typeof parsed.msg === 'string' ? parsed.msg : `HTTP ${response.status}`);
-        const data = unwrapEpayData(parsed);
+          merchantKey,
+        );
+        const data = unwrapEpayData(raw);
         return {
           success: true,
-          tradeNo: typeof data.trade_no === 'string' ? data.trade_no : payload.tradeNo,
-          outTradeNo: typeof data.out_trade_no === 'string' ? data.out_trade_no : payload.outTradeNo,
+          tradeNo: typeof data.epayOrderNo === 'string' ? data.epayOrderNo : payload.tradeNo,
+          outTradeNo: typeof data.merchantOrderNo === 'string' ? data.merchantOrderNo : payload.outTradeNo,
           status: toInt(data.status),
           raw: data,
         };

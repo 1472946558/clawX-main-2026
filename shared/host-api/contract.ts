@@ -462,7 +462,7 @@ export type BlueOceanPayQueryResult = HostSuccess & {
   sn?: string;
   raw?: JsonRecord;
 };
-export type EpayPaymentMethod = 'wxpay' | 'alipay';
+export type EpayPaymentMethod = 'alipay';
 export type EpayConfig = {
   gatewayUrl?: string;
   pid?: string;
