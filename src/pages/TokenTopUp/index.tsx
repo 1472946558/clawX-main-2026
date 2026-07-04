@@ -23,13 +23,14 @@ const DEFAULT_BASE_URL = 'https://feiniu.space';
 const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
 const DEFAULT_EPAY_GATEWAY_URL = 'https://mzf.mapay.cc/xpay/epay';
 const DEFAULT_EPAY_PID = '11222';
+const POINTS_PER_CNY = 100;
 const DEFAULT_RECHARGE_TIERS = [
-  { amount: 10, points: 10000 },
-  { amount: 20, points: 20000 },
-  { amount: 50, points: 55000 },
-  { amount: 100, points: 120000 },
-  { amount: 200, points: 250000 },
-  { amount: 500, points: 700000 },
+  { amount: 10, points: 10 * POINTS_PER_CNY },
+  { amount: 20, points: 20 * POINTS_PER_CNY },
+  { amount: 50, points: 50 * POINTS_PER_CNY },
+  { amount: 100, points: 100 * POINTS_PER_CNY },
+  { amount: 200, points: 200 * POINTS_PER_CNY },
+  { amount: 500, points: 500 * POINTS_PER_CNY },
 ];
 
 type NewApiConnection = {
@@ -39,6 +40,10 @@ type NewApiConnection = {
 };
 type PaymentProvider = 'blueocean' | 'epay';
 type PaymentKind = 'wechat' | 'alipay';
+type RechargeTier = {
+  amount: number;
+  points: number;
+};
 type QrPaymentState = {
   success: boolean;
   provider: PaymentProvider;
@@ -69,6 +74,10 @@ function parseConnectionJson(value: string): NewApiConnection {
   return parsed as NewApiConnection;
 }
 
+function pointsForAmount(amount: number): number {
+  return Math.round(amount * POINTS_PER_CNY);
+}
+
 export function TokenTopUp() {
   const { t } = useTranslation('common');
   const [connectionJson, setConnectionJson] = useState('');
@@ -96,10 +105,11 @@ export function TokenTopUp() {
   const [epaySiteName, setEpaySiteName] = useState('canvasland');
   const [savingEpay, setSavingEpay] = useState(false);
   const [clearingEpay, setClearingEpay] = useState(false);
-  const [creatingPaymentAmount, setCreatingPaymentAmount] = useState<number | null>(null);
+  const [creatingPaymentKey, setCreatingPaymentKey] = useState<string | null>(null);
   const [selectedPaymentKind, setSelectedPaymentKind] = useState<PaymentKind>('wechat');
   const [qrPayment, setQrPayment] = useState<QrPaymentState | null>(null);
   const [queryingPayment, setQueryingPayment] = useState(false);
+  const [customAmount, setCustomAmount] = useState('');
 
   const parsedConnection = useMemo(() => {
     if (!connectionJson.trim()) return null;
@@ -114,6 +124,14 @@ export function TokenTopUp() {
   const rechargeTiers = useMemo(() => {
     return DEFAULT_RECHARGE_TIERS;
   }, []);
+  const customTier = useMemo<RechargeTier | null>(() => {
+    const amount = Number(customAmount);
+    if (!customAmount.trim() || !Number.isFinite(amount) || amount <= 0) return null;
+    return {
+      amount,
+      points: pointsForAmount(amount),
+    };
+  }, [customAmount]);
 
   const refreshBalance = useCallback(async () => {
     setRefreshingBalance(true);
@@ -361,8 +379,12 @@ export function TokenTopUp() {
     }
   };
 
-  const handleCreateQrPayment = async (tier: { amount: number; points: number }) => {
-    setCreatingPaymentAmount(tier.amount);
+  const handleCreateQrPayment = async (tier: RechargeTier, paymentKey: string) => {
+    if (!Number.isFinite(tier.amount) || tier.amount < 1 || tier.points < POINTS_PER_CNY) {
+      toast.error(t('tokenTopUp.errors.customAmountInvalid'));
+      return;
+    }
+    setCreatingPaymentKey(paymentKey);
     try {
       let payment: QrPaymentState;
       if (selectedPaymentKind === 'wechat') {
@@ -409,7 +431,7 @@ export function TokenTopUp() {
     } catch (error) {
       toast.error(`${t('tokenTopUp.errors.paymentFailed')}: ${toUserMessage(error)}`);
     } finally {
-      setCreatingPaymentAmount(null);
+      setCreatingPaymentKey(null);
     }
   };
 
@@ -600,24 +622,25 @@ export function TokenTopUp() {
               </div>
               <div data-testid="token-topup-recharge-tiers" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.amountOptions')}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t('tokenTopUp.pointsRate')}</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {rechargeTiers.map((tier) => (
                     <div key={tier.amount} className="rounded-lg bg-surface-input px-3 py-3">
                       <p className="text-sm font-semibold text-foreground">¥{tier.amount}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p data-testid={`token-topup-tier-points-${tier.amount}`} className="text-xs text-muted-foreground">
                         {tier.points.toLocaleString()} {t('tokenTopUp.points')}
                       </p>
                       <Button
                         data-testid={`token-topup-payment-qr-${tier.amount}`}
-                        onClick={() => handleCreateQrPayment(tier)}
+                        onClick={() => handleCreateQrPayment(tier, `fixed-${tier.amount}`)}
                         disabled={
-                          creatingPaymentAmount !== null
+                          creatingPaymentKey !== null
                           || (selectedPaymentKind === 'wechat' ? !blueOceanConfig?.configured : !epayConfig?.configured)
                         }
                         size="sm"
                         className="mt-3 w-full rounded-lg"
                       >
-                        {creatingPaymentAmount === tier.amount ? (
+                        {creatingPaymentKey === `fixed-${tier.amount}` ? (
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         ) : (
                           <QrCode className="h-4 w-4 mr-2" />
@@ -626,6 +649,48 @@ export function TokenTopUp() {
                       </Button>
                     </div>
                   ))}
+                </div>
+                <div className="mt-3 rounded-lg bg-surface-input px-3 py-3">
+                  <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                    <div className="grid gap-2">
+                      <Label htmlFor="token-topup-custom-amount">{t('tokenTopUp.customAmount')}</Label>
+                      <Input
+                        id="token-topup-custom-amount"
+                        data-testid="token-topup-custom-amount"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={customAmount}
+                        onChange={(event) => setCustomAmount(event.target.value)}
+                        placeholder={t('tokenTopUp.customAmountPlaceholder')}
+                        className="rounded-xl bg-background"
+                      />
+                      <p data-testid="token-topup-custom-points-preview" className="text-xs text-muted-foreground">
+                        {t('tokenTopUp.customPointsPreview', {
+                          points: customTier?.points.toLocaleString() || '0',
+                        })}
+                      </p>
+                    </div>
+                    <Button
+                      data-testid="token-topup-custom-payment-qr"
+                      onClick={() => customTier && handleCreateQrPayment(customTier, 'custom')}
+                      disabled={
+                        creatingPaymentKey !== null
+                        || !customTier
+                        || customTier.amount < 1
+                        || (selectedPaymentKind === 'wechat' ? !blueOceanConfig?.configured : !epayConfig?.configured)
+                      }
+                      size="sm"
+                      className="rounded-lg"
+                    >
+                      {creatingPaymentKey === 'custom' ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <QrCode className="h-4 w-4 mr-2" />
+                      )}
+                      {t('tokenTopUp.createPaymentQr')}
+                    </Button>
+                  </div>
                 </div>
               </div>
               {selectedPaymentKind === 'wechat' ? (
