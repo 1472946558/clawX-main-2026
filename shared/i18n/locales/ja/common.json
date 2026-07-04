@@ -94,9 +94,11 @@
         "checkedAt": "確認日時",
         "amountOptions": "固定チャージプラン",
         "pointsRate": "換算ルール：1 元 = 100 ポイント",
+        "selectedAmount": "選択金額",
         "customAmount": "カスタムチャージ金額",
-        "customAmountPlaceholder": "金額を入力、最低 1 元",
+        "customAmountPlaceholder": "テスト最低 0.01 元、正式版は 5 元以上に戻します",
         "customPointsPreview": "獲得予定ポイント：{{points}}",
+        "useCustomAmount": "カスタム金額を使用",
         "points": "ポイント",
         "paymentProvider": "決済プロバイダー",
         "blueOceanPay": "BlueOceanPay",
@@ -177,7 +179,7 @@
             "epayMissingMerchantKey": "EPAY API_KEY が必要です",
             "epayMissingNotifyUrl": "非同期通知 URL が必要です",
             "epayMissingReturnUrl": "決済後の戻り先 URL が必要です",
-            "customAmountInvalid": "カスタムチャージ金額は 1 元以上である必要があります",
+            "customAmountInvalid": "テストチャージ金額は 0.01 元以上である必要があります",
             "epayPaymentFailed": "Epay QR コードの生成に失敗しました",
             "epayQueryFailed": "Epay 注文の確認に失敗しました"
         }

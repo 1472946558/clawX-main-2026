@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { hostApi } from '@/lib/host-api';
 import { toUserMessage } from '@/lib/error-message';
 
@@ -24,7 +25,9 @@ const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
 const DEFAULT_EPAY_GATEWAY_URL = 'https://mzf.mapay.cc/xpay/epay';
 const DEFAULT_EPAY_PID = '11222';
 const POINTS_PER_CNY = 100;
+const TEST_MIN_RECHARGE_AMOUNT = 0.01;
 const DEFAULT_RECHARGE_TIERS = [
+  { amount: 5, points: 5 * POINTS_PER_CNY },
   { amount: 10, points: 10 * POINTS_PER_CNY },
   { amount: 20, points: 20 * POINTS_PER_CNY },
   { amount: 50, points: 50 * POINTS_PER_CNY },
@@ -107,7 +110,9 @@ export function TokenTopUp() {
   const [clearingEpay, setClearingEpay] = useState(false);
   const [creatingPaymentKey, setCreatingPaymentKey] = useState<string | null>(null);
   const [selectedPaymentKind, setSelectedPaymentKind] = useState<PaymentKind>('wechat');
+  const [selectedRechargeKey, setSelectedRechargeKey] = useState('fixed-5');
   const [qrPayment, setQrPayment] = useState<QrPaymentState | null>(null);
+  const [showQrDialog, setShowQrDialog] = useState(false);
   const [queryingPayment, setQueryingPayment] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
 
@@ -132,6 +137,14 @@ export function TokenTopUp() {
       points: pointsForAmount(amount),
     };
   }, [customAmount]);
+  const selectedRechargeTier = useMemo<RechargeTier | null>(() => {
+    if (selectedRechargeKey === 'custom') return customTier;
+    const amount = Number(selectedRechargeKey.replace('fixed-', ''));
+    return rechargeTiers.find((tier) => tier.amount === amount) || rechargeTiers[0] || null;
+  }, [customTier, rechargeTiers, selectedRechargeKey]);
+  const selectedPaymentConfigured = selectedPaymentKind === 'wechat'
+    ? Boolean(blueOceanConfig?.configured)
+    : Boolean(epayConfig?.configured);
 
   const refreshBalance = useCallback(async () => {
     setRefreshingBalance(true);
@@ -380,7 +393,7 @@ export function TokenTopUp() {
   };
 
   const handleCreateQrPayment = async (tier: RechargeTier, paymentKey: string) => {
-    if (!Number.isFinite(tier.amount) || tier.amount < 1 || tier.points < POINTS_PER_CNY) {
+    if (!Number.isFinite(tier.amount) || tier.amount < TEST_MIN_RECHARGE_AMOUNT || tier.points < 1) {
       toast.error(t('tokenTopUp.errors.customAmountInvalid'));
       return;
     }
@@ -424,6 +437,7 @@ export function TokenTopUp() {
       }
       setQrPayment(payment);
       if (payment.success) {
+        setShowQrDialog(true);
         toast.success(t('tokenTopUp.paymentQrCreated'));
       } else {
         toast.error(`${t('tokenTopUp.errors.paymentFailed')}: ${payment.error || t('tokenTopUp.notAvailable')}`);
@@ -433,6 +447,14 @@ export function TokenTopUp() {
     } finally {
       setCreatingPaymentKey(null);
     }
+  };
+
+  const handleCreateSelectedQrPayment = async () => {
+    if (!selectedRechargeTier) {
+      toast.error(t('tokenTopUp.errors.customAmountInvalid'));
+      return;
+    }
+    await handleCreateQrPayment(selectedRechargeTier, selectedRechargeKey);
   };
 
   const handleQueryQrPayment = async () => {
@@ -493,7 +515,7 @@ export function TokenTopUp() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr] overflow-y-auto pb-10">
+        <div className="overflow-y-auto pb-10 space-y-6">
           <section className="rounded-2xl border border-black/5 dark:border-white/10 bg-surface-modal p-6">
             <div className="mb-6 flex items-start gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
@@ -599,58 +621,43 @@ export function TokenTopUp() {
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.currentEndpoint')}</p>
                 <p className="mt-2 break-all font-mono text-sm text-foreground">{effectiveRootUrl}</p>
               </div>
-              <div data-testid="token-topup-payment-method" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
-                <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.paymentMethod')}</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant={selectedPaymentKind === 'wechat' ? 'default' : 'outline'}
-                    onClick={() => setSelectedPaymentKind('wechat')}
-                    className="rounded-lg"
-                  >
-                    {t('tokenTopUp.wechatPay')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={selectedPaymentKind === 'alipay' ? 'default' : 'outline'}
-                    onClick={() => setSelectedPaymentKind('alipay')}
-                    className="rounded-lg"
-                  >
-                    {t('tokenTopUp.alipayPay')}
-                  </Button>
-                </div>
-              </div>
               <div data-testid="token-topup-recharge-tiers" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
-                <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.amountOptions')}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{t('tokenTopUp.pointsRate')}</p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {rechargeTiers.map((tier) => (
-                    <div key={tier.amount} className="rounded-lg bg-surface-input px-3 py-3">
-                      <p className="text-sm font-semibold text-foreground">¥{tier.amount}</p>
-                      <p data-testid={`token-topup-tier-points-${tier.amount}`} className="text-xs text-muted-foreground">
-                        {tier.points.toLocaleString()} {t('tokenTopUp.points')}
-                      </p>
-                      <Button
-                        data-testid={`token-topup-payment-qr-${tier.amount}`}
-                        onClick={() => handleCreateQrPayment(tier, `fixed-${tier.amount}`)}
-                        disabled={
-                          creatingPaymentKey !== null
-                          || (selectedPaymentKind === 'wechat' ? !blueOceanConfig?.configured : !epayConfig?.configured)
-                        }
-                        size="sm"
-                        className="mt-3 w-full rounded-lg"
-                      >
-                        {creatingPaymentKey === `fixed-${tier.amount}` ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <QrCode className="h-4 w-4 mr-2" />
-                        )}
-                        {t('tokenTopUp.createPaymentQr')}
-                      </Button>
-                    </div>
-                  ))}
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.amountOptions')}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{t('tokenTopUp.pointsRate')}</p>
+                  </div>
+                  <Badge variant="secondary">{t('tokenTopUp.selectedAmount')}: ¥{selectedRechargeTier?.amount ?? '-'}</Badge>
                 </div>
-                <div className="mt-3 rounded-lg bg-surface-input px-3 py-3">
+                <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {rechargeTiers.map((tier) => {
+                    const key = `fixed-${tier.amount}`;
+                    const selected = selectedRechargeKey === key;
+                    return (
+                      <button
+                        key={tier.amount}
+                        type="button"
+                        data-testid={`token-topup-tier-${tier.amount}`}
+                        onClick={() => setSelectedRechargeKey(key)}
+                        className={`rounded-lg border px-3 py-3 text-left transition ${
+                          selected
+                            ? 'border-blue-500 bg-blue-500/10'
+                            : 'border-black/5 bg-surface-input hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10'
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-foreground">¥{tier.amount}</p>
+                        <p data-testid={`token-topup-tier-points-${tier.amount}`} className="text-xs text-muted-foreground">
+                          {tier.points.toLocaleString()} {t('tokenTopUp.points')}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className={`mt-3 rounded-lg border px-3 py-3 ${
+                  selectedRechargeKey === 'custom'
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-black/5 bg-surface-input dark:border-white/10'
+                }`}>
                   <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
                     <div className="grid gap-2">
                       <Label htmlFor="token-topup-custom-amount">{t('tokenTopUp.customAmount')}</Label>
@@ -658,10 +665,14 @@ export function TokenTopUp() {
                         id="token-topup-custom-amount"
                         data-testid="token-topup-custom-amount"
                         type="number"
-                        min="1"
-                        step="1"
+                        min={TEST_MIN_RECHARGE_AMOUNT}
+                        step="0.01"
                         value={customAmount}
-                        onChange={(event) => setCustomAmount(event.target.value)}
+                        onFocus={() => setSelectedRechargeKey('custom')}
+                        onChange={(event) => {
+                          setCustomAmount(event.target.value);
+                          setSelectedRechargeKey('custom');
+                        }}
                         placeholder={t('tokenTopUp.customAmountPlaceholder')}
                         className="rounded-xl bg-background"
                       />
@@ -671,26 +682,49 @@ export function TokenTopUp() {
                         })}
                       </p>
                     </div>
-                    <Button
-                      data-testid="token-topup-custom-payment-qr"
-                      onClick={() => customTier && handleCreateQrPayment(customTier, 'custom')}
-                      disabled={
-                        creatingPaymentKey !== null
-                        || !customTier
-                        || customTier.amount < 1
-                        || (selectedPaymentKind === 'wechat' ? !blueOceanConfig?.configured : !epayConfig?.configured)
-                      }
-                      size="sm"
-                      className="rounded-lg"
-                    >
-                      {creatingPaymentKey === 'custom' ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <QrCode className="h-4 w-4 mr-2" />
-                      )}
-                      {t('tokenTopUp.createPaymentQr')}
+                    <Button type="button" variant="outline" onClick={() => setSelectedRechargeKey('custom')} className="rounded-lg">
+                      {t('tokenTopUp.useCustomAmount')}
                     </Button>
                   </div>
+                </div>
+                <div data-testid="token-topup-payment-method" className="mt-4 rounded-lg border border-black/5 bg-surface-input p-4 dark:border-white/10">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.paymentMethod')}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={selectedPaymentKind === 'wechat' ? 'default' : 'outline'}
+                      onClick={() => setSelectedPaymentKind('wechat')}
+                      className="rounded-lg"
+                    >
+                      {t('tokenTopUp.wechatPay')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={selectedPaymentKind === 'alipay' ? 'default' : 'outline'}
+                      onClick={() => setSelectedPaymentKind('alipay')}
+                      className="rounded-lg"
+                    >
+                      {t('tokenTopUp.alipayPay')}
+                    </Button>
+                  </div>
+                  <Button
+                    data-testid="token-topup-create-selected-payment-qr"
+                    onClick={handleCreateSelectedQrPayment}
+                    disabled={
+                      creatingPaymentKey !== null
+                      || !selectedRechargeTier
+                      || selectedRechargeTier.amount < TEST_MIN_RECHARGE_AMOUNT
+                      || !selectedPaymentConfigured
+                    }
+                    className="mt-4 w-full rounded-lg"
+                  >
+                    {creatingPaymentKey ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <QrCode className="h-4 w-4 mr-2" />
+                    )}
+                    {t('tokenTopUp.createPaymentQr')}
+                  </Button>
                 </div>
               </div>
               {selectedPaymentKind === 'wechat' ? (
@@ -868,41 +902,47 @@ export function TokenTopUp() {
                 )}
               </div>
               )}
-              {qrPayment?.qrcodeDataUrl && (
-                <div data-testid="token-topup-payment-qr" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase text-muted-foreground">
-                        {qrPayment.paymentKind === 'alipay'
-                          ? t('tokenTopUp.alipayQrTitle')
-                          : t('tokenTopUp.wechatQrTitle')}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">{t('tokenTopUp.scanToPay')}</p>
+              <Dialog open={showQrDialog && Boolean(qrPayment?.qrcodeDataUrl)} onOpenChange={setShowQrDialog}>
+                <DialogContent data-testid="token-topup-payment-qr" className="w-[calc(100%-2rem)] max-w-xl rounded-2xl border-0 bg-surface-modal p-0 shadow-2xl">
+                  {qrPayment?.qrcodeDataUrl && (
+                    <div className="p-6">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <DialogTitle className="text-2xl font-serif font-normal tracking-tight">
+                            {qrPayment.paymentKind === 'alipay'
+                              ? t('tokenTopUp.alipayQrTitle')
+                              : t('tokenTopUp.wechatQrTitle')}
+                          </DialogTitle>
+                          <DialogDescription className="mt-1 text-sm text-muted-foreground">
+                            {t('tokenTopUp.scanToPay')}
+                          </DialogDescription>
+                        </div>
+                        <Button onClick={handleQueryQrPayment} disabled={queryingPayment} variant="outline" size="sm" className="rounded-full">
+                          {queryingPayment ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                          {t('tokenTopUp.queryPayment')}
+                        </Button>
+                      </div>
+                      <div className="mt-5 flex flex-col sm:flex-row gap-4">
+                        <div className="rounded-xl bg-white p-3 shadow-sm">
+                          <img src={qrPayment.qrcodeDataUrl} alt={t('tokenTopUp.paymentQrTitle')} className="h-48 w-48" />
+                        </div>
+                        <div className="min-w-0 flex-1 rounded-xl bg-surface-input p-4 text-sm">
+                          <p className="text-muted-foreground">{t('tokenTopUp.paymentOrder')}</p>
+                          <p className="mt-1 break-all font-mono text-foreground">{qrPayment.outTradeNo || qrPayment.tradeNo || '-'}</p>
+                          <p className="mt-4 text-muted-foreground">{t('tokenTopUp.paymentStatus')}</p>
+                          <p className="mt-1 font-mono text-foreground">
+                            {qrPayment.provider === 'blueocean'
+                              ? qrPayment.tradeState || '-'
+                              : typeof qrPayment.status === 'number'
+                              ? qrPayment.status === 7 ? t('tokenTopUp.paymentPaid') : t('tokenTopUp.paymentUnpaid')
+                              : '-'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <Button onClick={handleQueryQrPayment} disabled={queryingPayment} variant="outline" size="sm" className="rounded-full">
-                      {queryingPayment ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                      {t('tokenTopUp.queryPayment')}
-                    </Button>
-                  </div>
-                  <div className="mt-4 flex flex-col sm:flex-row gap-4">
-                    <div className="rounded-xl bg-white p-3 shadow-sm">
-                      <img src={qrPayment.qrcodeDataUrl} alt={t('tokenTopUp.paymentQrTitle')} className="h-44 w-44" />
-                    </div>
-                    <div className="min-w-0 flex-1 rounded-xl bg-surface-input p-4 text-sm">
-                      <p className="text-muted-foreground">{t('tokenTopUp.paymentOrder')}</p>
-                      <p className="mt-1 break-all font-mono text-foreground">{qrPayment.outTradeNo || qrPayment.tradeNo || '-'}</p>
-                      <p className="mt-4 text-muted-foreground">{t('tokenTopUp.paymentStatus')}</p>
-                      <p className="mt-1 font-mono text-foreground">
-                        {qrPayment.provider === 'blueocean'
-                          ? qrPayment.tradeState || '-'
-                          : typeof qrPayment.status === 'number'
-                          ? qrPayment.status === 7 ? t('tokenTopUp.paymentPaid') : t('tokenTopUp.paymentUnpaid')
-                          : '-'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+                  )}
+                </DialogContent>
+              </Dialog>
               <div data-testid="token-topup-usage-records" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.usageRecords')}</p>
                 <div className="mt-3 rounded-lg bg-surface-input px-3 py-5 text-center text-sm text-muted-foreground">

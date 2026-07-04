@@ -94,9 +94,11 @@
         "checkedAt": "检查时间",
         "amountOptions": "固定充值档位",
         "pointsRate": "换算规则：1 元 = 100 积分",
+        "selectedAmount": "已选金额",
         "customAmount": "自定义充值金额",
-        "customAmountPlaceholder": "请输入充值金额，最低 1 元",
+        "customAmountPlaceholder": "测试最低 0.01 元，正式交付改为 5 元起",
         "customPointsPreview": "预计获得 {{points}} 积分",
+        "useCustomAmount": "使用自定义金额",
         "points": "积分",
         "paymentProvider": "支付通道",
         "blueOceanPay": "BlueOceanPay",
@@ -177,7 +179,7 @@
             "epayMissingMerchantKey": "EPAY API_KEY 不能为空",
             "epayMissingNotifyUrl": "异步通知地址不能为空",
             "epayMissingReturnUrl": "支付跳转地址不能为空",
-            "customAmountInvalid": "自定义充值金额不能低于 1 元",
+            "customAmountInvalid": "测试充值金额不能低于 0.01 元",
             "epayPaymentFailed": "生成易支付二维码失败",
             "epayQueryFailed": "查询易支付订单失败"
         }

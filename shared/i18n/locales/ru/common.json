@@ -94,9 +94,11 @@
         "checkedAt": "Проверено",
         "amountOptions": "Фиксированные тарифы",
         "pointsRate": "Курс: ¥1 = 100 баллов",
+        "selectedAmount": "Выбранная сумма",
         "customAmount": "Своя сумма пополнения",
-        "customAmountPlaceholder": "Введите сумму, минимум ¥1",
+        "customAmountPlaceholder": "Тестовый минимум ¥0.01; в финальной версии будет от ¥5",
         "customPointsPreview": "Ожидаемые баллы: {{points}}",
+        "useCustomAmount": "Использовать свою сумму",
         "points": "баллов",
         "paymentProvider": "Платежный провайдер",
         "blueOceanPay": "BlueOceanPay",
@@ -177,7 +179,7 @@
             "epayMissingMerchantKey": "Требуется EPAY API_KEY",
             "epayMissingNotifyUrl": "Требуется URL асинхронного уведомления",
             "epayMissingReturnUrl": "Требуется URL возврата после оплаты",
-            "customAmountInvalid": "Своя сумма пополнения должна быть не меньше ¥1",
+            "customAmountInvalid": "Тестовая сумма пополнения должна быть не меньше ¥0.01",
             "epayPaymentFailed": "Не удалось создать QR-код Epay",
             "epayQueryFailed": "Не удалось проверить заказ Epay"
         }

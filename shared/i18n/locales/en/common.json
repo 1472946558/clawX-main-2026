@@ -94,9 +94,11 @@
         "checkedAt": "Checked",
         "amountOptions": "Fixed recharge tiers",
         "pointsRate": "Conversion rate: ¥1 = 100 points",
+        "selectedAmount": "Selected amount",
         "customAmount": "Custom recharge amount",
-        "customAmountPlaceholder": "Enter amount, minimum ¥1",
+        "customAmountPlaceholder": "Test minimum ¥0.01; final delivery returns to ¥5 minimum",
         "customPointsPreview": "Estimated {{points}} points",
+        "useCustomAmount": "Use custom amount",
         "points": "points",
         "paymentProvider": "Payment provider",
         "blueOceanPay": "BlueOceanPay",
@@ -177,7 +179,7 @@
             "epayMissingMerchantKey": "EPAY API_KEY is required",
             "epayMissingNotifyUrl": "Async notify URL is required",
             "epayMissingReturnUrl": "Payment return URL is required",
-            "customAmountInvalid": "Custom recharge amount must be at least ¥1",
+            "customAmountInvalid": "Test recharge amount must be at least ¥0.01",
             "epayPaymentFailed": "Failed to create Epay QR code",
             "epayQueryFailed": "Failed to query Epay order"
         }
