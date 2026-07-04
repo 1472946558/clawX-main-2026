@@ -192,7 +192,15 @@
     },
     "currentVersion": "Current Version",
     "whatsNew": "What's New:",
-    "errorDetails": "Error Details:",
+    "errorDetails": "How to fix:",
+    "errors": {
+      "missingLatestManifest": "The current update feed is missing latest.yml. Upload latest.yml, the Windows installer, and the blockmap file to the latest GitHub Release, then try again.",
+      "http404": "The current update feed returned 404. Confirm the Release URL exists and can be opened without signing in.",
+      "timeout": "The update check timed out. Check the network connection or proxy settings, then try again.",
+      "devMode": "Update checks are only available in the packaged app.",
+      "network": "The update server could not be reached. Check the network connection or proxy settings, then try again.",
+      "generic": "The update check failed. Confirm the update feed URL is correct and the Release assets are complete."
+    },
     "toast": {
       "availableTitle": "canvasland update available",
       "availableDescription": "Version v{{version}} is available. Download it when you're ready.",

@@ -192,7 +192,15 @@
     },
     "currentVersion": "当前版本",
     "whatsNew": "更新内容：",
-    "errorDetails": "错误详情：",
+    "errorDetails": "处理建议：",
+    "errors": {
+      "missingLatestManifest": "当前更新源缺少 latest.yml。请把 latest.yml、Windows 安装包和 blockmap 文件上传到 GitHub 最新 Release 后再重试。",
+      "http404": "当前更新源返回 404。请确认 Release 地址存在，并且无需登录即可访问。",
+      "timeout": "检查更新超时。请确认网络或代理设置后重试。",
+      "devMode": "更新检查只在已打包安装的客户端中可用。",
+      "network": "无法连接更新服务器。请检查网络或代理设置后重试。",
+      "generic": "检查更新失败。请确认更新源地址正确，并且 Release 资产完整。"
+    },
     "toast": {
       "availableTitle": "canvasland 有新版本可用",
       "availableDescription": "v{{version}} 已可下载。准备好后可开始下载。",

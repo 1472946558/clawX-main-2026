@@ -192,7 +192,15 @@
     },
     "currentVersion": "現在のバージョン",
     "whatsNew": "更新内容：",
-    "errorDetails": "エラー詳細：",
+    "errorDetails": "対処方法：",
+    "errors": {
+      "missingLatestManifest": "現在のアップデート配信元に latest.yml がありません。latest.yml、Windows インストーラー、blockmap ファイルを最新の GitHub Release にアップロードしてから再試行してください。",
+      "http404": "現在のアップデート配信元が 404 を返しました。Release URL が存在し、サインインなしで開けることを確認してください。",
+      "timeout": "アップデート確認がタイムアウトしました。ネットワークまたはプロキシ設定を確認してから再試行してください。",
+      "devMode": "アップデート確認はパッケージ済みアプリでのみ利用できます。",
+      "network": "アップデートサーバーに接続できません。ネットワークまたはプロキシ設定を確認してから再試行してください。",
+      "generic": "アップデート確認に失敗しました。配信 URL が正しく、Release アセットが揃っていることを確認してください。"
+    },
     "toast": {
       "availableTitle": "canvasland の更新があります",
       "availableDescription": "バージョン v{{version}} を利用できます。準備ができたらダウンロードしてください。",

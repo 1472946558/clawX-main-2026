@@ -12,6 +12,7 @@ import { logger } from '../utils/logger';
 import { EventEmitter } from 'events';
 import { setQuitting } from './app-state';
 import { getSetting } from '../utils/store';
+import { sanitizeUpdateErrorMessage } from '@shared/update-errors';
 
 const DEFAULT_UPDATE_FEED_URL = 'https://github.com/andy777chen/CanvaslandAI/releases/latest/download';
 
@@ -181,7 +182,7 @@ export class AppUpdater extends EventEmitter {
     });
 
     autoUpdater.on('error', (error: Error) => {
-      this.updateStatus({ status: 'error', error: error.message });
+      this.updateStatus({ status: 'error', error: sanitizeUpdateErrorMessage(error) });
       this.emit('error', error);
     });
   }
@@ -250,7 +251,7 @@ export class AppUpdater extends EventEmitter {
       return result.updateInfo || null;
     } catch (error) {
       logger.error('[Updater] Check for updates failed:', error);
-      this.updateStatus({ status: 'error', error: (error as Error).message || String(error) });
+      this.updateStatus({ status: 'error', error: sanitizeUpdateErrorMessage(error) });
       throw error;
     }
   }
@@ -384,7 +385,7 @@ export function registerUpdateHandlers(
       await updater.checkForUpdates();
       return { success: true, status: updater.getStatus() };
     } catch (error) {
-      return { success: false, error: String(error), status: updater.getStatus() };
+      return { success: false, error: sanitizeUpdateErrorMessage(error), status: updater.getStatus() };
     }
   });
 
@@ -394,7 +395,7 @@ export function registerUpdateHandlers(
       await updater.downloadUpdate();
       return { success: true };
     } catch (error) {
-      return { success: false, error: String(error) };
+      return { success: false, error: sanitizeUpdateErrorMessage(error) };
     }
   });
 

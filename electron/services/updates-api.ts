@@ -3,6 +3,7 @@ import type {
   UpdateProgressSnapshot,
   UpdateStatusSnapshot,
 } from '@shared/host-api/contract';
+import { sanitizeUpdateErrorMessage } from '@shared/update-errors';
 import type { CompleteHostServiceRegistry } from '../main/ipc/host-contract';
 import type { AppUpdater, UpdateStatus } from '../main/updater';
 
@@ -45,7 +46,7 @@ export function createUpdatesApi(updater: AppUpdater): CompleteHostServiceRegist
         await updater.checkForUpdates();
         return { success: true, status: normalizeStatus(updater.getStatus()) };
       } catch (error) {
-        return { success: false, error: String(error), status: normalizeStatus(updater.getStatus()) };
+        return { success: false, error: sanitizeUpdateErrorMessage(error), status: normalizeStatus(updater.getStatus()) };
       }
     },
     download: async () => {
@@ -53,7 +54,7 @@ export function createUpdatesApi(updater: AppUpdater): CompleteHostServiceRegist
         await updater.downloadUpdate();
         return { success: true };
       } catch (error) {
-        return { success: false, error: String(error) };
+        return { success: false, error: sanitizeUpdateErrorMessage(error) };
       }
     },
     install: () => {

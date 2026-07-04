@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { useUpdateStore } from '@/stores/update';
 import { useSettingsStore } from '@/stores/settings';
 import { toUserMessage } from '@/lib/error-message';
+import { classifyUpdateError } from '@shared/update-errors';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -45,6 +46,10 @@ export function UpdateSettings() {
   const setUpdateFeedUrl = useSettingsStore((state) => state.setUpdateFeedUrl);
   const [feedUrlDraft, setFeedUrlDraft] = useState(updateFeedUrl);
   const [savingFeedUrl, setSavingFeedUrl] = useState(false);
+  const updateErrorKind = error ? classifyUpdateError(error) : null;
+  const updateErrorMessage = error && updateErrorKind
+    ? t(`updates.errors.${updateErrorKind}`)
+    : null;
 
   // Initialize on mount
   useEffect(() => {
@@ -121,7 +126,7 @@ export function UpdateSettings() {
       case 'downloaded':
         return t('updates.status.downloaded', { version: updateInfo?.version });
       case 'error':
-        return error || t('updates.status.failed');
+        return updateErrorMessage || t('updates.status.failed');
       case 'not-available':
         return t('updates.status.latest');
       default:
@@ -271,7 +276,7 @@ export function UpdateSettings() {
       {status === 'error' && error && (
         <div className="rounded-lg bg-red-50 dark:bg-red-900/10 p-4 text-red-600 dark:text-red-400 text-sm">
           <p className="font-medium mb-1">{t('updates.errorDetails')}</p>
-          <p>{error}</p>
+          <p>{updateErrorMessage}</p>
         </div>
       )}
 
