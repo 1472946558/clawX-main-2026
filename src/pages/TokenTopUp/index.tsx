@@ -145,6 +145,12 @@ export function TokenTopUp() {
   const selectedPaymentConfigured = selectedPaymentKind === 'wechat'
     ? Boolean(blueOceanConfig?.configured)
     : Boolean(epayConfig?.configured);
+  const walletBalance = balance?.wallet ?? {
+    totalGranted: 0,
+    totalUsed: 0,
+    totalAvailable: 0,
+  };
+  const walletRecords = balance?.walletRecords ?? [];
 
   const refreshBalance = useCallback(async () => {
     setRefreshingBalance(true);
@@ -473,6 +479,7 @@ export function TokenTopUp() {
             sn: result.sn || current.sn,
             outTradeNo: result.outTradeNo || current.outTradeNo,
           } : current);
+          await refreshBalance();
           toast.success(t('tokenTopUp.paymentStatusUpdated'));
         } else {
           toast.error(`${t('tokenTopUp.errors.queryFailed')}: ${result.error || t('tokenTopUp.notAvailable')}`);
@@ -489,6 +496,7 @@ export function TokenTopUp() {
             tradeNo: result.tradeNo || current.tradeNo,
             outTradeNo: result.outTradeNo || current.outTradeNo,
           } : current);
+          await refreshBalance();
           toast.success(t('tokenTopUp.paymentStatusUpdated'));
         } else {
           toast.error(`${t('tokenTopUp.errors.queryFailed')}: ${result.error || t('tokenTopUp.notAvailable')}`);
@@ -588,19 +596,25 @@ export function TokenTopUp() {
             </div>
 
             <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div data-testid="token-topup-recharge-balance" className="rounded-xl bg-surface-input p-4">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.rechargeBalance')}</p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
+                    {walletBalance.totalGranted.toLocaleString()} {t('tokenTopUp.points')}
+                  </p>
+                </div>
                 <div data-testid="token-topup-balance" className="rounded-xl bg-surface-input p-4">
                   <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.availableBalance')}</p>
                   <p className="mt-2 text-2xl font-semibold text-foreground">
                     {balance?.token?.unlimitedQuota
                       ? t('tokenTopUp.unlimited')
-                      : balance?.displayBalance || t('tokenTopUp.notAvailable')}
+                      : `${walletBalance.totalAvailable.toLocaleString()} ${t('tokenTopUp.points')}`}
                   </p>
                 </div>
-                <div className="rounded-xl bg-surface-input p-4">
+                <div data-testid="token-topup-used-balance" className="rounded-xl bg-surface-input p-4">
                   <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.usedBalance')}</p>
                   <p className="mt-2 text-2xl font-semibold text-foreground">
-                    {balance?.displayUsed || t('tokenTopUp.notAvailable')}
+                    {walletBalance.totalUsed.toLocaleString()} {t('tokenTopUp.points')}
                   </p>
                 </div>
               </div>
@@ -612,8 +626,8 @@ export function TokenTopUp() {
                   </Badge>
                 </div>
                 <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
-                  <p>{t('tokenTopUp.tokenName')}: <span className="font-mono text-foreground">{balance?.token?.name || '-'}</span></p>
-                  <p>{t('tokenTopUp.totalGranted')}: <span className="font-mono text-foreground">{balance?.token?.totalGranted ?? '-'}</span></p>
+                  <p>{t('tokenTopUp.tokenName')}: <span className="font-mono text-foreground">{balance?.token?.name || 'canvasland New API'}</span></p>
+                  <p>{t('tokenTopUp.totalGranted')}: <span className="font-mono text-foreground">{(balance?.token?.totalGranted ?? walletBalance.totalGranted).toLocaleString()} {t('tokenTopUp.points')}</span></p>
                   <p>{t('tokenTopUp.checkedAt')}: <span className="font-mono text-foreground">{balance?.checkedAt ? new Date(balance.checkedAt).toLocaleString() : '-'}</span></p>
                 </div>
               </div>
@@ -945,9 +959,31 @@ export function TokenTopUp() {
               </Dialog>
               <div data-testid="token-topup-usage-records" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
                 <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.usageRecords')}</p>
-                <div className="mt-3 rounded-lg bg-surface-input px-3 py-5 text-center text-sm text-muted-foreground">
-                  {t('tokenTopUp.usageRecordsPending')}
-                </div>
+                {walletRecords.length === 0 ? (
+                  <div className="mt-3 rounded-lg bg-surface-input px-3 py-5 text-center text-sm text-muted-foreground">
+                    {t('tokenTopUp.usageRecordsEmpty')}
+                  </div>
+                ) : (
+                  <div className="mt-3 divide-y divide-black/5 overflow-hidden rounded-lg bg-surface-input dark:divide-white/10">
+                    {walletRecords.slice(0, 8).map((record) => (
+                      <div key={record.id} className="grid gap-2 px-3 py-3 text-sm md:grid-cols-[1fr_auto] md:items-center">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium text-foreground">{record.paymentKind === 'wechat' ? t('tokenTopUp.wechatPay') : t('tokenTopUp.alipayPay')}</span>
+                            <Badge variant={record.status === 'paid' ? 'success' : 'warning'}>
+                              {record.status === 'paid' ? t('tokenTopUp.paymentPaid') : t('tokenTopUp.paymentPending')}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{record.outTradeNo}</p>
+                        </div>
+                        <div className="text-left md:text-right">
+                          <p className="font-medium text-foreground">+{record.points.toLocaleString()} {t('tokenTopUp.points')}</p>
+                          <p className="text-xs text-muted-foreground">¥{record.amount.toFixed(2)} · {new Date(record.paidAt || record.createdAt).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="rounded-xl border border-dashed border-black/10 dark:border-white/10 p-4 text-sm text-muted-foreground">
                 {t('tokenTopUp.balanceNote')}

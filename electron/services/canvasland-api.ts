@@ -8,6 +8,8 @@ import type {
   BlueOceanPayQueryPayload,
   BlueOceanPayQueryResult,
   CanvaslandBalanceResult,
+  CanvaslandWalletBalance,
+  CanvaslandWalletRecord,
   CanvaslandTopUpInfo,
   CanvaslandTopUpMethod,
   CanvaslandTokenUsage,
@@ -34,6 +36,7 @@ const BLUEOCEAN_SECRET_ID = 'canvasland-blueoceanpay';
 const BLUEOCEAN_CONFIG_KEY = 'blueOceanPay';
 const EPAY_SECRET_ID = 'canvasland-epay';
 const EPAY_CONFIG_KEY = 'epay';
+const WALLET_LEDGER_KEY = 'walletLedger';
 const DEFAULT_ROOT_URL = 'https://feiniu.space';
 const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
 const DEFAULT_QUOTA_PER_UNIT = 500000;
@@ -42,6 +45,8 @@ const BLUEOCEAN_QR_PAYMENT_METHODS = new Set<BlueOceanPayPaymentMethod>([
   'alipay.qrcode',
 ]);
 const EPAY_PAYMENT_METHODS = new Set<EpayPaymentMethod>(['alipay']);
+
+type WalletLedgerEntry = CanvaslandWalletRecord;
 
 function normalizeRootUrl(url: string): string {
   const trimmed = url.trim().replace(/\/+$/, '');
@@ -155,24 +160,111 @@ function parseStatus(value: unknown): {
   };
 }
 
-function formatQuota(
-  quota: number | undefined,
-  status: ReturnType<typeof parseStatus>,
-): string | undefined {
-  if (typeof quota !== 'number') return undefined;
-  if (status.quotaDisplayType === 'TOKENS') {
-    return `${Math.round(quota).toLocaleString()} quota`;
+function formatPoints(points: number): string {
+  return `${Math.max(0, Math.round(points)).toLocaleString()} 积分`;
+}
+
+function normalizeWalletRecord(value: unknown): WalletLedgerEntry | null {
+  if (!isRecord(value)) return null;
+  const id = typeof value.id === 'string' ? value.id : undefined;
+  const outTradeNo = typeof value.outTradeNo === 'string' ? value.outTradeNo : undefined;
+  const provider = value.provider === 'blueocean' || value.provider === 'epay' ? value.provider : undefined;
+  const paymentKind = value.paymentKind === 'wechat' || value.paymentKind === 'alipay' ? value.paymentKind : undefined;
+  const amount = getNumber(value.amount);
+  const points = getNumber(value.points);
+  const status = value.status === 'paid' ? 'paid' : 'pending';
+  const createdAt = typeof value.createdAt === 'string' ? value.createdAt : undefined;
+  const paidAt = typeof value.paidAt === 'string' ? value.paidAt : undefined;
+  if (!id || !outTradeNo || !provider || !paymentKind || amount === undefined || points === undefined || !createdAt) {
+    return null;
   }
-  const usd = quota / status.quotaPerUnit;
-  if (status.quotaDisplayType === 'CNY') {
-    return `¥${(usd * 7).toFixed(2)}`;
-  }
-  if (status.quotaDisplayType === 'CUSTOM') {
-    const symbol = status.customCurrencySymbol || '$';
-    const rate = status.customCurrencyExchangeRate || 1;
-    return `${symbol}${(usd * rate).toFixed(2)}`;
-  }
-  return `$${usd.toFixed(2)}`;
+  return {
+    id,
+    outTradeNo,
+    provider,
+    paymentKind,
+    amount,
+    points: Math.max(0, Math.round(points)),
+    status,
+    createdAt,
+    paidAt,
+  };
+}
+
+async function getWalletLedger(): Promise<WalletLedgerEntry[]> {
+  const store = await getcanvaslandProviderStore();
+  const raw = store.get(WALLET_LEDGER_KEY) as unknown;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map(normalizeWalletRecord)
+    .filter((record): record is WalletLedgerEntry => Boolean(record))
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+}
+
+async function setWalletLedger(records: WalletLedgerEntry[]): Promise<void> {
+  const store = await getcanvaslandProviderStore();
+  store.set(WALLET_LEDGER_KEY, records.slice(0, 200));
+}
+
+function calculateWalletBalance(records: WalletLedgerEntry[]): CanvaslandWalletBalance {
+  const totalGranted = records
+    .filter((record) => record.status === 'paid')
+    .reduce((sum, record) => sum + record.points, 0);
+  return {
+    totalGranted,
+    totalUsed: 0,
+    totalAvailable: totalGranted,
+  };
+}
+
+async function savePendingWalletOrder(record: Omit<WalletLedgerEntry, 'status' | 'createdAt'>): Promise<void> {
+  const ledger = await getWalletLedger();
+  const nextRecord: WalletLedgerEntry = {
+    ...record,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  };
+  const nextLedger = [
+    nextRecord,
+    ...ledger.filter((item) => item.outTradeNo !== nextRecord.outTradeNo),
+  ];
+  await setWalletLedger(nextLedger);
+}
+
+async function markWalletOrderPaid(outTradeNo: string | undefined): Promise<WalletLedgerEntry | null> {
+  const orderNo = outTradeNo?.trim();
+  if (!orderNo) return null;
+  const ledger = await getWalletLedger();
+  const index = ledger.findIndex((record) => record.outTradeNo === orderNo);
+  if (index < 0) return null;
+  const existing = ledger[index];
+  if (existing.status === 'paid') return existing;
+  const paidRecord: WalletLedgerEntry = {
+    ...existing,
+    status: 'paid',
+    paidAt: new Date().toISOString(),
+  };
+  const nextLedger = [...ledger];
+  nextLedger[index] = paidRecord;
+  await setWalletLedger(nextLedger);
+  return paidRecord;
+}
+
+function isBlueOceanPaidState(state: unknown): boolean {
+  if (typeof state !== 'string') return false;
+  const normalized = state.trim().toUpperCase();
+  return [
+    'SUCCESS',
+    'TRADE_SUCCESS',
+    'PAY_SUCCESS',
+    'PAID',
+    'COMPLETED',
+    'FINISHED',
+  ].includes(normalized);
+}
+
+function isEpayPaidStatus(status: unknown): boolean {
+  return getNumber(status) === 7;
 }
 
 function normalizeBlueOceanBaseUrl(url: string | undefined): string {
@@ -463,6 +555,8 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
       const key = await providerService.getAccountApiKey(CANVASLAND_ACCOUNT_ID);
       const endpoint = normalizeRootUrl(account?.baseUrl || DEFAULT_ROOT_URL);
       const topUpUrl = `${endpoint}/console/topup`;
+      const walletRecords = await getWalletLedger();
+      const wallet = calculateWalletBalance(walletRecords);
 
       if (!account || !key) {
         return {
@@ -470,49 +564,59 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
           configured: false,
           endpoint,
           topUpUrl,
-          error: 'canvasland connection is not configured',
+          wallet,
+          walletRecords,
+          token: {
+            name: 'canvasland New API',
+            totalGranted: wallet.totalGranted,
+            totalUsed: wallet.totalUsed,
+            totalAvailable: wallet.totalAvailable,
+            unlimitedQuota: false,
+          },
+          displayBalance: formatPoints(wallet.totalAvailable),
+          displayUsed: formatPoints(wallet.totalUsed),
+          checkedAt: new Date().toISOString(),
         };
       }
 
       const statusPromise = fetchJson(buildApiUrl(endpoint, '/api/status')).catch(() => ({}));
-      const tokenUsagePromise = fetchJson(buildApiUrl(endpoint, '/api/token/usage'), {
+      const tokenUsagePromise = fetchJson(buildApiUrl(endpoint, '/api/usage/token'), {
         headers: { Authorization: `Bearer ${key}` },
-      });
+      }).catch(() => null);
       const topupPromise = fetchJson(buildApiUrl(endpoint, '/api/user/topup/info'), {
         headers: { Authorization: `Bearer ${key}` },
       }).catch(() => null);
 
-      try {
-        const [statusRaw, tokenUsageRaw, topupRaw] = await Promise.all([
-          statusPromise,
-          tokenUsagePromise,
-          topupPromise,
-        ]);
-        const status = parseStatus(statusRaw);
-        const token = parseTokenUsage(tokenUsageRaw);
-        const topup = topupRaw ? parseTopUpInfo(topupRaw) : undefined;
-        return {
-          success: true,
-          configured: true,
-          endpoint,
-          topUpUrl: topup?.topupLink || topUpUrl,
-          token,
-          quotaPerUnit: status.quotaPerUnit,
-          quotaDisplayType: status.quotaDisplayType,
-          displayBalance: token?.unlimitedQuota ? undefined : formatQuota(token?.totalAvailable, status),
-          displayUsed: formatQuota(token?.totalUsed, status),
-          topup,
-          checkedAt: new Date().toISOString(),
-        };
-      } catch (error) {
-        return {
-          success: false,
-          configured: true,
-          endpoint,
-          topUpUrl,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
+      const [statusRaw, tokenUsageRaw, topupRaw] = await Promise.all([
+        statusPromise,
+        tokenUsagePromise,
+        topupPromise,
+      ]);
+      const status = parseStatus(statusRaw);
+      const remoteToken = parseTokenUsage(tokenUsageRaw);
+      const token: CanvaslandTokenUsage = remoteToken ?? {
+        name: account.label || 'canvasland New API',
+        totalGranted: wallet.totalGranted,
+        totalUsed: wallet.totalUsed,
+        totalAvailable: wallet.totalAvailable,
+        unlimitedQuota: false,
+      };
+      const topup = topupRaw ? parseTopUpInfo(topupRaw) : undefined;
+      return {
+        success: true,
+        configured: true,
+        endpoint,
+        topUpUrl: topup?.topupLink || topUpUrl,
+        token,
+        wallet,
+        walletRecords,
+        quotaPerUnit: status.quotaPerUnit,
+        quotaDisplayType: status.quotaDisplayType,
+        displayBalance: formatPoints(wallet.totalAvailable),
+        displayUsed: formatPoints(wallet.totalUsed),
+        topup,
+        checkedAt: new Date().toISOString(),
+      };
     },
     blueOceanConfig: async (): Promise<BlueOceanPayConfigResult> => {
       const config = await getBlueOceanConfig();
@@ -575,13 +679,22 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
         const data = unwrapBlueOceanData(raw);
         const qrcode = typeof data.qrcode === 'string' ? data.qrcode : '';
         if (!qrcode) throw new Error('BlueOceanPay response did not include a QR code');
+        const resolvedOutTradeNo = typeof data.out_trade_no === 'string' ? data.out_trade_no : outTradeNo;
+        await savePendingWalletOrder({
+          id: resolvedOutTradeNo,
+          outTradeNo: resolvedOutTradeNo,
+          provider: 'blueocean',
+          paymentKind: paymentMethod === 'alipay.qrcode' ? 'alipay' : 'wechat',
+          amount,
+          points: Math.round(payload.points || amount * 100),
+        });
         return {
           success: true,
           configured: true,
           paymentMethod,
           qrcode,
           qrcodeDataUrl: renderQrPngDataUrl(qrcode),
-          outTradeNo: typeof data.out_trade_no === 'string' ? data.out_trade_no : outTradeNo,
+          outTradeNo: resolvedOutTradeNo,
           sn: typeof data.sn === 'string' ? data.sn : undefined,
           tradeState: typeof data.trade_state === 'string' ? data.trade_state : undefined,
           totalFee: toInt(data.total_fee),
@@ -611,10 +724,14 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
         requestPayload.sign = signBlueOceanPayload(requestPayload, merchantKey);
         const raw = await fetchBlueOceanJson(config.apiBaseUrl, '/order/query', requestPayload);
         const data = unwrapBlueOceanData(raw);
+        const resolvedOutTradeNo = typeof data.out_trade_no === 'string' ? data.out_trade_no : outTradeNo;
+        if (isBlueOceanPaidState(data.trade_state)) {
+          await markWalletOrderPaid(resolvedOutTradeNo);
+        }
         return {
           success: true,
           tradeState: typeof data.trade_state === 'string' ? data.trade_state : undefined,
-          outTradeNo: typeof data.out_trade_no === 'string' ? data.out_trade_no : outTradeNo,
+          outTradeNo: resolvedOutTradeNo,
           sn: typeof data.sn === 'string' ? data.sn : sn,
           raw: data,
         };
@@ -727,6 +844,15 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
               ? data.epayUrl
               : undefined;
         if (!qrcode) throw new Error('Epay response did not include a QR code or pay URL');
+        const resolvedOutTradeNo = typeof data.merchantOrderNo === 'string' ? data.merchantOrderNo : outTradeNo;
+        await savePendingWalletOrder({
+          id: resolvedOutTradeNo,
+          outTradeNo: resolvedOutTradeNo,
+          provider: 'epay',
+          paymentKind: 'alipay',
+          amount,
+          points: Math.round(payload.points || amount * 100),
+        });
         return {
           success: true,
           configured: true,
@@ -734,7 +860,7 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
           qrcode,
           qrcodeDataUrl: renderQrPngDataUrl(qrcode),
           payUrl,
-          outTradeNo: typeof data.merchantOrderNo === 'string' ? data.merchantOrderNo : outTradeNo,
+          outTradeNo: resolvedOutTradeNo,
           tradeNo: typeof data.epayOrderNo === 'string' ? data.epayOrderNo : undefined,
           status: toInt(data.status),
           raw: data,
@@ -764,11 +890,16 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
           merchantKey,
         );
         const data = unwrapEpayData(raw);
+        const status = toInt(data.status);
+        const resolvedOutTradeNo = typeof data.merchantOrderNo === 'string' ? data.merchantOrderNo : payload.outTradeNo;
+        if (isEpayPaidStatus(status)) {
+          await markWalletOrderPaid(resolvedOutTradeNo);
+        }
         return {
           success: true,
           tradeNo: typeof data.epayOrderNo === 'string' ? data.epayOrderNo : payload.tradeNo,
-          outTradeNo: typeof data.merchantOrderNo === 'string' ? data.merchantOrderNo : payload.outTradeNo,
-          status: toInt(data.status),
+          outTradeNo: resolvedOutTradeNo,
+          status,
           raw: data,
         };
       } catch (error) {

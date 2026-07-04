@@ -407,11 +407,29 @@ export type CanvaslandTokenUsage = {
   unlimitedQuota?: boolean;
   expiresAt?: number;
 };
+export type CanvaslandWalletRecord = {
+  id: string;
+  outTradeNo: string;
+  provider: 'blueocean' | 'epay';
+  paymentKind: 'wechat' | 'alipay';
+  amount: number;
+  points: number;
+  status: 'pending' | 'paid';
+  createdAt: string;
+  paidAt?: string;
+};
+export type CanvaslandWalletBalance = {
+  totalGranted: number;
+  totalUsed: number;
+  totalAvailable: number;
+};
 export type CanvaslandBalanceResult = HostSuccess & {
   configured: boolean;
   endpoint?: string;
   topUpUrl?: string;
   token?: CanvaslandTokenUsage;
+  wallet?: CanvaslandWalletBalance;
+  walletRecords?: CanvaslandWalletRecord[];
   quotaPerUnit?: number;
   quotaDisplayType?: string;
   displayBalance?: string;
