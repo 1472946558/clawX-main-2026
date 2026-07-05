@@ -971,16 +971,36 @@ export function TokenTopUp() {
                       <div key={record.id} className="grid gap-2 px-3 py-3 text-sm md:grid-cols-[1fr_auto] md:items-center">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-foreground">{record.paymentKind === 'wechat' ? t('tokenTopUp.wechatPay') : t('tokenTopUp.alipayPay')}</span>
-                            <Badge variant={record.status === 'paid' ? 'success' : 'warning'}>
-                              {record.status === 'paid' ? t('tokenTopUp.paymentPaid') : t('tokenTopUp.paymentPending')}
+                            <span className="font-medium text-foreground">
+                              {record.kind === 'usage'
+                                ? t('tokenTopUp.modelUsage')
+                                : record.paymentKind === 'wechat'
+                                ? t('tokenTopUp.wechatPay')
+                                : t('tokenTopUp.alipayPay')}
+                            </span>
+                            <Badge variant={record.kind === 'usage' || record.status === 'paid' ? 'success' : 'warning'}>
+                              {record.kind === 'usage'
+                                ? t('tokenTopUp.used')
+                                : record.status === 'paid'
+                                ? t('tokenTopUp.paymentPaid')
+                                : t('tokenTopUp.paymentPending')}
                             </Badge>
                           </div>
-                          <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{record.outTradeNo}</p>
+                          <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                            {record.kind === 'usage'
+                              ? [record.model, record.description].filter(Boolean).join(' · ') || record.id
+                              : record.outTradeNo || record.id}
+                          </p>
                         </div>
                         <div className="text-left md:text-right">
-                          <p className="font-medium text-foreground">+{record.points.toLocaleString()} {t('tokenTopUp.points')}</p>
-                          <p className="text-xs text-muted-foreground">¥{record.amount.toFixed(2)} · {new Date(record.paidAt || record.createdAt).toLocaleString()}</p>
+                          <p className={`font-medium ${record.kind === 'usage' ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+                            {record.kind === 'usage' ? '-' : '+'}{record.points.toLocaleString()} {t('tokenTopUp.points')}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {record.kind === 'usage'
+                              ? `${record.tokenUsed ? `${record.tokenUsed.toLocaleString()} ${t('tokenTopUp.tokens')}` : t('tokenTopUp.tokenUsage')} · ${new Date(record.createdAt).toLocaleString()}`
+                              : `¥${(record.amount ?? 0).toFixed(2)} · ${new Date(record.paidAt || record.createdAt).toLocaleString()}`}
+                          </p>
                         </div>
                       </div>
                     ))}

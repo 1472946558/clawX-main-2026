@@ -40,6 +40,7 @@ const WALLET_LEDGER_KEY = 'walletLedger';
 const DEFAULT_ROOT_URL = 'https://feiniu.space';
 const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
 const DEFAULT_QUOTA_PER_UNIT = 500000;
+const TOKENS_PER_POINT = 100;
 const BLUEOCEAN_QR_PAYMENT_METHODS = new Set<BlueOceanPayPaymentMethod>([
   'wechat.qrcode',
   'alipay.qrcode',
@@ -61,6 +62,22 @@ function buildApiUrl(rootUrl: string, path: string): string {
 function getNumber(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return undefined;
+}
+
+function getFirstNumber(record: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = getNumber(record[key]);
+    if (typeof value === 'number') return value;
+  }
+  return undefined;
+}
+
+function getFirstString(record: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
   return undefined;
 }
 
@@ -103,14 +120,135 @@ async function fetchJson(url: string, init?: RequestInit): Promise<unknown> {
 function parseTokenUsage(value: unknown): CanvaslandTokenUsage | undefined {
   const data = unwrapData(value);
   if (!isRecord(data)) return undefined;
+  const directTotalGranted = getFirstNumber(data, [
+    'total_granted',
+    'totalGranted',
+    'total_quota',
+    'totalQuota',
+    'unlimited_quota',
+  ]);
+  const totalUsed = getFirstNumber(data, [
+    'total_used',
+    'totalUsed',
+    'used_quota',
+    'usedQuota',
+    'used',
+  ]);
+  const totalAvailable = getFirstNumber(data, [
+    'total_available',
+    'totalAvailable',
+    'remain_quota',
+    'remainQuota',
+    'available_quota',
+    'availableQuota',
+    'quota',
+  ]);
+  const totalGranted = directTotalGranted
+    ?? (
+      typeof totalUsed === 'number' && typeof totalAvailable === 'number'
+        ? totalUsed + totalAvailable
+        : totalAvailable
+    );
   return {
-    name: typeof data.name === 'string' ? data.name : undefined,
-    totalGranted: getNumber(data.total_granted),
-    totalUsed: getNumber(data.total_used),
-    totalAvailable: getNumber(data.total_available),
+    name: getFirstString(data, ['name', 'token_name', 'tokenName', 'key_name']),
+    totalGranted,
+    totalUsed,
+    totalAvailable,
     unlimitedQuota: getBoolean(data.unlimited_quota),
-    expiresAt: getNumber(data.expires_at),
+    expiresAt: getFirstNumber(data, ['expires_at', 'expiresAt', 'expired_time']),
   };
+}
+
+function unwrapArrayData(value: unknown): unknown[] {
+  const data = unwrapData(value);
+  if (Array.isArray(data)) return data;
+  if (isRecord(data)) {
+    for (const key of ['items', 'logs', 'records', 'data']) {
+      const nested = data[key];
+      if (Array.isArray(nested)) return nested;
+    }
+  }
+  return [];
+}
+
+function normalizeTimestamp(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? new Date(parsed).toISOString() : value.trim();
+  }
+  const number = getNumber(value);
+  if (typeof number === 'number') {
+    const millis = number > 10_000_000_000 ? number : number * 1000;
+    return new Date(millis).toISOString();
+  }
+  return undefined;
+}
+
+function pointsFromTokenUsage(record: Record<string, unknown>): number | undefined {
+  const explicitQuota = getFirstNumber(record, [
+    'quota',
+    'used_quota',
+    'usedQuota',
+    'total_quota',
+    'totalQuota',
+  ]);
+  if (typeof explicitQuota === 'number' && explicitQuota > 0) {
+    return Math.ceil(explicitQuota / TOKENS_PER_POINT);
+  }
+  let tokens = getFirstNumber(record, [
+    'token_used',
+    'tokenUsed',
+    'total_tokens',
+    'totalTokens',
+  ]);
+  if (tokens === undefined) {
+    const promptTokens = getFirstNumber(record, ['prompt_tokens', 'promptTokens', 'input_tokens', 'inputTokens']);
+    const completionTokens = getFirstNumber(record, ['completion_tokens', 'completionTokens', 'output_tokens', 'outputTokens']);
+    if (promptTokens !== undefined || completionTokens !== undefined) {
+      tokens = (promptTokens ?? 0) + (completionTokens ?? 0);
+    }
+  }
+  if (typeof tokens === 'number' && tokens > 0) {
+    return Math.ceil(tokens / TOKENS_PER_POINT);
+  }
+  return undefined;
+}
+
+function parseTokenLogRecords(value: unknown): CanvaslandWalletRecord[] {
+  return unwrapArrayData(value)
+    .filter(isRecord)
+    .map((record, index): CanvaslandWalletRecord | null => {
+      const createdAt = normalizeTimestamp(
+        record.created_at
+        ?? record.createdAt
+        ?? record.timestamp
+        ?? record.time
+        ?? record.created_time,
+      );
+      const points = pointsFromTokenUsage(record);
+      if (!createdAt || !points) return null;
+      const id = getFirstString(record, ['id', 'log_id', 'request_id'])
+        || `newapi-${createdAt}-${index}`;
+      const tokenUsed = getFirstNumber(record, [
+        'token_used',
+        'tokenUsed',
+        'total_tokens',
+        'totalTokens',
+      ]);
+      return {
+        id,
+        kind: 'usage',
+        provider: 'newapi',
+        paymentKind: 'model',
+        points,
+        status: 'used',
+        createdAt,
+        model: getFirstString(record, ['model_name', 'modelName', 'model']),
+        tokenUsed,
+        description: getFirstString(record, ['prompt', 'content', 'type_name', 'typeName', 'request_type']),
+      };
+    })
+    .filter((record): record is CanvaslandWalletRecord => Boolean(record));
 }
 
 function parseTopUpInfo(value: unknown): CanvaslandTopUpInfo | undefined {
@@ -180,6 +318,7 @@ function normalizeWalletRecord(value: unknown): WalletLedgerEntry | null {
   }
   return {
     id,
+    kind: 'topup',
     outTradeNo,
     provider,
     paymentKind,
@@ -210,10 +349,13 @@ function calculateWalletBalance(records: WalletLedgerEntry[]): CanvaslandWalletB
   const totalGranted = records
     .filter((record) => record.status === 'paid')
     .reduce((sum, record) => sum + record.points, 0);
+  const totalUsed = records
+    .filter((record) => record.kind === 'usage' || record.status === 'used')
+    .reduce((sum, record) => sum + record.points, 0);
   return {
     totalGranted,
-    totalUsed: 0,
-    totalAvailable: totalGranted,
+    totalUsed,
+    totalAvailable: Math.max(0, totalGranted - totalUsed),
   };
 }
 
@@ -583,22 +725,31 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
       const tokenUsagePromise = fetchJson(buildApiUrl(endpoint, '/api/usage/token'), {
         headers: { Authorization: `Bearer ${key}` },
       }).catch(() => null);
+      const tokenLogsPromise = fetchJson(buildApiUrl(endpoint, `/api/log/token?key=${encodeURIComponent(key)}`))
+        .catch(() => null);
       const topupPromise = fetchJson(buildApiUrl(endpoint, '/api/user/topup/info'), {
         headers: { Authorization: `Bearer ${key}` },
       }).catch(() => null);
 
-      const [statusRaw, tokenUsageRaw, topupRaw] = await Promise.all([
+      const [statusRaw, tokenUsageRaw, tokenLogsRaw, topupRaw] = await Promise.all([
         statusPromise,
         tokenUsagePromise,
+        tokenLogsPromise,
         topupPromise,
       ]);
       const status = parseStatus(statusRaw);
       const remoteToken = parseTokenUsage(tokenUsageRaw);
+      const remoteUsageRecords = tokenLogsRaw ? parseTokenLogRecords(tokenLogsRaw) : [];
+      const combinedWalletRecords = [
+        ...walletRecords,
+        ...remoteUsageRecords,
+      ].sort((a, b) => Date.parse(b.paidAt || b.createdAt) - Date.parse(a.paidAt || a.createdAt));
+      const combinedWallet = calculateWalletBalance(combinedWalletRecords);
       const token: CanvaslandTokenUsage = remoteToken ?? {
         name: account.label || 'canvasland New API',
-        totalGranted: wallet.totalGranted,
-        totalUsed: wallet.totalUsed,
-        totalAvailable: wallet.totalAvailable,
+        totalGranted: combinedWallet.totalGranted,
+        totalUsed: combinedWallet.totalUsed,
+        totalAvailable: combinedWallet.totalAvailable,
         unlimitedQuota: false,
       };
       const topup = topupRaw ? parseTopUpInfo(topupRaw) : undefined;
@@ -608,12 +759,12 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
         endpoint,
         topUpUrl: topup?.topupLink || topUpUrl,
         token,
-        wallet,
-        walletRecords,
+        wallet: combinedWallet,
+        walletRecords: combinedWalletRecords,
         quotaPerUnit: status.quotaPerUnit,
         quotaDisplayType: status.quotaDisplayType,
-        displayBalance: formatPoints(wallet.totalAvailable),
-        displayUsed: formatPoints(wallet.totalUsed),
+        displayBalance: formatPoints(combinedWallet.totalAvailable),
+        displayUsed: formatPoints(combinedWallet.totalUsed),
         topup,
         checkedAt: new Date().toISOString(),
       };

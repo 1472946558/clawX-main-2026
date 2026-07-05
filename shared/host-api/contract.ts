@@ -409,14 +409,18 @@ export type CanvaslandTokenUsage = {
 };
 export type CanvaslandWalletRecord = {
   id: string;
-  outTradeNo: string;
-  provider: 'blueocean' | 'epay';
-  paymentKind: 'wechat' | 'alipay';
-  amount: number;
+  kind?: 'topup' | 'usage';
+  outTradeNo?: string;
+  provider?: 'blueocean' | 'epay' | 'newapi';
+  paymentKind?: 'wechat' | 'alipay' | 'model';
+  amount?: number;
   points: number;
-  status: 'pending' | 'paid';
+  status?: 'pending' | 'paid' | 'used';
   createdAt: string;
   paidAt?: string;
+  model?: string;
+  tokenUsed?: number;
+  description?: string;
 };
 export type CanvaslandWalletBalance = {
   totalGranted: number;
