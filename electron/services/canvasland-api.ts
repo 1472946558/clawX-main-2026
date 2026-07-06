@@ -39,6 +39,7 @@ const EPAY_CONFIG_KEY = 'epay';
 const WALLET_LEDGER_KEY = 'walletLedger';
 const DEFAULT_ROOT_URL = 'https://feiniu.space';
 const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
+const DEFAULT_WALLET_API_BASE_URL = 'https://apitoken.unihuax.com';
 const DEFAULT_QUOTA_PER_UNIT = 500000;
 const TOKENS_PER_POINT = 100;
 const BLUEOCEAN_QR_PAYMENT_METHODS = new Set<BlueOceanPayPaymentMethod>([
@@ -357,6 +358,47 @@ function calculateWalletBalance(records: WalletLedgerEntry[]): CanvaslandWalletB
     totalUsed,
     totalAvailable: Math.max(0, totalGranted - totalUsed),
   };
+}
+
+async function fetchRemoteWallet(): Promise<{
+  wallet?: CanvaslandWalletBalance;
+  records: CanvaslandWalletRecord[];
+}> {
+  const balanceRaw = await fetchJson(`${DEFAULT_WALLET_API_BASE_URL}/api/wallet/balance`).catch(() => null);
+  const recordsRaw = await fetchJson(`${DEFAULT_WALLET_API_BASE_URL}/api/wallet/records`).catch(() => null);
+  const walletData = unwrapData(balanceRaw);
+  const walletSource = isRecord(walletData) && isRecord(walletData.wallet) ? walletData.wallet : walletData;
+  const totalGranted = isRecord(walletSource) ? getNumber(walletSource.totalGranted) : undefined;
+  const totalUsed = isRecord(walletSource) ? getNumber(walletSource.totalUsed) : undefined;
+  const totalAvailable = isRecord(walletSource) ? getNumber(walletSource.totalAvailable) : undefined;
+  const records = unwrapArrayData(recordsRaw)
+    .map(normalizeWalletRecord)
+    .filter((record): record is WalletLedgerEntry => Boolean(record));
+  return {
+    wallet: {
+      totalGranted: totalGranted ?? 0,
+      totalUsed: totalUsed ?? 0,
+      totalAvailable: totalAvailable ?? Math.max(0, (totalGranted ?? 0) - (totalUsed ?? 0)),
+    },
+    records,
+  };
+}
+
+function mergeWalletRecords(...recordGroups: CanvaslandWalletRecord[][]): CanvaslandWalletRecord[] {
+  const byId = new Map<string, CanvaslandWalletRecord>();
+  for (const record of recordGroups.flat()) {
+    const key = record.outTradeNo || record.id;
+    if (!byId.has(key)) {
+      byId.set(key, record);
+      continue;
+    }
+    const existing = byId.get(key)!;
+    if (existing.status !== 'paid' && record.status === 'paid') {
+      byId.set(key, record);
+    }
+  }
+  return Array.from(byId.values())
+    .sort((a, b) => Date.parse(b.paidAt || b.createdAt) - Date.parse(a.paidAt || a.createdAt));
 }
 
 async function savePendingWalletOrder(record: Omit<WalletLedgerEntry, 'status' | 'createdAt'>): Promise<void> {
@@ -698,7 +740,11 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
       const endpoint = normalizeRootUrl(account?.baseUrl || DEFAULT_ROOT_URL);
       const topUpUrl = `${endpoint}/console/topup`;
       const walletRecords = await getWalletLedger();
-      const wallet = calculateWalletBalance(walletRecords);
+      const remoteWallet = await fetchRemoteWallet();
+      const mergedInitialRecords = mergeWalletRecords(remoteWallet.records, walletRecords);
+      const wallet = remoteWallet.records.length > 0
+        ? calculateWalletBalance(mergedInitialRecords)
+        : (remoteWallet.wallet ?? calculateWalletBalance(walletRecords));
 
       if (!account || !key) {
         return {
@@ -741,7 +787,7 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
       const remoteToken = parseTokenUsage(tokenUsageRaw);
       const remoteUsageRecords = tokenLogsRaw ? parseTokenLogRecords(tokenLogsRaw) : [];
       const combinedWalletRecords = [
-        ...walletRecords,
+        ...mergeWalletRecords(remoteWallet.records, walletRecords),
         ...remoteUsageRecords,
       ].sort((a, b) => Date.parse(b.paidAt || b.createdAt) - Date.parse(a.paidAt || a.createdAt));
       const combinedWallet = calculateWalletBalance(combinedWalletRecords);

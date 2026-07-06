@@ -24,6 +24,9 @@ const DEFAULT_BASE_URL = 'https://feiniu.space';
 const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
 const DEFAULT_EPAY_GATEWAY_URL = 'https://mzf.mapay.cc/xpay/epay';
 const DEFAULT_EPAY_PID = '11222';
+const DEFAULT_BLUEOCEAN_NOTIFY_URL = 'https://apitoken.unihuax.com/payments/blueocean/notify';
+const DEFAULT_EPAY_NOTIFY_URL = 'https://apitoken.unihuax.com/payments/epay/notify';
+const DEFAULT_EPAY_RETURN_URL = 'https://apitoken.unihuax.com/health';
 const POINTS_PER_CNY = 100;
 const TEST_MIN_RECHARGE_AMOUNT = 0.01;
 const DEFAULT_RECHARGE_TIERS = [
@@ -95,7 +98,7 @@ export function TokenTopUp() {
   const [blueOceanAppid, setBlueOceanAppid] = useState('');
   const [blueOceanApiBaseUrl, setBlueOceanApiBaseUrl] = useState(DEFAULT_BLUEOCEAN_API_BASE_URL);
   const [blueOceanMerchantKey, setBlueOceanMerchantKey] = useState('');
-  const [blueOceanNotifyUrl, setBlueOceanNotifyUrl] = useState('');
+  const [blueOceanNotifyUrl, setBlueOceanNotifyUrl] = useState(DEFAULT_BLUEOCEAN_NOTIFY_URL);
   const [savingBlueOcean, setSavingBlueOcean] = useState(false);
   const [clearingBlueOcean, setClearingBlueOcean] = useState(false);
   const [epayConfig, setEpayConfig] = useState<EpayConfigResult | null>(null);
@@ -103,8 +106,8 @@ export function TokenTopUp() {
   const [epayGatewayUrl, setEpayGatewayUrl] = useState(DEFAULT_EPAY_GATEWAY_URL);
   const [epayPid, setEpayPid] = useState(DEFAULT_EPAY_PID);
   const [epayMerchantKey, setEpayMerchantKey] = useState('');
-  const [epayNotifyUrl, setEpayNotifyUrl] = useState('');
-  const [epayReturnUrl, setEpayReturnUrl] = useState('');
+  const [epayNotifyUrl, setEpayNotifyUrl] = useState(DEFAULT_EPAY_NOTIFY_URL);
+  const [epayReturnUrl, setEpayReturnUrl] = useState(DEFAULT_EPAY_RETURN_URL);
   const [epaySiteName, setEpaySiteName] = useState('canvasland');
   const [savingEpay, setSavingEpay] = useState(false);
   const [clearingEpay, setClearingEpay] = useState(false);
@@ -178,7 +181,7 @@ export function TokenTopUp() {
       setBlueOceanConfig(config);
       setBlueOceanAppid(config.config?.appid || '');
       setBlueOceanApiBaseUrl(config.config?.apiBaseUrl || DEFAULT_BLUEOCEAN_API_BASE_URL);
-      setBlueOceanNotifyUrl(config.config?.notifyUrl || '');
+      setBlueOceanNotifyUrl(config.config?.notifyUrl || DEFAULT_BLUEOCEAN_NOTIFY_URL);
       setBlueOceanMerchantKey('');
       setShowBlueOceanForm(!config.configured);
     } catch (error) {
@@ -192,8 +195,8 @@ export function TokenTopUp() {
       setEpayConfig(config);
       setEpayGatewayUrl(config.config?.gatewayUrl || DEFAULT_EPAY_GATEWAY_URL);
       setEpayPid(config.config?.pid || DEFAULT_EPAY_PID);
-      setEpayNotifyUrl(config.config?.notifyUrl || '');
-      setEpayReturnUrl(config.config?.returnUrl || '');
+      setEpayNotifyUrl(config.config?.notifyUrl || DEFAULT_EPAY_NOTIFY_URL);
+      setEpayReturnUrl(config.config?.returnUrl || DEFAULT_EPAY_RETURN_URL);
       setEpaySiteName(config.config?.siteName || 'canvasland');
       setEpayMerchantKey('');
       setShowEpayForm(!config.configured);
