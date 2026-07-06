@@ -28,7 +28,7 @@ const DEFAULT_BLUEOCEAN_NOTIFY_URL = 'https://apitoken.unihuax.com/payments/blue
 const DEFAULT_EPAY_NOTIFY_URL = 'https://apitoken.unihuax.com/payments/epay/notify';
 const DEFAULT_EPAY_RETURN_URL = 'https://apitoken.unihuax.com/health';
 const POINTS_PER_CNY = 100;
-const TEST_MIN_RECHARGE_AMOUNT = 0.01;
+const MIN_RECHARGE_AMOUNT = 5;
 const DEFAULT_RECHARGE_TIERS = [
   { amount: 5, points: 5 * POINTS_PER_CNY },
   { amount: 10, points: 10 * POINTS_PER_CNY },
@@ -402,7 +402,7 @@ export function TokenTopUp() {
   };
 
   const handleCreateQrPayment = async (tier: RechargeTier, paymentKey: string) => {
-    if (!Number.isFinite(tier.amount) || tier.amount < TEST_MIN_RECHARGE_AMOUNT || tier.points < 1) {
+    if (!Number.isFinite(tier.amount) || tier.amount < MIN_RECHARGE_AMOUNT || tier.points < 1) {
       toast.error(t('tokenTopUp.errors.customAmountInvalid'));
       return;
     }
@@ -682,8 +682,8 @@ export function TokenTopUp() {
                         id="token-topup-custom-amount"
                         data-testid="token-topup-custom-amount"
                         type="number"
-                        min={TEST_MIN_RECHARGE_AMOUNT}
-                        step="0.01"
+                        min={MIN_RECHARGE_AMOUNT}
+                        step="1"
                         value={customAmount}
                         onFocus={() => setSelectedRechargeKey('custom')}
                         onChange={(event) => {
@@ -731,7 +731,7 @@ export function TokenTopUp() {
                       disabled={
                         creatingPaymentKey !== null
                         || !selectedRechargeTier
-                        || selectedRechargeTier.amount < TEST_MIN_RECHARGE_AMOUNT
+                        || selectedRechargeTier.amount < MIN_RECHARGE_AMOUNT
                         || !selectedPaymentConfigured
                       }
                       className="mt-4 w-full rounded-lg"

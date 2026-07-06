@@ -97,7 +97,7 @@
         "pointsRate": "Курс: ¥1 = 100 баллов",
         "selectedAmount": "Выбранная сумма",
         "customAmount": "Своя сумма пополнения",
-        "customAmountPlaceholder": "Тестовый минимум ¥0.01; в финальной версии будет от ¥5",
+        "customAmountPlaceholder": "Произвольная сумма пополнения, минимум ¥5",
         "customPointsPreview": "Ожидаемые баллы: {{points}}",
         "useCustomAmount": "Использовать свою сумму",
         "points": "баллов",
@@ -186,7 +186,7 @@
             "epayMissingMerchantKey": "Требуется EPAY API_KEY",
             "epayMissingNotifyUrl": "Требуется URL асинхронного уведомления",
             "epayMissingReturnUrl": "Требуется URL возврата после оплаты",
-            "customAmountInvalid": "Тестовая сумма пополнения должна быть не меньше ¥0.01",
+            "customAmountInvalid": "Сумма пополнения должна быть не меньше ¥5",
             "epayPaymentFailed": "Не удалось создать QR-код Epay",
             "epayQueryFailed": "Не удалось проверить заказ Epay"
         }

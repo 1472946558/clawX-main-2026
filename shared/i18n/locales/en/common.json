@@ -97,7 +97,7 @@
         "pointsRate": "Conversion rate: ¥1 = 100 points",
         "selectedAmount": "Selected amount",
         "customAmount": "Custom recharge amount",
-        "customAmountPlaceholder": "Test minimum ¥0.01; final delivery returns to ¥5 minimum",
+        "customAmountPlaceholder": "Custom recharge amount, minimum ¥5",
         "customPointsPreview": "Estimated {{points}} points",
         "useCustomAmount": "Use custom amount",
         "points": "points",
@@ -186,7 +186,7 @@
             "epayMissingMerchantKey": "EPAY API_KEY is required",
             "epayMissingNotifyUrl": "Async notify URL is required",
             "epayMissingReturnUrl": "Payment return URL is required",
-            "customAmountInvalid": "Test recharge amount must be at least ¥0.01",
+            "customAmountInvalid": "Recharge amount must be at least ¥5",
             "epayPaymentFailed": "Failed to create Epay QR code",
             "epayQueryFailed": "Failed to query Epay order"
         }

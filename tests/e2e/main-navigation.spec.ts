@@ -47,8 +47,8 @@ test.describe('canvasland main navigation without setup flow', () => {
       await expect(page.getByTestId('token-topup-recharge-tiers')).toBeVisible();
       await expect(page.getByTestId('token-topup-tier-points-5')).toContainText('500');
       await expect(page.getByTestId('token-topup-tier-points-10')).toContainText('1,000');
-      await page.getByTestId('token-topup-custom-amount').fill('0.01');
-      await expect(page.getByTestId('token-topup-custom-points-preview')).toContainText('1');
+      await page.getByTestId('token-topup-custom-amount').fill('12');
+      await expect(page.getByTestId('token-topup-custom-points-preview')).toContainText('1,200');
       await expect(page.getByTestId('token-topup-create-selected-payment-qr')).toBeVisible();
       await expect(page.getByTestId('token-topup-usage-records')).toBeVisible();
     } finally {
