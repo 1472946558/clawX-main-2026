@@ -43,7 +43,7 @@
     {
       "slug": "self-improving-agent",
       "repo": "peterskoett/self-improving-agent",
-      "repoPath": ".",
+      "repoPath": "self-improving-agent",
       "ref": "master",
       "version": "main",
       "autoEnable": true

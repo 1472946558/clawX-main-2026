@@ -1,6 +1,6 @@
 {
-    "title": "スキル",
-    "subtitle": "AI機能の閲覧と管理",
+    "title": "スキルマーケット",
+    "subtitle": "商用利用しやすいライセンス情報とローカル導入状態を確認しながら、インストール可能なエージェントスキルを閲覧します",
     "refresh": "更新",
     "openFolder": "スキルフォルダを開く",
     "gatewayWarning": "ゲートウェイは停止しています。ローカルスキルは利用できますが、ランタイム状態は取得できません。",
@@ -16,7 +16,7 @@
         "enabledList": "有効 ({{count}})",
         "disabledList": "無効 ({{count}})"
     },
-    "search": "スキルを検索...",
+    "search": "スキルを検索",
     "searchMarketplace": "マーケットプレイスを検索...",
     "searchButton": "検索",
     "actions": {
@@ -27,6 +27,243 @@
     "noSkills": "スキルが見つかりません",
     "noSkillsSearch": "別の検索語をお試しください",
     "noSkillsAvailable": "利用可能なスキルがありません",
+    "aiApps": {
+        "title": "AIアプリ",
+        "subtitle": "TaoClaw風のアプリゾーンとして、第一段階ではECの商品画像と動画生成に集中します。",
+        "phaseBadge": "第1段階：EC专区",
+        "search": "アプリを検索",
+        "hot": "HOT",
+        "clearSearch": "検索をクリア",
+        "view": {
+            "cover": "カバービュー",
+            "grid": "グリッドビュー"
+        },
+        "ioSummary": "{{input}} → {{output}}",
+        "categories": {
+            "all": "すべてのアプリ",
+            "ecommerce": "EC",
+            "media": "自媒体",
+            "tools": "ツール",
+            "finance": "金融",
+            "goddess": "女神专区"
+        },
+        "status": {
+            "ready": "生成サービス準備済み",
+            "placeholder": "バックエンド待ち"
+        },
+        "jobStatuses": {
+            "queued": "待機中",
+            "running": "実行中",
+            "completed": "完了",
+            "failed": "失敗"
+        },
+        "assetTypes": {
+            "text": "コピー",
+            "image": "画像",
+            "video": "動画",
+            "poster": "ポスター"
+        },
+        "demoOutputs": {
+            "productTitleCandidates": {
+                "title": "商品タイトル案",
+                "description": "主要キーワード、ターゲット、利用シーンを含むEC向けタイトル案を3種類生成します。"
+            },
+            "sellingPointBullets": {
+                "title": "訴求ポイント文案",
+                "description": "メイン画像、詳細ページ、短い商品紹介に使える5つの訴求文を生成します。"
+            },
+            "detailPageCopyBlock": {
+                "title": "詳細ページ文案",
+                "description": "シーン、素材、機能、購入導線を整理した詳細ページ用コピーを生成します。"
+            },
+            "mainImageVariation": {
+                "title": "商品メイン画像案",
+                "description": "商品主体を強調し、EC掲載で読みやすいメイン画像案を生成します。"
+            },
+            "detailImageSection": {
+                "title": "詳細画像セクション",
+                "description": "機能、素材、利用シーン、比較訴求を見せる詳細画像モジュールです。"
+            },
+            "longDetailPoster": {
+                "title": "長尺詳細ポスター",
+                "description": "詳細ページや展示資料に使えるEC向け長尺ポスターレイアウトです。"
+            },
+            "videoScriptHook": {
+                "title": "短動画スクリプト導入",
+                "description": "冒頭フック、課題提示、主要訴求、CTAを生成します。"
+            },
+            "productVideoStoryboard": {
+                "title": "商品動画ストーリーボード",
+                "description": "冒頭、クローズアップ、利用シーン、締めの導線を含む短動画構成です。"
+            },
+            "videoCoverFrame": {
+                "title": "動画カバーフレーム",
+                "description": "フィードの初見で訴求しやすい動画カバー案を生成します。"
+            }
+        },
+        "empty": {
+            "search": "一致するアプリが見つかりません",
+            "category": "このカテゴリのアプリは計画中です"
+        },
+        "tags": {
+            "productPhoto": "商品画像",
+            "detailImage": "詳細画像",
+            "styleClone": "スタイル複製",
+            "referenceImage": "参考画像",
+            "fashion": "服装",
+            "modelSet": "組画像",
+            "imageGeneration": "画像生成",
+            "videoGeneration": "動画生成",
+            "retouch": "スマート補正",
+            "oneClick": "ワンクリック",
+            "poster": "ポスター",
+            "copywriting": "訴求コピー",
+            "sellingPoint": "訴求整理",
+            "scenarioVideo": "シーン動画"
+        },
+        "inputTypes": {
+            "productName": "商品名",
+            "platform": "対象プラットフォーム",
+            "scenario": "利用シーン",
+            "productImage": "商品画像",
+            "brief": "要件",
+            "referenceImage": "参考画像",
+            "garmentImage": "服装画像",
+            "modelPrompt": "モデル説明",
+            "script": "動画脚本",
+            "sellingPoints": "訴求点"
+        },
+        "outputTypes": {
+            "titleCopy": "タイトル文案",
+            "sellingPointCopy": "訴求文案",
+            "detailCopy": "詳細ページ文案",
+            "videoScript": "動画スクリプト",
+            "storyboard": "ストーリーボード",
+            "mainImage": "メイン画像",
+            "detailImage": "詳細画像",
+            "styledImage": "同スタイル画像",
+            "imageSet": "組画像",
+            "image": "画像",
+            "video": "動画",
+            "retouchedImage": "補正画像",
+            "poster": "詳細ポスター"
+        },
+        "modules": {
+            "productUpload": "商品素材アップロード",
+            "sellingPointBrief": "訴求点とスタイル指定",
+            "mainImageSet": "メイン画像案生成",
+            "detailImageSet": "詳細画像の一括生成",
+            "referenceStyle": "参考スタイル解析",
+            "styleTransfer": "スタイル転写生成",
+            "batchPreview": "一括プレビューと比較",
+            "garmentUpload": "服装単品アップロード",
+            "modelPrompt": "モデルとシーン設定",
+            "scenePreset": "シーンテンプレート選択",
+            "lookbookSet": "服装組画像出力",
+            "campaignScript": "台本と販促テーマ",
+            "imageStoryboard": "画像素材生成",
+            "videoStoryboard": "動画絵コンテ生成",
+            "cutoutCleanup": "切り抜きと欠陥補正",
+            "lightingEnhance": "光と質感の強化",
+            "backgroundPolish": "背景最適化",
+            "posterLayout": "詳細ポスターレイアウト",
+            "exportPoster": "長尺ポスター出力"
+        },
+        "detail": {
+            "phase": "ECゾーン・第1段階",
+            "inputs": "入力素材",
+            "outputs": "出力アセット",
+            "modules": "生成モジュール",
+            "backendTitle": "本番接続状態",
+            "backendDescription": "AIアプリは host-api 経由で OpenClaw のテキスト、画像、動画能力を呼び出します。provider 未設定時は明確に表示し、設定済みなら本番生成を実行します。",
+            "createDemoJob": "生成ジョブを作成",
+            "createAnotherJob": "別のジョブを作成",
+            "creatingJob": "作成中...",
+            "createdAction": "生成ジョブ作成済み",
+            "jobCreated": "生成ジョブ作成済み",
+            "jobId": "ジョブID",
+            "jobStatus": "ジョブ状態",
+            "jobError": "生成ジョブの作成に失敗しました",
+            "recentJobs": "最近のジョブ",
+            "noRecentJobs": "最近のジョブはありません",
+            "outputCount": "{{count}} 件の出力アセット",
+            "generatedAssets": "生成結果",
+            "assetRatio": "比率",
+            "openResult": "結果を開く",
+            "revealResult": "ファイル表示",
+            "inlineResult": "この結果はカード内に表示されています",
+            "fileUnavailable": "利用できるローカルファイルはまだありません",
+            "close": "閉じる"
+        },
+        "apps": {
+            "copywriting": {
+                "title": "EC文案生成",
+                "description": "商品名、訴求、プラットフォーム、ターゲットを入力し、タイトル、訴求文、詳細ページ文案、動画脚本を生成します。"
+            },
+            "detailPosterGenerator": {
+                "title": "詳細画像/詳細ポスター生成",
+                "description": "商品画像と参考画像をアップロードし、詳細画像モジュール、長尺ポスター、メイン画像方向を生成します。"
+            },
+            "shortVideo": {
+                "title": "商品短動画生成",
+                "description": "商品画像、脚本、シーン要件から短動画脚本、ストーリーボード、カバー案を生成します。"
+            }
+        },
+        "platforms": {
+            "taobao": "淘宝 / 天猫",
+            "tmall": "天猫",
+            "jd": "京東",
+            "pdd": "拼多多",
+            "douyin": "抖音EC"
+        },
+        "workbench": {
+            "stepFill": "入力とアップロード",
+            "formTitle": "パラメータ設定",
+            "session": "会話",
+            "generatedResult": "生成結果",
+            "resultTitle": "プレビュー出力",
+            "clear": "クリア",
+            "waitingTitle": "生成待ち",
+            "waitingDescription": "左側の項目を入力して送信すると、文案、詳細画像、動画分鏡の結果がここに表示されます。",
+            "submitGenerate": "生成を送信",
+            "estimatedCost": "予測金額：約0.2元/回",
+            "productName": "商品名",
+            "productNamePlaceholder": "例：女性用ジョガーパンツ",
+            "coreSellingPoints": "主要訴求",
+            "sellingPointsPlaceholder": "例：ハイウエスト、細見え、速乾、通気性",
+            "targetPlatform": "対象プラットフォーム",
+            "brandName": "ブランド名",
+            "brandNamePlaceholder": "ブランドがあれば入力",
+            "targetAudience": "ターゲット",
+            "targetAudiencePlaceholder": "例：大きいサイズの女性、フィットネス層",
+            "usageScenario": "利用シーン",
+            "usageScenarioPlaceholder": "例：ジム、ヨガ、ランニング",
+            "referenceImages": "参考画像",
+            "uploadHelper": "アップロード",
+            "imageType": "画像タイプ",
+            "mainImage": "メイン画像",
+            "detailImage": "詳細画像",
+            "productDescription": "商品説明",
+            "productDescriptionPlaceholder": "商品の訴求、素材、シーンなどを入力",
+            "generationMode": "生成能力",
+            "textToImage": "文生画像",
+            "imageToImage": "画像生画像",
+            "textToVideo": "文生動画",
+            "imageToVideo": "画像生動画",
+            "inputText": "入力テキスト",
+            "videoPromptPlaceholder": "例：映画風、夕暮れの海岸、ゆっくり寄るカメラ、逆光の人物。",
+            "aspectRatio": "画面比率",
+            "model": "生成モデル",
+            "generateCount": "生成数",
+            "imagePrice": "予測金額：￥0.5",
+            "videoPrice": "予測金額：￥1.2",
+            "modelDescriptions": {
+                "0": "メイン画像と詳細画像向けの商用画像生成",
+                "1": "素早いプレビューとスタイル調整向けのライブ画像生成",
+                "2": "EC シーン展示向けの 720P 商品ショート動画生成"
+            }
+        }
+    },
     "detail": {
         "info": "情報",
         "config": "設定",
@@ -114,6 +351,172 @@
     },
     "marketplace": {
         "title": "マーケットプレイス",
+        "licenseBadge": "商用利用しやすいライセンスを優先",
+        "languagePill": "日本語",
+        "clearSearch": "検索をクリア",
+        "openRepository": "リポジトリを開く",
+        "manage": "管理",
+        "action": {
+            "openSource": "ソースを開く",
+            "openedSource": "ソースリポジトリを開きました。",
+            "install": "インストール",
+            "installed": "インストール済み",
+            "use": "使用",
+            "useReady": "インストール済みスキルを開きました。",
+            "useFailed": "インストール済みスキルを開けませんでした。",
+            "installReady": "スキルをインストールしました。",
+            "installReadyWithPath": "スキルをインストールしました: {{path}}",
+            "installFailed": "スキルのインストールに失敗しました。"
+        },
+        "localDescription": "ローカルの OpenClaw スキルディレクトリから検出されたインストール済みスキルです。",
+        "localLicense": "ローカル",
+        "localToggleHint": "このインストール済みスキルをランタイムで利用できるかを切り替えます。",
+        "publicSource": {
+            "verified": "Canvasland 認証済み",
+            "clawhub": "ClawHub",
+            "local": "ローカルスキル"
+        },
+        "detail": {
+            "title": "スキル詳細",
+            "close": "スキル詳細を閉じる",
+            "category": "カテゴリ",
+            "version": "バージョン",
+            "intro": "概要",
+            "details": "詳細",
+            "requirements": "Requirements",
+            "requirementDesktop": "Canvasland Desktop 2.3+",
+            "requirementRuntime": "OpenClaw ランタイムが利用可能",
+            "requirementEnabled": "スキルマーケットのインストールが有効",
+            "entryPoint": "Entry Point",
+            "entrySkill": "Skill:",
+            "entryRuntime": "Runtime:",
+            "tags": "Tags",
+            "homepage": "ホームページ",
+            "commands": {
+                "install": "canvasland skill install {{id}}",
+                "use": "canvasland skill use {{id}}"
+            }
+        },
+        "admin": {
+            "title": "スキルマーケット管理",
+            "description": "GitHub または ClawHub から候補を取り込み、レビュー後にマーケットへ公開します。",
+            "importTitle": "候補をインポート",
+            "sourceGithub": "GitHub",
+            "sourceClawHub": "ClawHub",
+            "githubPlaceholder": "https://github.com/owner/repository",
+            "clawHubPlaceholder": "ClawHub スキルを検索",
+            "preview": "プレビュー",
+            "commit": "レビュー待ちへ追加",
+            "previewReady": "{{count}} 件の候補、{{rejected}} 件を拒否しました。",
+            "previewFailed": "インポートプレビューに失敗しました。",
+            "commitReady": "{{count}} 件の候補をレビュー待ちに追加しました。",
+            "commitFailed": "候補の追加に失敗しました。",
+            "rejectedPreview": "商用マーケット公開に適したライセンスではないため拒否されました。",
+            "reviewTitle": "レビューキュー",
+            "refresh": "更新",
+            "empty": "このキューにスキルはありません。",
+            "selectEmpty": "スキルを選択してマーケット情報を編集します。",
+            "licensePlaceholder": "MIT、Apache-2.0、BSD-3-Clause...",
+            "tagsPlaceholder": "codingAgent, workflow, docs",
+            "commercialUse": "商用利用を許可",
+            "installTarget": "GitHub スキルディレクトリ",
+            "installTargetEmpty": "SKILL.md ディレクトリはまだ検出されていません。GitHub プレビューを再実行してインストール候補を取得してください。",
+            "repositoryRoot": "リポジトリルート",
+            "fileCount": "{{count}} ファイル",
+            "auditTitle": "インストール監査",
+            "auditSource": "ソース",
+            "auditStatus": "ステータス",
+            "auditInstallPath": "インストール先",
+            "auditInstalledAt": "インストール日時",
+            "auditInstallError": "直近のインストールエラー",
+            "auditEmpty": "未記録",
+            "save": "変更を保存",
+            "saveReady": "スキル情報を保存しました。",
+            "saveFailed": "スキル情報の保存に失敗しました。",
+            "approve": "承認",
+            "reject": "拒否",
+            "reviewFailed": "レビュー状態の更新に失敗しました。",
+            "reviewReady": {
+                "approved": "スキルを承認しました。商用利用可の場合は公開されます。",
+                "pending": "スキルをレビュー待ちに戻しました。",
+                "rejected": "スキルを拒否しました。"
+            },
+            "reviewFilters": {
+                "all": "すべて",
+                "pending": "レビュー待ち",
+                "approved": "承認済み",
+                "rejected": "拒否済み"
+            },
+            "reviewStatus": {
+                "pending": "レビュー待ち",
+                "approved": "承認済み",
+                "rejected": "拒否済み"
+            }
+        },
+        "categories": {
+            "all": "すべて",
+            "hot": "人気スキル",
+            "safe": "セキュリティ",
+            "developer": "開発者ツール",
+            "content": "コンテンツ作成",
+            "ai": "AI",
+            "productivity": "生産性",
+            "analysis": "データ分析",
+            "communication": "コミュニケーション",
+            "installed": "インストール済み"
+        },
+        "installStatus": {
+            "available": "インストール連携予定",
+            "installed": "インストール済み",
+            "planned": "計画中",
+            "enabled": "インストール済み · 有効",
+            "disabled": "インストール済み · 無効"
+        },
+        "tags": {
+            "codingAgent": "コーディングエージェント",
+            "qualityGate": "品質ゲート",
+            "workflow": "ワークフロー",
+            "directory": "ディレクトリ",
+            "codex": "Codex",
+            "claude": "Claude",
+            "automation": "自動化",
+            "docs": "ドキュメント",
+            "planning": "計画",
+            "rules": "ルール",
+            "review": "レビュー",
+            "cursor": "Cursor",
+            "bestPractice": "ベストプラクティス",
+            "ide": "IDE",
+            "writing": "執筆",
+            "analysis": "分析",
+            "general": "汎用"
+        },
+        "items": {
+            "production-engineering": {
+                "name": "Production Engineering Skills",
+                "description": "AI コーディングエージェント向けの本番品質エンジニアリングワークフロー。品質ゲート、実装規律、レビュー習慣を扱います。"
+            },
+            "awesome-agent-skills": {
+                "name": "Awesome Agent Skills",
+                "description": "Claude Code、Codex、Gemini CLI、Cursor などに対応する、大規模なクロスエージェントスキル集です。"
+            },
+            "agent-toolkit": {
+                "name": "Agent Toolkit",
+                "description": "開発、ドキュメント、計画、自動化、プロフェッショナルワークフロー向けの実用スキル集です。"
+            },
+            "ai-skills": {
+                "name": "AI Skills",
+                "description": "コーディングアシスタント向けのコンパクトな行動スキル。ルール、レビュー規律、安全なエージェント動作を重視します。"
+            },
+            "cursor-skills": {
+                "name": "Cursor Skills",
+                "description": "Cursor 向けのベストプラクティススキル。IDE ワークフロー、コーディング標準、再利用可能なプロジェクト指針に役立ちます。"
+            },
+            "universal-agent-skills": {
+                "name": "Universal Agent Skills",
+                "description": "執筆、調査、分析、エージェント協業など現実のタスク向けの汎用的な自己完結型スキルです。"
+            }
+        },
         "installDialogTitle": "スキルをインストール",
         "installDialogSubtitle": "初期表示は Explore、キーワード入力時は検索します。",
         "sourceLabel": "ソース",

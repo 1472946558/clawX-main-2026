@@ -1,7 +1,7 @@
 {
     "gateway": "Шлюз",
     "channels": "Каналы",
-    "skills": "Навыки",
+    "skills": "AI-приложения",
     "uptime": "Время работы",
     "port": "Порт: {{port}}",
     "pid": "PID: {{pid}}",
@@ -11,15 +11,19 @@
     "gatewayNotRunning": "Шлюз не запущен",
     "models": {
         "title": "Модели",
-        "subtitle": "Просматривайте модельный канал canvasland и отслеживайте использование токенов."
+        "subtitle": "Просматривайте доступные модели canvasland и отслеживайте использование токенов."
     },
     "modelAccess": {
-        "title": "Канал AI-модели",
+        "title": "Доступные модели",
         "official": "Официальный канал",
-        "description": "Доступ к Model API управляется canvasland. Добавление сторонних API-провайдеров отключено.",
+        "description": "Модели встроены в canvasland и готовы к использованию в чате.",
         "checking": "Проверка",
         "configured": "Настроено",
-        "notConfigured": "Не настроено"
+        "notConfigured": "Не настроено",
+        "fast": "Быстрый чат",
+        "balanced": "Сложные задачи",
+        "coding": "Код и рассуждение",
+        "general": "Общие вопросы"
     },
     "quickActions": {
         "title": "Быстрые действия",

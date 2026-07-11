@@ -1,6 +1,6 @@
 {
-    "title": "Skills",
-    "subtitle": "Browse and manage AI capabilities",
+    "title": "Skill Marketplace",
+    "subtitle": "Browse installable agent skills with commercial-use license signals and local install status",
     "refresh": "Refresh",
     "openFolder": "Open Skills Folder",
     "gatewayWarning": "Gateway is not running. Local skills are still available, but runtime status is unavailable.",
@@ -16,7 +16,7 @@
         "enabledList": "Enabled ({{count}})",
         "disabledList": "Disabled ({{count}})"
     },
-    "search": "Search skills...",
+    "search": "Search skills",
     "searchMarketplace": "Search marketplace...",
     "searchButton": "Search",
     "actions": {
@@ -27,6 +27,243 @@
     "noSkills": "No skills found",
     "noSkillsSearch": "Try a different search term",
     "noSkillsAvailable": "No skills available",
+    "aiApps": {
+        "title": "AI Apps",
+        "subtitle": "A TaoClaw-style app zone for common AI production tools, with phase one focused on ecommerce product imagery and video generation.",
+        "phaseBadge": "Phase 1: Ecommerce",
+        "search": "Search apps",
+        "hot": "HOT",
+        "clearSearch": "Clear search",
+        "view": {
+            "cover": "Cover view",
+            "grid": "Grid view"
+        },
+        "ioSummary": "{{input}} → {{output}}",
+        "categories": {
+            "all": "All apps",
+            "ecommerce": "Ecommerce",
+            "media": "Self media",
+            "tools": "Tools",
+            "finance": "Finance",
+            "goddess": "Goddess zone"
+        },
+        "status": {
+            "ready": "Generation ready",
+            "placeholder": "Pending backend"
+        },
+        "jobStatuses": {
+            "queued": "Queued",
+            "running": "Running",
+            "completed": "Completed",
+            "failed": "Failed"
+        },
+        "assetTypes": {
+            "text": "Copy",
+            "image": "Image",
+            "video": "Video",
+            "poster": "Poster"
+        },
+        "demoOutputs": {
+            "productTitleCandidates": {
+                "title": "Product title candidates",
+                "description": "Three marketplace-ready title directions with core keywords, audience terms, and usage scenarios."
+            },
+            "sellingPointBullets": {
+                "title": "Selling point bullets",
+                "description": "A five-point benefits list for main images, detail pages, and short product introductions."
+            },
+            "detailPageCopyBlock": {
+                "title": "Detail page copy block",
+                "description": "A structured detail-page copy block covering scenario, material, feature, and conversion CTA."
+            },
+            "mainImageVariation": {
+                "title": "Main image variation",
+                "description": "A clean product main-image direction with stronger visual focus and platform listing readability."
+            },
+            "detailImageSection": {
+                "title": "Detail image section",
+                "description": "A detail-page visual module for product features, material, usage scene, and comparison selling points."
+            },
+            "longDetailPoster": {
+                "title": "Long detail poster",
+                "description": "A long-form ecommerce poster layout for product detail pages and exhibition presentation material."
+            },
+            "videoScriptHook": {
+                "title": "Video script hook",
+                "description": "Opening hook, pain-point line, core selling point, and call to action for product short videos."
+            },
+            "productVideoStoryboard": {
+                "title": "Product video storyboard",
+                "description": "A product short-video plan with opening shot, feature close-ups, scene demo, and closing call to action."
+            },
+            "videoCoverFrame": {
+                "title": "Video cover frame",
+                "description": "A cover-frame direction for marketplace feeds and short-video first-screen conversion."
+            }
+        },
+        "empty": {
+            "search": "No matching apps found",
+            "category": "Apps for this category are being planned"
+        },
+        "tags": {
+            "productPhoto": "Product photo",
+            "detailImage": "Detail image",
+            "styleClone": "Style clone",
+            "referenceImage": "Reference image",
+            "fashion": "Fashion",
+            "modelSet": "Image set",
+            "imageGeneration": "Image generation",
+            "videoGeneration": "Video generation",
+            "retouch": "Smart retouch",
+            "oneClick": "One click",
+            "poster": "Poster",
+            "copywriting": "Sales copy",
+            "sellingPoint": "Selling points",
+            "scenarioVideo": "Scenario video"
+        },
+        "inputTypes": {
+            "productName": "Product name",
+            "productImage": "Product image",
+            "brief": "Brief",
+            "referenceImage": "Reference image",
+            "garmentImage": "Garment image",
+            "modelPrompt": "Model prompt",
+            "script": "Video script",
+            "sellingPoints": "Selling points",
+            "platform": "Target platform",
+            "scenario": "Scenario"
+        },
+        "outputTypes": {
+            "titleCopy": "Title copy",
+            "sellingPointCopy": "Selling point copy",
+            "detailCopy": "Detail-page copy",
+            "mainImage": "Main image",
+            "detailImage": "Detail image",
+            "styledImage": "Styled image",
+            "imageSet": "Image set",
+            "image": "Image",
+            "video": "Video",
+            "videoScript": "Video script",
+            "storyboard": "Storyboard",
+            "retouchedImage": "Retouched image",
+            "poster": "Detail poster"
+        },
+        "modules": {
+            "productUpload": "Product asset upload",
+            "sellingPointBrief": "Selling points and style brief",
+            "mainImageSet": "Main image concepts",
+            "detailImageSet": "Batch detail image generation",
+            "referenceStyle": "Reference style analysis",
+            "styleTransfer": "Style transfer generation",
+            "batchPreview": "Batch preview and comparison",
+            "garmentUpload": "Garment upload",
+            "modelPrompt": "Model and scene setup",
+            "scenePreset": "Scene preset selection",
+            "lookbookSet": "Lookbook image set output",
+            "campaignScript": "Script and campaign theme",
+            "imageStoryboard": "Image asset generation",
+            "videoStoryboard": "Video storyboard generation",
+            "cutoutCleanup": "Cutout and flaw cleanup",
+            "lightingEnhance": "Lighting and texture enhancement",
+            "backgroundPolish": "Background polish",
+            "posterLayout": "Detail poster layout",
+            "exportPoster": "Long poster export"
+        },
+        "detail": {
+            "phase": "Ecommerce zone · Phase 1",
+            "inputs": "Input materials",
+            "outputs": "Output assets",
+            "modules": "Generation modules",
+            "backendTitle": "Production integration status",
+            "backendDescription": "AI apps now call OpenClaw text, image, and video capabilities through host-api. Missing providers are reported clearly; configured providers run production generation jobs.",
+            "createDemoJob": "Create generation job",
+            "createAnotherJob": "Create another job",
+            "creatingJob": "Creating...",
+            "createdAction": "Generation job created",
+            "jobCreated": "Generation job created",
+            "jobId": "Job ID",
+            "jobStatus": "Job status",
+            "jobError": "Failed to create generation job",
+            "recentJobs": "Recent jobs",
+            "noRecentJobs": "No recent jobs yet",
+            "outputCount": "{{count}} output assets",
+            "generatedAssets": "Generated assets",
+            "assetRatio": "Ratio",
+            "openResult": "Open result",
+            "revealResult": "Reveal file",
+            "inlineResult": "This result is shown in the card",
+            "fileUnavailable": "No local file is available yet",
+            "close": "Close"
+        },
+        "platforms": {
+            "taobao": "Taobao / Tmall",
+            "tmall": "Tmall",
+            "jd": "JD",
+            "pdd": "Pinduoduo",
+            "douyin": "Douyin Ecommerce"
+        },
+        "workbench": {
+            "stepFill": "Fill and upload",
+            "formTitle": "Parameters",
+            "session": "Session",
+            "generatedResult": "Generated result",
+            "resultTitle": "Preview output",
+            "clear": "Clear",
+            "waitingTitle": "Waiting to generate",
+            "waitingDescription": "Fill in the left-side parameters and submit to preview copy, detail images, or video storyboard results here.",
+            "submitGenerate": "Submit generation",
+            "estimatedCost": "Estimated cost: about ¥0.2 / run",
+            "productName": "Product name",
+            "productNamePlaceholder": "Example: women's joggers",
+            "coreSellingPoints": "Core selling points",
+            "sellingPointsPlaceholder": "Example: high waist, slimming fit, quick dry, breathable",
+            "targetPlatform": "Target platform",
+            "brandName": "Brand name",
+            "brandNamePlaceholder": "Fill in if available",
+            "targetAudience": "Target audience",
+            "targetAudiencePlaceholder": "Example: plus-size women, fitness users",
+            "usageScenario": "Usage scenario",
+            "usageScenarioPlaceholder": "Example: gym, yoga, running",
+            "referenceImages": "Reference images",
+            "uploadHelper": "Upload",
+            "imageType": "Image type",
+            "mainImage": "Main image",
+            "detailImage": "Detail image",
+            "productDescription": "Product description",
+            "productDescriptionPlaceholder": "Describe product benefits, material, scenarios, and constraints",
+            "generationMode": "Generation mode",
+            "textToImage": "Text to image",
+            "imageToImage": "Image to image",
+            "textToVideo": "Text to video",
+            "imageToVideo": "Image to video",
+            "inputText": "Input text",
+            "videoPromptPlaceholder": "Example: cinematic look, sunset coast, slow push-in, backlit character.",
+            "aspectRatio": "Aspect ratio",
+            "model": "Generation model",
+            "generateCount": "Generate count",
+            "imagePrice": "Estimated cost: ¥0.5",
+            "videoPrice": "Estimated cost: ¥1.2",
+            "modelDescriptions": {
+                "0": "Production image generation for main and detail images",
+                "1": "Live image generation for quick previews and style iteration",
+                "2": "720P product short-video generation for ecommerce scenes"
+            }
+        },
+        "apps": {
+            "copywriting": {
+                "title": "Ecommerce Copy Generator",
+                "description": "Enter product name, selling points, platform, and audience to generate titles, bullets, detail-page copy, and video scripts."
+            },
+            "detailPosterGenerator": {
+                "title": "Detail Image / Poster Generator",
+                "description": "Upload product and reference images to generate detail-image modules, long posters, and main-image directions."
+            },
+            "shortVideo": {
+                "title": "Product Short Video Generator",
+                "description": "Use product images, scripts, and scenario prompts to generate short-video scripts, storyboards, and cover-frame directions."
+            }
+        }
+    },
     "detail": {
         "info": "Information",
         "config": "Configuration",
@@ -114,6 +351,172 @@
     },
     "marketplace": {
         "title": "Marketplace",
+        "licenseBadge": "Commercial-use licenses prioritized",
+        "languagePill": "English",
+        "clearSearch": "Clear search",
+        "openRepository": "Open repository",
+        "manage": "Manage",
+        "action": {
+            "openSource": "Open source",
+            "openedSource": "Opened the source repository.",
+            "install": "Install",
+            "installed": "Installed",
+            "use": "Use",
+            "useReady": "Opened the installed skill.",
+            "useFailed": "Failed to open installed skill.",
+            "installReady": "Skill installed successfully.",
+            "installReadyWithPath": "Skill installed successfully: {{path}}",
+            "installFailed": "Failed to install skill."
+        },
+        "localDescription": "Installed local skill discovered from your OpenClaw skills directory.",
+        "localLicense": "Local",
+        "localToggleHint": "Controls whether this installed skill is available to the runtime.",
+        "publicSource": {
+            "verified": "Canvasland verified",
+            "clawhub": "ClawHub",
+            "local": "Local skill"
+        },
+        "detail": {
+            "title": "Skill details",
+            "close": "Close skill details",
+            "category": "Category",
+            "version": "Version",
+            "intro": "Introduction",
+            "details": "Details",
+            "requirements": "Requirements",
+            "requirementDesktop": "Canvasland Desktop 2.3+",
+            "requirementRuntime": "OpenClaw runtime available",
+            "requirementEnabled": "Skill marketplace installation enabled",
+            "entryPoint": "Entry Point",
+            "entrySkill": "Skill:",
+            "entryRuntime": "Runtime:",
+            "tags": "Tags",
+            "homepage": "Homepage",
+            "commands": {
+                "install": "canvasland skill install {{id}}",
+                "use": "canvasland skill use {{id}}"
+            }
+        },
+        "admin": {
+            "title": "Skill marketplace management",
+            "description": "Import candidates from GitHub or ClawHub, then review what can be published to the marketplace.",
+            "importTitle": "Import candidates",
+            "sourceGithub": "GitHub",
+            "sourceClawHub": "ClawHub",
+            "githubPlaceholder": "https://github.com/owner/repository",
+            "clawHubPlaceholder": "Search ClawHub skills",
+            "preview": "Preview",
+            "commit": "Add to pending",
+            "previewReady": "{{count}} candidates ready, {{rejected}} rejected.",
+            "previewFailed": "Import preview failed.",
+            "commitReady": "{{count}} candidates added to pending review.",
+            "commitFailed": "Failed to add candidates.",
+            "rejectedPreview": "Rejected because the license is not approved for commercial marketplace publishing.",
+            "reviewTitle": "Review queue",
+            "refresh": "Refresh",
+            "empty": "No skills in this queue.",
+            "selectEmpty": "Select a skill to edit its marketplace metadata.",
+            "licensePlaceholder": "MIT, Apache-2.0, BSD-3-Clause...",
+            "tagsPlaceholder": "codingAgent, workflow, docs",
+            "commercialUse": "Commercial use allowed",
+            "installTarget": "GitHub skill directory",
+            "installTargetEmpty": "No SKILL.md directory has been discovered yet. Run GitHub preview again to populate install targets.",
+            "repositoryRoot": "Repository root",
+            "fileCount": "{{count}} files",
+            "auditTitle": "Install audit",
+            "auditSource": "Source",
+            "auditStatus": "Status",
+            "auditInstallPath": "Install path",
+            "auditInstalledAt": "Installed at",
+            "auditInstallError": "Last install error",
+            "auditEmpty": "Not recorded",
+            "save": "Save changes",
+            "saveReady": "Skill metadata saved.",
+            "saveFailed": "Failed to save skill metadata.",
+            "approve": "Approve",
+            "reject": "Reject",
+            "reviewFailed": "Failed to update review status.",
+            "reviewReady": {
+                "approved": "Skill approved and published when commercial use is allowed.",
+                "pending": "Skill moved back to pending review.",
+                "rejected": "Skill rejected."
+            },
+            "reviewFilters": {
+                "all": "All",
+                "pending": "Pending",
+                "approved": "Approved",
+                "rejected": "Rejected"
+            },
+            "reviewStatus": {
+                "pending": "Pending",
+                "approved": "Approved",
+                "rejected": "Rejected"
+            }
+        },
+        "categories": {
+            "all": "All",
+            "hot": "Hot skills",
+            "safe": "Security",
+            "developer": "Developer tools",
+            "content": "Content creation",
+            "ai": "AI",
+            "productivity": "Productivity",
+            "analysis": "Data analysis",
+            "communication": "Communication",
+            "installed": "Installed"
+        },
+        "installStatus": {
+            "available": "Install planned",
+            "installed": "Installed",
+            "planned": "Planned",
+            "enabled": "Installed · enabled",
+            "disabled": "Installed · disabled"
+        },
+        "tags": {
+            "codingAgent": "Coding agent",
+            "qualityGate": "Quality gate",
+            "workflow": "Workflow",
+            "directory": "Directory",
+            "codex": "Codex",
+            "claude": "Claude",
+            "automation": "Automation",
+            "docs": "Docs",
+            "planning": "Planning",
+            "rules": "Rules",
+            "review": "Review",
+            "cursor": "Cursor",
+            "bestPractice": "Best practice",
+            "ide": "IDE",
+            "writing": "Writing",
+            "analysis": "Analysis",
+            "general": "General"
+        },
+        "items": {
+            "production-engineering": {
+                "name": "Production Engineering Skills",
+                "description": "Production-grade engineering workflows for AI coding agents, including quality gates, implementation discipline, and review habits."
+            },
+            "awesome-agent-skills": {
+                "name": "Awesome Agent Skills",
+                "description": "A large curated directory of cross-agent skills compatible with Claude Code, Codex, Gemini CLI, Cursor, and similar tools."
+            },
+            "agent-toolkit": {
+                "name": "Agent Toolkit",
+                "description": "A practical collection of skills for development, documentation, planning, automation, and professional workflows."
+            },
+            "ai-skills": {
+                "name": "AI Skills",
+                "description": "Compact behavioral skills for coding assistants, focused on rules, review discipline, and safer agent behavior."
+            },
+            "cursor-skills": {
+                "name": "Cursor Skills",
+                "description": "Cursor-oriented best-practice skills that can inform IDE workflow, coding standards, and reusable project guidance."
+            },
+            "universal-agent-skills": {
+                "name": "Universal Agent Skills",
+                "description": "Universal self-contained skills for real-world tasks such as writing, research, analysis, and agent collaboration."
+            }
+        },
         "installDialogTitle": "Install Skills",
         "installDialogSubtitle": "Browse Explore by default, or enter keywords to search.",
         "sourceLabel": "Source",

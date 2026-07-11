@@ -13,14 +13,13 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveAppBuilderLibRoot } from './resolve-app-builder-lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(__dirname, '..');
+const APP_BUILDER_LIB_ROOT = resolveAppBuilderLibRoot();
 
 export const EXTRACT_APP_PACKAGE_NSH = join(
-  ROOT,
-  'node_modules',
-  'app-builder-lib',
+  APP_BUILDER_LIB_ROOT,
   'templates',
   'nsis',
   'include',

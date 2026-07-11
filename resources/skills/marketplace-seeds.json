@@ -1,0 +1,240 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-07-10T00:00:00.000Z",
+  "skills": [
+    {
+      "id": "spec-driven-development",
+      "name": "Spec-Driven Development",
+      "description": "Turn product ideas into clear implementation specs before code is written, with goals, scope, commands, tests, and boundaries.",
+      "category": "hot",
+      "iconText": "S",
+      "tags": ["planning", "codingAgent"],
+      "rating": "4.9",
+      "downloads": "18.6万",
+      "license": "MIT",
+      "source": "addyosmani/agent-skills",
+      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
+      "installStatus": "installed",
+      "reviewStatus": "approved",
+      "commercialUseAllowed": true,
+      "importSource": "github",
+      "lastSyncedAt": "2026-07-10T00:00:00.000Z",
+      "selectedInstallTarget": "skills/spec-driven-development",
+      "installTargets": [
+        {
+          "skillPath": "skills/spec-driven-development",
+          "fileCount": 1,
+          "totalBytes": 16000
+        }
+      ]
+    },
+    {
+      "id": "security-and-hardening",
+      "name": "Security and Hardening",
+      "description": "Security-first workflow for user input, authentication, sensitive data, dependency risk, LLM output, and external integrations.",
+      "category": "safe",
+      "iconText": "S",
+      "tags": ["rules", "qualityGate"],
+      "rating": "4.8",
+      "downloads": "12.7万",
+      "license": "MIT",
+      "source": "addyosmani/agent-skills",
+      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
+      "installStatus": "available",
+      "reviewStatus": "approved",
+      "commercialUseAllowed": true,
+      "importSource": "github",
+      "lastSyncedAt": "2026-07-10T00:00:00.000Z",
+      "selectedInstallTarget": "skills/security-and-hardening",
+      "installTargets": [
+        {
+          "skillPath": "skills/security-and-hardening",
+          "fileCount": 2,
+          "totalBytes": 26000
+        }
+      ]
+    },
+    {
+      "id": "code-review-and-quality",
+      "name": "Code Review and Quality",
+      "description": "Multi-axis code review for correctness, readability, architecture, security, and performance before changes are merged.",
+      "category": "developer",
+      "iconText": "C",
+      "tags": ["review", "qualityGate"],
+      "rating": "4.8",
+      "downloads": "11.3万",
+      "license": "MIT",
+      "source": "addyosmani/agent-skills",
+      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
+      "installStatus": "available",
+      "reviewStatus": "approved",
+      "commercialUseAllowed": true,
+      "importSource": "github",
+      "lastSyncedAt": "2026-07-10T00:00:00.000Z",
+      "selectedInstallTarget": "skills/code-review-and-quality",
+      "installTargets": [
+        {
+          "skillPath": "skills/code-review-and-quality",
+          "fileCount": 1,
+          "totalBytes": 22000
+        }
+      ]
+    },
+    {
+      "id": "frontend-ui-engineering",
+      "name": "Frontend UI Engineering",
+      "description": "Frontend implementation workflow for component structure, design systems, state, responsiveness, and accessibility checks.",
+      "category": "developer",
+      "iconText": "F",
+      "tags": ["ide", "bestPractice"],
+      "rating": "4.7",
+      "downloads": "9.8万",
+      "license": "MIT",
+      "source": "addyosmani/agent-skills",
+      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
+      "installStatus": "available",
+      "reviewStatus": "approved",
+      "commercialUseAllowed": true,
+      "importSource": "github",
+      "lastSyncedAt": "2026-07-10T00:00:00.000Z",
+      "selectedInstallTarget": "skills/frontend-ui-engineering",
+      "installTargets": [
+        {
+          "skillPath": "skills/frontend-ui-engineering",
+          "fileCount": 1,
+          "totalBytes": 18000
+        }
+      ]
+    },
+    {
+      "id": "documentation-and-adrs",
+      "name": "Documentation and ADRs",
+      "description": "Create useful project documentation and architecture decision records that explain why decisions were made and how systems behave.",
+      "category": "content",
+      "iconText": "D",
+      "tags": ["docs", "writing"],
+      "rating": "4.6",
+      "downloads": "8.2万",
+      "license": "MIT",
+      "source": "addyosmani/agent-skills",
+      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
+      "installStatus": "available",
+      "reviewStatus": "approved",
+      "commercialUseAllowed": true,
+      "importSource": "github",
+      "lastSyncedAt": "2026-07-10T00:00:00.000Z",
+      "selectedInstallTarget": "skills/documentation-and-adrs",
+      "installTargets": [
+        {
+          "skillPath": "skills/documentation-and-adrs",
+          "fileCount": 1,
+          "totalBytes": 17000
+        }
+      ]
+    },
+    {
+      "id": "context-engineering",
+      "name": "Context Engineering",
+      "description": "Feed agents the right project information at the right time through rules files, context packing, and integration guidance.",
+      "category": "ai",
+      "iconText": "A",
+      "tags": ["codex", "claude", "workflow"],
+      "rating": "4.7",
+      "downloads": "10.5万",
+      "license": "MIT",
+      "source": "addyosmani/agent-skills",
+      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
+      "installStatus": "available",
+      "reviewStatus": "approved",
+      "commercialUseAllowed": true,
+      "importSource": "github",
+      "lastSyncedAt": "2026-07-10T00:00:00.000Z",
+      "selectedInstallTarget": "skills/context-engineering",
+      "installTargets": [
+        {
+          "skillPath": "skills/context-engineering",
+          "fileCount": 1,
+          "totalBytes": 16000
+        }
+      ]
+    },
+    {
+      "id": "planning-and-task-breakdown",
+      "name": "Planning and Task Breakdown",
+      "description": "Break large goals into small, ordered, verifiable tasks with clear acceptance criteria and dependency sequencing.",
+      "category": "productivity",
+      "iconText": "P",
+      "tags": ["planning", "workflow"],
+      "rating": "4.7",
+      "downloads": "9.1万",
+      "license": "MIT",
+      "source": "addyosmani/agent-skills",
+      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
+      "installStatus": "available",
+      "reviewStatus": "approved",
+      "commercialUseAllowed": true,
+      "importSource": "github",
+      "lastSyncedAt": "2026-07-10T00:00:00.000Z",
+      "selectedInstallTarget": "skills/planning-and-task-breakdown",
+      "installTargets": [
+        {
+          "skillPath": "skills/planning-and-task-breakdown",
+          "fileCount": 1,
+          "totalBytes": 15000
+        }
+      ]
+    },
+    {
+      "id": "observability-and-instrumentation",
+      "name": "Observability and Instrumentation",
+      "description": "Add logs, metrics, traces, dashboards, and symptom-based alerts so production behavior can be understood and debugged.",
+      "category": "analysis",
+      "iconText": "O",
+      "tags": ["analysis", "qualityGate"],
+      "rating": "4.5",
+      "downloads": "6.8万",
+      "license": "MIT",
+      "source": "addyosmani/agent-skills",
+      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
+      "installStatus": "planned",
+      "reviewStatus": "approved",
+      "commercialUseAllowed": true,
+      "importSource": "github",
+      "lastSyncedAt": "2026-07-10T00:00:00.000Z",
+      "selectedInstallTarget": "skills/observability-and-instrumentation",
+      "installTargets": [
+        {
+          "skillPath": "skills/observability-and-instrumentation",
+          "fileCount": 1,
+          "totalBytes": 17000
+        }
+      ]
+    },
+    {
+      "id": "interview-me",
+      "name": "Interview Me",
+      "description": "A structured one-question-at-a-time collaboration skill for clarifying vague requests before planning or implementation starts.",
+      "category": "communication",
+      "iconText": "I",
+      "tags": ["planning", "workflow"],
+      "rating": "4.6",
+      "downloads": "7.4万",
+      "license": "MIT",
+      "source": "addyosmani/agent-skills",
+      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
+      "installStatus": "available",
+      "reviewStatus": "approved",
+      "commercialUseAllowed": true,
+      "importSource": "github",
+      "lastSyncedAt": "2026-07-10T00:00:00.000Z",
+      "selectedInstallTarget": "skills/interview-me",
+      "installTargets": [
+        {
+          "skillPath": "skills/interview-me",
+          "fileCount": 1,
+          "totalBytes": 12000
+        }
+      ]
+    }
+  ]
+}

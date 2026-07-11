@@ -2,13 +2,36 @@ import type { GatewayManager } from '../gateway/manager';
 import type { ClawHubService, ClawHubInstallParams, ClawHubSearchParams, ClawHubUninstallParams } from '../gateway/clawhub';
 import type { CompleteHostServiceRegistry } from '../main/ipc/host-contract';
 import { getAllSkillConfigs, getSkillConfig, updateSkillConfig, updateSkillConfigs } from '../utils/skill-config';
+import { getOpenClawSkillsDir } from '../utils/paths';
 import {
   collectQuickAccessSkills,
   filterEnabledQuickAccessSkills,
   type QuickAccessRuntimeSkillStatus,
 } from '../utils/skill-quick-access';
 import { listLocalSkills } from './skills/local-skill-service';
+import {
+  commitMarketplaceImports,
+  exportMarketplaceCatalog,
+  getClawHubSlugForMarketplaceSkill,
+  getMarketplaceSkill,
+  importMarketplaceCatalog,
+  installGitHubMarketplaceSkill,
+  listMarketplaceSkills,
+  listApprovedMarketplaceSkills,
+  normalizeClawHubMarketplaceSkill,
+  partitionMarketplaceImportPreview,
+  previewGitHubMarketplaceImport,
+  reviewMarketplaceSkill,
+  updateMarketplaceSkill,
+} from './skills/marketplace-skill-service';
 import { isRecord } from './payload-utils';
+import { join } from 'node:path';
+import type {
+  SkillMarketplaceImportPreviewPayload,
+  SkillMarketplaceCatalog,
+  SkillMarketplaceItem,
+  SkillMarketplaceReviewStatus,
+} from '../../shared/host-api/contract';
 
 type SkillConfigPayload = {
   skillKey?: unknown;
@@ -36,6 +59,40 @@ type SkillOpenPayload = {
   slug?: unknown;
   skillKey?: unknown;
   baseDir?: unknown;
+};
+
+type MarketplaceImportPreviewInput = {
+  source?: unknown;
+  repositoryUrl?: unknown;
+  query?: unknown;
+  limit?: unknown;
+};
+
+type MarketplaceAdminListInput = {
+  reviewStatus?: unknown;
+};
+
+type MarketplaceImportCommitInput = {
+  skills?: unknown;
+};
+
+type MarketplaceImportCatalogInput = {
+  catalog?: unknown;
+  mode?: unknown;
+};
+
+type MarketplaceReviewInput = {
+  id?: unknown;
+  reviewStatus?: unknown;
+};
+
+type MarketplaceUpdateInput = {
+  id?: unknown;
+  patch?: unknown;
+};
+
+type MarketplaceInstallInput = {
+  id?: unknown;
 };
 
 function errorMessage(error: unknown): string {
@@ -83,6 +140,41 @@ function getConfigUpdates(payload: unknown): NormalizedSkillConfigUpdate[] {
   });
 }
 
+function getMarketplaceImportPreviewPayload(payload: unknown): SkillMarketplaceImportPreviewPayload {
+  const body = isRecord(payload) ? payload as MarketplaceImportPreviewInput : {};
+  if (body.source === 'github') {
+    if (typeof body.repositoryUrl !== 'string' || !body.repositoryUrl.trim()) {
+      throw new Error('repositoryUrl is required');
+    }
+    return {
+      source: 'github',
+      repositoryUrl: body.repositoryUrl.trim(),
+    };
+  }
+  if (body.source === 'clawhub') {
+    return {
+      source: 'clawhub',
+      query: typeof body.query === 'string' ? body.query : undefined,
+      limit: typeof body.limit === 'number' ? body.limit : undefined,
+    };
+  }
+  throw new Error('source must be github or clawhub');
+}
+
+function getMarketplaceReviewStatus(value: unknown): SkillMarketplaceReviewStatus {
+  if (value === 'approved' || value === 'pending' || value === 'rejected') {
+    return value;
+  }
+  throw new Error('reviewStatus must be approved, pending, or rejected');
+}
+
+function getMarketplaceId(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error('id is required');
+  }
+  return value.trim();
+}
+
 export function createSkillsApi({
   clawHubService,
   gatewayManager,
@@ -126,6 +218,140 @@ export function createSkillsApi({
         success: true,
         skills: filterEnabledQuickAccessSkills(scannedSkills, runtimeSkills, configs),
       };
+    },
+    marketplaceList: async () => {
+      try {
+        return { success: true, skills: await listApprovedMarketplaceSkills() };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    marketplaceAdminList: async (payload) => {
+      try {
+        const body = isRecord(payload) ? payload as MarketplaceAdminListInput : {};
+        const reviewStatus = body.reviewStatus === 'all' || body.reviewStatus === undefined
+          ? 'all'
+          : getMarketplaceReviewStatus(body.reviewStatus);
+        return { success: true, skills: await listMarketplaceSkills(reviewStatus) };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    marketplaceImportPreview: async (payload) => {
+      try {
+        const input = getMarketplaceImportPreviewPayload(payload);
+        const importedSkills = input.source === 'github'
+          ? await previewGitHubMarketplaceImport(input.repositoryUrl)
+          : (await clawHubService.search({
+            query: input.query || '',
+            limit: input.limit,
+          })).map((skill) => normalizeClawHubMarketplaceSkill(skill));
+        const { skills, rejected } = partitionMarketplaceImportPreview(importedSkills);
+        return { success: true, source: input.source, skills, rejected };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    marketplaceImportCommit: async (payload) => {
+      try {
+        const body = isRecord(payload) ? payload as MarketplaceImportCommitInput : {};
+        const skills = Array.isArray(body.skills) ? body.skills.filter((skill): skill is SkillMarketplaceItem => isRecord(skill)) : [];
+        return { success: true, skills: await commitMarketplaceImports(skills) };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    marketplaceExportCatalog: async () => {
+      try {
+        return { success: true, catalog: await exportMarketplaceCatalog() };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    marketplaceImportCatalog: async (payload) => {
+      try {
+        const body = isRecord(payload) ? payload as MarketplaceImportCatalogInput : {};
+        if (!isRecord(body.catalog)) {
+          throw new Error('catalog is required');
+        }
+        const mode = body.mode === 'replace' ? 'replace' : 'merge';
+        return {
+          success: true,
+          skills: await importMarketplaceCatalog(body.catalog as SkillMarketplaceCatalog, mode),
+        };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    marketplaceReview: async (payload) => {
+      try {
+        const body = isRecord(payload) ? payload as MarketplaceReviewInput : {};
+        const skill = await reviewMarketplaceSkill(
+          getMarketplaceId(body.id),
+          getMarketplaceReviewStatus(body.reviewStatus),
+        );
+        return { success: true, skill };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    marketplaceUpdate: async (payload) => {
+      try {
+        const body = isRecord(payload) ? payload as MarketplaceUpdateInput : {};
+        const patch = isRecord(body.patch) ? body.patch : {};
+        const skill = await updateMarketplaceSkill(
+          getMarketplaceId(body.id),
+          patch as Partial<Omit<SkillMarketplaceItem, 'id' | 'lastSyncedAt'>>,
+        );
+        return { success: true, skill };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    marketplaceInstall: async (payload) => {
+      try {
+        const body = isRecord(payload) ? payload as MarketplaceInstallInput : {};
+        const id = getMarketplaceId(body.id);
+        const skill = await getMarketplaceSkill(id);
+        if (skill.reviewStatus !== 'approved' || !skill.commercialUseAllowed) {
+          throw new Error('Only approved commercial-use skills can be installed');
+        }
+        let installPath = skill.importSource === 'github'
+          ? await installGitHubMarketplaceSkill(skill)
+          : undefined;
+        let runtimeSkillKey = skill.id;
+        if (skill.importSource === 'clawhub') {
+          const slug = getClawHubSlugForMarketplaceSkill(skill);
+          await clawHubService.install({ slug });
+          installPath = join(getOpenClawSkillsDir(), slug);
+          runtimeSkillKey = slug;
+        }
+        if (skill.importSource !== 'github' && skill.importSource !== 'clawhub') {
+          throw new Error('Only GitHub and ClawHub marketplace skills can be installed automatically');
+        }
+        const enableResult = await updateSkillConfig(runtimeSkillKey, { enabled: true });
+        if (!enableResult.success) {
+          throw new Error(enableResult.error || 'Skill installed but could not be enabled');
+        }
+        const installedAt = new Date().toISOString();
+        return {
+          success: true,
+          skill: await updateMarketplaceSkill(id, {
+            installStatus: 'installed',
+            installPath,
+            installedAt,
+            installError: '',
+          }),
+          installPath,
+        };
+      } catch (error) {
+        const body = isRecord(payload) ? payload as MarketplaceInstallInput : {};
+        const id = typeof body.id === 'string' ? body.id.trim() : '';
+        if (id) {
+          await updateMarketplaceSkill(id, { installError: errorMessage(error) }).catch(() => undefined);
+        }
+        return { success: false, error: errorMessage(error) };
+      }
     },
     clawhubCapability: async () => {
       try {

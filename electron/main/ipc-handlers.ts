@@ -64,6 +64,7 @@ import { createProvidersApi } from '../services/providers-api';
 import { createCanvaslandApi } from '../services/canvasland-api';
 import { createSessionsApi } from '../services/sessions-api';
 import { createSkillsApi } from '../services/skills-api';
+import { createAiAppsApi } from '../services/ai-apps-api';
 import { createUsageApi } from '../services/usage-api';
 import {
   isLaunchAtStartupKey,
@@ -155,6 +156,7 @@ function registerTypedHostHandlers(
     chat: createChatApi({ gatewayManager }),
     cron: createCronApi({ gatewayManager }),
     skills: createSkillsApi({ clawHubService, gatewayManager }),
+    aiApps: createAiAppsApi(),
     usage: createUsageApi(),
   });
   registerHostInvokeHandler(hostApiRegistry);

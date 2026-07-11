@@ -1,7 +1,7 @@
 {
     "gateway": "网关",
     "channels": "频道",
-    "skills": "技能",
+    "skills": "AI应用",
     "uptime": "运行时间",
     "port": "端口: {{port}}",
     "pid": "PID: {{pid}}",
@@ -11,15 +11,19 @@
     "gatewayNotRunning": "网关未运行",
     "models": {
         "title": "模型",
-        "subtitle": "查看 canvasland 模型通道并监控 Token 用量"
+        "subtitle": "查看 canvasland 可用模型并监控 Token 用量"
     },
     "modelAccess": {
-        "title": "AI 模型通道",
+        "title": "可用模型",
         "official": "官方通道",
-        "description": "模型 API 由 canvasland 统一配置，第三方 API 添加入口已关闭。",
+        "description": "模型由 canvasland 内置提供，可直接在对话中使用。",
         "checking": "检查中",
         "configured": "已配置",
-        "notConfigured": "未配置"
+        "notConfigured": "未配置",
+        "fast": "快速对话",
+        "balanced": "复杂任务",
+        "coding": "代码与推理",
+        "general": "通用问答"
     },
     "quickActions": {
         "title": "快捷操作",

@@ -2,6 +2,9 @@ import type {
   AgentCreatePayload,
   AgentProfileUpdatePayload,
   AgentUpdatePayload,
+  AiAppCreateJobPayload,
+  AiAppJobPayload,
+  AiAppListResultsPayload,
   BlueOceanPayConfigPayload,
   BlueOceanPayCreatePaymentPayload,
   BlueOceanPayQueryPayload,
@@ -34,6 +37,13 @@ import type {
   SettingsValue,
   ShellOpenExternalPayload,
   ShellPathPayload,
+  SkillMarketplaceAdminListPayload,
+  SkillMarketplaceInstallPayload,
+  SkillMarketplaceImportCatalogPayload,
+  SkillMarketplaceImportCommitPayload,
+  SkillMarketplaceImportPreviewPayload,
+  SkillMarketplaceReviewPayload,
+  SkillMarketplaceUpdatePayload,
   SkillQuickAccessPayload,
   SkillUpdateConfigPayload,
   SkillUpdatePayload,
@@ -60,6 +70,7 @@ export type {
   DeliveryChannelGroup,
   DeliveryTargetsResult,
   GatewayHealthSummary,
+  AiAppJob,
   ImageGenerationProvidersResult,
   ImageGenerationSettingsResult,
   LocalSkillsResult,
@@ -77,6 +88,16 @@ export type {
   SettingsResetResult,
   SettingsSnapshot,
   SkillConfigsResult,
+  SkillMarketplaceAdminListResult,
+  SkillMarketplaceInstallResult,
+  SkillMarketplaceExportResult,
+  SkillMarketplaceImportCatalogResult,
+  SkillMarketplaceImportCommitResult,
+  SkillMarketplaceImportPreviewResult,
+  SkillMarketplaceListResult,
+  SkillMarketplaceMutationResult,
+  AiAppJobResult,
+  AiAppListResultsResult,
   SkillsStatusResult,
   StagedFileResult,
   UsageHistoryEntry,
@@ -362,6 +383,29 @@ export const hostApi = {
     status: () => invokeHost('skills', 'status'),
     update: (input: SkillUpdatePayload) => invokeHost('skills', 'update', input),
     quickAccess: (input: SkillQuickAccessPayload) => invokeHost('skills', 'quickAccess', input),
+    marketplaceList: () => invokeHost('skills', 'marketplaceList'),
+    marketplaceAdminList: (input?: SkillMarketplaceAdminListPayload) => (
+      invokeHost('skills', 'marketplaceAdminList', input)
+    ),
+    marketplaceImportPreview: (input: SkillMarketplaceImportPreviewPayload) => (
+      invokeHost('skills', 'marketplaceImportPreview', input)
+    ),
+    marketplaceImportCommit: (input: SkillMarketplaceImportCommitPayload) => (
+      invokeHost('skills', 'marketplaceImportCommit', input)
+    ),
+    marketplaceExportCatalog: () => invokeHost('skills', 'marketplaceExportCatalog'),
+    marketplaceImportCatalog: (input: SkillMarketplaceImportCatalogPayload) => (
+      invokeHost('skills', 'marketplaceImportCatalog', input)
+    ),
+    marketplaceReview: (input: SkillMarketplaceReviewPayload) => (
+      invokeHost('skills', 'marketplaceReview', input)
+    ),
+    marketplaceUpdate: (input: SkillMarketplaceUpdatePayload) => (
+      invokeHost('skills', 'marketplaceUpdate', input)
+    ),
+    marketplaceInstall: (input: SkillMarketplaceInstallPayload) => (
+      invokeHost('skills', 'marketplaceInstall', input)
+    ),
     clawhubCapability: () => invokeHost('skills', 'clawhubCapability'),
     clawhubList: () => invokeHost('skills', 'clawhubList'),
     clawhubSearch: (input: ClawHubSearchPayload) => invokeHost('skills', 'clawhubSearch', input),
@@ -373,6 +417,11 @@ export const hostApi = {
     clawhubOpenSkillPath: (input: { skillKey?: string; slug?: string; baseDir?: string }) => (
       invokeHost('skills', 'clawhubOpenSkillPath', input)
     ),
+  },
+  aiApps: {
+    createJob: (input: AiAppCreateJobPayload) => invokeHost('aiApps', 'createJob', input),
+    getJob: (id: string) => invokeHost('aiApps', 'getJob', { id } satisfies AiAppJobPayload),
+    listResults: (input?: AiAppListResultsPayload) => invokeHost('aiApps', 'listResults', input),
   },
   usage: {
     recentTokenHistory: (limit?: number) => (

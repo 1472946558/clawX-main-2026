@@ -41,6 +41,19 @@ test.describe('canvasland main navigation without setup flow', () => {
       await page.getByTestId('sidebar-nav-channels').click();
       await expect(page.getByTestId('channels-page')).toBeVisible();
 
+      await page.getByTestId('sidebar-nav-ai-apps').click();
+      await expect(page.getByTestId('skills-page')).toBeVisible();
+      await expect(page.getByTestId('ai-apps-title')).toHaveText('AI Apps');
+      await expect(page.getByTestId('ai-apps-category-tabs')).toBeVisible();
+      await expect(page.getByTestId('ai-apps-grid').locator('[data-testid^="ai-app-card-"]')).toHaveCount(3);
+
+      await page.getByTestId('sidebar-nav-skills').click();
+      await expect(page.getByTestId('skills-page')).toBeVisible();
+      await expect(page.getByTestId('skills-marketplace-title')).toHaveText('Skill Marketplace');
+      await expect
+        .poll(() => page.getByTestId('skills-marketplace-grid').locator('[data-testid^="skill-marketplace-card-"]').count())
+        .toBeGreaterThanOrEqual(6);
+
       await page.getByTestId('sidebar-nav-token-topup').click();
       await expect(page.getByTestId('token-topup-page')).toBeVisible();
       await expect(page.getByTestId('token-topup-connection-json')).toHaveCount(0);

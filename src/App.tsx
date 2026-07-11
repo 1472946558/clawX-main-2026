@@ -13,6 +13,7 @@ import { Models } from './pages/Models';
 import { Chat } from './pages/Chat';
 import { Agents } from './pages/Agents';
 import { Channels } from './pages/Channels';
+import { AiApps } from './pages/AiApps';
 import { Skills } from './pages/Skills';
 import { Cron } from './pages/Cron';
 import { Dreams } from './pages/Dreams';
@@ -210,6 +211,7 @@ function App() {
             <Route path="/agents" element={<Agents />} />
             <Route path="/channels" element={<Channels />} />
             <Route path="/token-topup" element={<TokenTopUp />} />
+            <Route path="/ai-apps" element={<AiApps />} />
             <Route path="/skills" element={<Skills />} />
             <Route path="/cron" element={<Cron />} />
             <Route path="/image-generation" element={devModeUnlocked ? <ImageGenerationPage /> : <Navigate to="/" replace />} />

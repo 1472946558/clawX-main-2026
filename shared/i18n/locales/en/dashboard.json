@@ -1,7 +1,7 @@
 {
     "gateway": "Gateway",
     "channels": "Channels",
-    "skills": "Skills",
+    "skills": "AI Apps",
     "uptime": "Uptime",
     "port": "Port: {{port}}",
     "pid": "PID: {{pid}}",
@@ -11,15 +11,19 @@
     "gatewayNotRunning": "Gateway not running",
     "models": {
         "title": "Models",
-        "subtitle": "View the canvasland model channel and monitor token usage."
+        "subtitle": "View available canvasland models and monitor token usage."
     },
     "modelAccess": {
-        "title": "AI Model Channel",
+        "title": "Available Models",
         "official": "Official channel",
-        "description": "Model API access is managed by canvasland. Third-party API provider entry is disabled.",
+        "description": "Models are built into canvasland and ready to use in chat.",
         "checking": "Checking",
         "configured": "Configured",
-        "notConfigured": "Not configured"
+        "notConfigured": "Not configured",
+        "fast": "Fast chat",
+        "balanced": "Complex tasks",
+        "coding": "Code and reasoning",
+        "general": "General Q&A"
     },
     "quickActions": {
         "title": "Quick Actions",

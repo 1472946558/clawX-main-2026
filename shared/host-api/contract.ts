@@ -786,6 +786,157 @@ export type SkillUpdateConfigPayload = SkillKeyPayload & {
 export type SkillUpdateConfigsPayload = { updates: SkillUpdateConfigPayload[] };
 export type SkillUpdatePayload = SkillKeyPayload & { enabled?: boolean };
 export type SkillQuickAccessPayload = { workspace?: string };
+export type SkillMarketplaceCategory =
+  | 'hot'
+  | 'safe'
+  | 'developer'
+  | 'content'
+  | 'ai'
+  | 'productivity'
+  | 'analysis'
+  | 'communication';
+export type SkillMarketplaceStatus = 'available' | 'installed' | 'planned';
+export type SkillMarketplaceReviewStatus = 'approved' | 'pending' | 'rejected';
+export type SkillMarketplaceImportSource = 'github' | 'clawhub' | 'manual';
+export type SkillMarketplaceCommercialLicense = 'MIT' | 'Apache-2.0' | 'BSD-2-Clause' | 'BSD-3-Clause';
+export type SkillMarketplaceInstallTarget = {
+  skillPath: string;
+  fileCount: number;
+  totalBytes: number;
+};
+export type SkillMarketplaceItem = {
+  id: string;
+  name: string;
+  description: string;
+  category: SkillMarketplaceCategory;
+  iconText: string;
+  tags: string[];
+  rating: string;
+  downloads: string;
+  license: string;
+  source: string;
+  repositoryUrl: string;
+  installStatus: SkillMarketplaceStatus;
+  reviewStatus: SkillMarketplaceReviewStatus;
+  commercialUseAllowed: boolean;
+  importSource: SkillMarketplaceImportSource;
+  lastSyncedAt: string;
+  installTargets?: SkillMarketplaceInstallTarget[];
+  selectedInstallTarget?: string;
+  installPath?: string;
+  installedAt?: string;
+  installError?: string;
+};
+export type SkillMarketplaceListResult = HostSuccess & {
+  skills?: SkillMarketplaceItem[];
+};
+export type SkillMarketplaceAdminListPayload = {
+  reviewStatus?: SkillMarketplaceReviewStatus | 'all';
+};
+export type SkillMarketplaceAdminListResult = HostSuccess & {
+  skills?: SkillMarketplaceItem[];
+};
+export type SkillMarketplaceImportPreviewPayload =
+  | {
+    source: 'github';
+    repositoryUrl: string;
+  }
+  | {
+    source: 'clawhub';
+    query?: string;
+    limit?: number;
+  };
+export type SkillMarketplaceImportPreviewResult = HostSuccess & {
+  skills?: SkillMarketplaceItem[];
+  rejected?: SkillMarketplaceItem[];
+  source?: SkillMarketplaceImportSource;
+};
+export type SkillMarketplaceImportCommitPayload = {
+  skills: SkillMarketplaceItem[];
+};
+export type SkillMarketplaceImportCommitResult = HostSuccess & {
+  skills?: SkillMarketplaceItem[];
+};
+export type SkillMarketplaceCatalog = {
+  schemaVersion: 1;
+  exportedAt: string;
+  skills: SkillMarketplaceItem[];
+};
+export type SkillMarketplaceExportResult = HostSuccess & {
+  catalog?: SkillMarketplaceCatalog;
+};
+export type SkillMarketplaceImportCatalogPayload = {
+  catalog: SkillMarketplaceCatalog;
+  mode?: 'merge' | 'replace';
+};
+export type SkillMarketplaceImportCatalogResult = HostSuccess & {
+  skills?: SkillMarketplaceItem[];
+};
+export type SkillMarketplaceReviewPayload = {
+  id: string;
+  reviewStatus: SkillMarketplaceReviewStatus;
+};
+export type SkillMarketplaceUpdatePayload = {
+  id: string;
+  patch: Partial<Omit<SkillMarketplaceItem, 'id' | 'lastSyncedAt'>>;
+};
+export type SkillMarketplaceMutationResult = HostSuccess & {
+  skill?: SkillMarketplaceItem;
+};
+export type SkillMarketplaceInstallPayload = {
+  id: string;
+};
+export type SkillMarketplaceInstallResult = HostSuccess & {
+  skill?: SkillMarketplaceItem;
+  installPath?: string;
+};
+
+export type AiAppJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+export type AiAppJobMode = 'live';
+export type AiAppOutputType = 'text' | 'image' | 'video' | 'poster';
+export type AiAppOutputAsset = {
+  id: string;
+  type: AiAppOutputType;
+  title: string;
+  titleKey?: string;
+  description?: string;
+  descriptionKey?: string;
+  thumbnail?: string;
+  downloadUrl?: string;
+  metadata?: JsonRecord;
+};
+export type AiAppJobOutputs = {
+  assetCount: number;
+  assets: AiAppOutputAsset[];
+};
+export type AiAppJob = {
+  id: string;
+  appId: string;
+  mode: AiAppJobMode;
+  status: AiAppJobStatus;
+  createdAt: string;
+  updatedAt: string;
+  inputs: JsonRecord;
+  outputs?: AiAppJobOutputs;
+  error?: string;
+};
+export type AiAppCreateJobPayload = {
+  appId: string;
+  mode?: AiAppJobMode;
+  inputs?: JsonRecord;
+};
+export type AiAppJobPayload = {
+  id: string;
+};
+export type AiAppListResultsPayload = {
+  appId?: string;
+};
+export type AiAppJobResult = HostSuccess & {
+  job?: AiAppJob;
+};
+export type AiAppListResultsResult = HostSuccess & {
+  jobs?: AiAppJob[];
+};
 export type ClawHubInstalledSkill = {
   slug: string;
   version?: string;
@@ -1021,6 +1172,15 @@ export type HostApiContract = {
     status: () => SkillsStatusResult;
     update: (payload: SkillUpdatePayload) => HostSuccess;
     quickAccess: (payload: SkillQuickAccessPayload) => HostSuccess & { skills?: QuickAccessSkill[] };
+    marketplaceList: () => SkillMarketplaceListResult;
+    marketplaceAdminList: (payload?: SkillMarketplaceAdminListPayload) => SkillMarketplaceAdminListResult;
+    marketplaceImportPreview: (payload: SkillMarketplaceImportPreviewPayload) => SkillMarketplaceImportPreviewResult;
+    marketplaceImportCommit: (payload: SkillMarketplaceImportCommitPayload) => SkillMarketplaceImportCommitResult;
+    marketplaceExportCatalog: () => SkillMarketplaceExportResult;
+    marketplaceImportCatalog: (payload: SkillMarketplaceImportCatalogPayload) => SkillMarketplaceImportCatalogResult;
+    marketplaceReview: (payload: SkillMarketplaceReviewPayload) => SkillMarketplaceMutationResult;
+    marketplaceUpdate: (payload: SkillMarketplaceUpdatePayload) => SkillMarketplaceMutationResult;
+    marketplaceInstall: (payload: SkillMarketplaceInstallPayload) => SkillMarketplaceInstallResult;
     clawhubCapability: () => ClawHubCapabilityResult;
     clawhubList: () => ClawHubListResult;
     clawhubSearch: (payload: ClawHubSearchPayload) => ClawHubSearchResult;
@@ -1028,6 +1188,11 @@ export type HostApiContract = {
     clawhubUninstall: (payload: ClawHubUninstallPayload) => HostSuccess;
     clawhubOpenSkillReadme: (payload: ClawHubOpenPayload) => HostSuccess;
     clawhubOpenSkillPath: (payload: ClawHubOpenPayload) => HostSuccess;
+  };
+  aiApps: {
+    createJob: (payload: AiAppCreateJobPayload) => AiAppJobResult;
+    getJob: (payload: AiAppJobPayload) => AiAppJobResult;
+    listResults: (payload?: AiAppListResultsPayload) => AiAppListResultsResult;
   };
   usage: {
     recentTokenHistory: (payload?: UsageHistoryPayload) => UsageHistoryEntry[];

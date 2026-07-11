@@ -2,6 +2,19 @@ packages:
   - '.'
   - 'harness'
 
+allowBuilds:
+  '@google/genai': set this to true or false
+  '@whiskeysockets/baileys': set this to true or false
+  baileys: set this to true or false
+  electron: set this to true or false
+  electron-winstaller: set this to true or false
+  esbuild: set this to true or false
+  koffi: set this to true or false
+  openclaw: set this to true or false
+  protobufjs: set this to true or false
+  sharp: set this to true or false
+  tree-sitter-bash: set this to true or false
+
 ignoredBuiltDependencies:
   - electron
   - esbuild

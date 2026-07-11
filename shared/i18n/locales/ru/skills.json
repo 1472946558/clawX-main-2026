@@ -1,6 +1,6 @@
 {
-    "title": "Навыки",
-    "subtitle": "Просмотр и управление AI-возможностями",
+    "title": "Маркет навыков",
+    "subtitle": "Просматривайте устанавливаемые навыки агентов с лицензиями, удобными для коммерческого использования, и локальным статусом установки",
     "refresh": "Обновить",
     "openFolder": "Открыть папку навыков",
     "gatewayWarning": "Шлюз не запущен. Локальные навыки по-прежнему доступны, но статус рантайма недоступен.",
@@ -16,7 +16,7 @@
         "enabledList": "Включено ({{count}})",
         "disabledList": "Отключено ({{count}})"
     },
-    "search": "Поиск навыков...",
+    "search": "Поиск навыков",
     "searchMarketplace": "Поиск на маркетплейсе...",
     "searchButton": "Поиск",
     "actions": {
@@ -27,6 +27,243 @@
     "noSkills": "Навыки не найдены",
     "noSkillsSearch": "Попробуйте другой поисковый запрос",
     "noSkillsAvailable": "Навыки недоступны",
+    "aiApps": {
+        "title": "AI-приложения",
+        "subtitle": "Зона приложений в стиле TaoClaw: на первом этапе фокус на ecommerce, товарных изображениях и генерации видео.",
+        "phaseBadge": "Этап 1: ecommerce",
+        "search": "Поиск приложений",
+        "hot": "HOT",
+        "clearSearch": "Очистить поиск",
+        "view": {
+            "cover": "Вид с обложками",
+            "grid": "Вид сеткой"
+        },
+        "ioSummary": "{{input}} → {{output}}",
+        "categories": {
+            "all": "Все приложения",
+            "ecommerce": "Ecommerce",
+            "media": "Медиа",
+            "tools": "Инструменты",
+            "finance": "Финансы",
+            "goddess": "Goddess zone"
+        },
+        "status": {
+            "ready": "Генерация готова",
+            "placeholder": "Ожидает backend"
+        },
+        "jobStatuses": {
+            "queued": "В очереди",
+            "running": "Выполняется",
+            "completed": "Завершено",
+            "failed": "Ошибка"
+        },
+        "assetTypes": {
+            "text": "Текст",
+            "image": "Изображение",
+            "video": "Видео",
+            "poster": "Постер"
+        },
+        "demoOutputs": {
+            "productTitleCandidates": {
+                "title": "Варианты названия товара",
+                "description": "Три варианта заголовка для маркетплейса с ключевыми словами, аудиторией и сценариями."
+            },
+            "sellingPointBullets": {
+                "title": "Пункты преимуществ",
+                "description": "Пять продающих тезисов для главного изображения, карточки товара и краткого описания."
+            },
+            "detailPageCopyBlock": {
+                "title": "Текст для страницы товара",
+                "description": "Структурный блок текста: сценарий, материал, функция и призыв к действию."
+            },
+            "mainImageVariation": {
+                "title": "Вариант главного изображения",
+                "description": "Направление главного изображения с сильным фокусом на товар и читаемостью для витрины."
+            },
+            "detailImageSection": {
+                "title": "Блок детального изображения",
+                "description": "Визуальный модуль для функций, материала, сценария использования и сравнительных преимуществ."
+            },
+            "longDetailPoster": {
+                "title": "Длинный постер товара",
+                "description": "Макет длинного ecommerce-постера для страницы товара и выставочных материалов."
+            },
+            "videoScriptHook": {
+                "title": "Хук сценария видео",
+                "description": "Вступительный хук, боль, ключевое преимущество и призыв к действию для короткого видео."
+            },
+            "productVideoStoryboard": {
+                "title": "Сториборд товарного видео",
+                "description": "План короткого видео: начало, крупные планы, демонстрация сценария и финальный CTA."
+            },
+            "videoCoverFrame": {
+                "title": "Кадр обложки видео",
+                "description": "Направление обложки для ленты и первого экрана короткого видео."
+            }
+        },
+        "empty": {
+            "search": "Подходящие приложения не найдены",
+            "category": "Приложения этой категории планируются"
+        },
+        "tags": {
+            "productPhoto": "Товарное фото",
+            "detailImage": "Детальное фото",
+            "styleClone": "Копия стиля",
+            "referenceImage": "Референс",
+            "fashion": "Одежда",
+            "modelSet": "Набор фото",
+            "imageGeneration": "Генерация изображений",
+            "videoGeneration": "Генерация видео",
+            "retouch": "AI-ретушь",
+            "oneClick": "В один клик",
+            "poster": "Постер",
+            "copywriting": "Продающий текст",
+            "sellingPoint": "Преимущества",
+            "scenarioVideo": "Сценарное видео"
+        },
+        "inputTypes": {
+            "productName": "Название товара",
+            "platform": "Платформа",
+            "scenario": "Сценарий",
+            "productImage": "Товарное фото",
+            "brief": "Бриф",
+            "referenceImage": "Референс",
+            "garmentImage": "Фото одежды",
+            "modelPrompt": "Описание модели",
+            "script": "Сценарий видео",
+            "sellingPoints": "Преимущества"
+        },
+        "outputTypes": {
+            "titleCopy": "Заголовок",
+            "sellingPointCopy": "Текст преимуществ",
+            "detailCopy": "Текст страницы товара",
+            "videoScript": "Сценарий видео",
+            "storyboard": "Сториборд",
+            "mainImage": "Главное фото",
+            "detailImage": "Детальное фото",
+            "styledImage": "Фото в стиле",
+            "imageSet": "Набор фото",
+            "image": "Изображение",
+            "video": "Видео",
+            "retouchedImage": "Отретушированное фото",
+            "poster": "Постер деталей"
+        },
+        "modules": {
+            "productUpload": "Загрузка товарных материалов",
+            "sellingPointBrief": "Преимущества и стиль",
+            "mainImageSet": "Варианты главного фото",
+            "detailImageSet": "Пакетная генерация деталей",
+            "referenceStyle": "Анализ референсного стиля",
+            "styleTransfer": "Перенос стиля",
+            "batchPreview": "Пакетный предпросмотр и сравнение",
+            "garmentUpload": "Загрузка одежды",
+            "modelPrompt": "Настройка модели и сцены",
+            "scenePreset": "Выбор шаблона сцены",
+            "lookbookSet": "Вывод fashion-набора",
+            "campaignScript": "Сценарий и тема кампании",
+            "imageStoryboard": "Генерация графических материалов",
+            "videoStoryboard": "Генерация видеосториборда",
+            "cutoutCleanup": "Вырезание и очистка дефектов",
+            "lightingEnhance": "Улучшение света и фактуры",
+            "backgroundPolish": "Полировка фона",
+            "posterLayout": "Макет постера деталей",
+            "exportPoster": "Экспорт длинного постера"
+        },
+        "detail": {
+            "phase": "Ecommerce-зона · этап 1",
+            "inputs": "Входные материалы",
+            "outputs": "Выходные ассеты",
+            "modules": "Модули генерации",
+            "backendTitle": "Статус production-интеграции",
+            "backendDescription": "AI-приложения вызывают текстовые, графические и видео возможности OpenClaw через host-api. Если provider не настроен, ошибка показывается явно; при настройке запускается production-задача.",
+            "createDemoJob": "Создать задачу генерации",
+            "createAnotherJob": "Создать еще задачу",
+            "creatingJob": "Создание...",
+            "createdAction": "Задача генерации создана",
+            "jobCreated": "Задача генерации создана",
+            "jobId": "ID задачи",
+            "jobStatus": "Статус задачи",
+            "jobError": "Не удалось создать задачу генерации",
+            "recentJobs": "Последние задачи",
+            "noRecentJobs": "Последних задач пока нет",
+            "outputCount": "{{count}} выходных ассетов",
+            "generatedAssets": "Сгенерированные ассеты",
+            "assetRatio": "Соотношение",
+            "openResult": "Открыть результат",
+            "revealResult": "Показать файл",
+            "inlineResult": "Этот результат показан в карточке",
+            "fileUnavailable": "Локальный файл пока недоступен",
+            "close": "Закрыть"
+        },
+        "apps": {
+            "copywriting": {
+                "title": "Генератор ecommerce-текстов",
+                "description": "Введите товар, преимущества, платформу и аудиторию, чтобы получить заголовки, тезисы, текст страницы и сценарий видео."
+            },
+            "detailPosterGenerator": {
+                "title": "Генератор детальных изображений и постеров",
+                "description": "Загрузите товар и референсы, чтобы получить блоки детальных изображений, длинные постеры и направления главного изображения."
+            },
+            "shortVideo": {
+                "title": "Генератор короткого товарного видео",
+                "description": "Создаёт сценарий, сториборд и обложку короткого видео по товару, сценарию и промпту."
+            }
+        },
+        "platforms": {
+            "taobao": "Taobao / Tmall",
+            "tmall": "Tmall",
+            "jd": "JD",
+            "pdd": "Pinduoduo",
+            "douyin": "Douyin Ecommerce"
+        },
+        "workbench": {
+            "stepFill": "Заполнение и загрузка",
+            "formTitle": "Параметры",
+            "session": "Сессия",
+            "generatedResult": "Результат",
+            "resultTitle": "Предпросмотр",
+            "clear": "Очистить",
+            "waitingTitle": "Ожидание генерации",
+            "waitingDescription": "Заполните параметры слева и отправьте форму, чтобы увидеть текст, изображения или сториборд видео.",
+            "submitGenerate": "Запустить генерацию",
+            "estimatedCost": "Оценка стоимости: около ¥0.2 / запуск",
+            "productName": "Название товара",
+            "productNamePlaceholder": "Например: женские спортивные брюки",
+            "coreSellingPoints": "Ключевые преимущества",
+            "sellingPointsPlaceholder": "Например: высокая талия, стройнит, быстро сохнет, дышит",
+            "targetPlatform": "Целевая платформа",
+            "brandName": "Бренд",
+            "brandNamePlaceholder": "Укажите бренд, если есть",
+            "targetAudience": "Целевая аудитория",
+            "targetAudiencePlaceholder": "Например: plus-size девушки, фитнес-аудитория",
+            "usageScenario": "Сценарий использования",
+            "usageScenarioPlaceholder": "Например: зал, йога, бег",
+            "referenceImages": "Референсы",
+            "uploadHelper": "Загрузить",
+            "imageType": "Тип изображения",
+            "mainImage": "Главное изображение",
+            "detailImage": "Детальное изображение",
+            "productDescription": "Описание товара",
+            "productDescriptionPlaceholder": "Опишите преимущества, материал, сценарии и ограничения",
+            "generationMode": "Режим генерации",
+            "textToImage": "Текст в изображение",
+            "imageToImage": "Изображение в изображение",
+            "textToVideo": "Текст в видео",
+            "imageToVideo": "Изображение в видео",
+            "inputText": "Входной текст",
+            "videoPromptPlaceholder": "Например: кинематографичный стиль, закатный берег, медленный наезд камеры.",
+            "aspectRatio": "Соотношение сторон",
+            "model": "Модель генерации",
+            "generateCount": "Количество",
+            "imagePrice": "Оценка: ¥0.5",
+            "videoPrice": "Оценка: ¥1.2",
+            "modelDescriptions": {
+                "0": "Промышленная генерация изображений для главных и детальных карточек",
+                "1": "Live-генерация изображений для быстрых превью и итераций стиля",
+                "2": "Генерация коротких товарных видео 720P для e-commerce сцен"
+            }
+        }
+    },
     "detail": {
         "info": "Информация",
         "config": "Конфигурация",
@@ -114,6 +351,172 @@
     },
     "marketplace": {
         "title": "Маркетплейс",
+        "licenseBadge": "Приоритет лицензий для коммерческого использования",
+        "languagePill": "Русский",
+        "clearSearch": "Очистить поиск",
+        "openRepository": "Открыть репозиторий",
+        "manage": "Управлять",
+        "action": {
+            "openSource": "Открыть источник",
+            "openedSource": "Репозиторий источника открыт.",
+            "install": "Установить",
+            "installed": "Установлено",
+            "use": "Использовать",
+            "useReady": "Установленный навык открыт.",
+            "useFailed": "Не удалось открыть установленный навык.",
+            "installReady": "Навык успешно установлен.",
+            "installReadyWithPath": "Навык успешно установлен: {{path}}",
+            "installFailed": "Не удалось установить навык."
+        },
+        "localDescription": "Установленный локальный навык, найденный в директории навыков OpenClaw.",
+        "localLicense": "Локально",
+        "localToggleHint": "Управляет доступностью этого установленного навыка для рантайма.",
+        "publicSource": {
+            "verified": "Проверено Canvasland",
+            "clawhub": "ClawHub",
+            "local": "Локальный навык"
+        },
+        "detail": {
+            "title": "Детали навыка",
+            "close": "Закрыть детали навыка",
+            "category": "Категория",
+            "version": "Версия",
+            "intro": "Введение",
+            "details": "Детали",
+            "requirements": "Requirements",
+            "requirementDesktop": "Canvasland Desktop 2.3+",
+            "requirementRuntime": "Доступен рантайм OpenClaw",
+            "requirementEnabled": "Установка из маркетплейса включена",
+            "entryPoint": "Entry Point",
+            "entrySkill": "Skill:",
+            "entryRuntime": "Runtime:",
+            "tags": "Tags",
+            "homepage": "Домашняя страница",
+            "commands": {
+                "install": "canvasland skill install {{id}}",
+                "use": "canvasland skill use {{id}}"
+            }
+        },
+        "admin": {
+            "title": "Управление маркетплейсом навыков",
+            "description": "Импортируйте кандидатов из GitHub или ClawHub, затем проверяйте их перед публикацией.",
+            "importTitle": "Импорт кандидатов",
+            "sourceGithub": "GitHub",
+            "sourceClawHub": "ClawHub",
+            "githubPlaceholder": "https://github.com/owner/repository",
+            "clawHubPlaceholder": "Поиск навыков ClawHub",
+            "preview": "Предпросмотр",
+            "commit": "Добавить в ожидание",
+            "previewReady": "{{count}} кандидатов готово, {{rejected}} отклонено.",
+            "previewFailed": "Не удалось создать предпросмотр импорта.",
+            "commitReady": "{{count}} кандидатов добавлено на проверку.",
+            "commitFailed": "Не удалось добавить кандидатов.",
+            "rejectedPreview": "Отклонено, потому что лицензия не разрешена для коммерческой публикации.",
+            "reviewTitle": "Очередь проверки",
+            "refresh": "Обновить",
+            "empty": "В этой очереди нет навыков.",
+            "selectEmpty": "Выберите навык, чтобы изменить данные маркетплейса.",
+            "licensePlaceholder": "MIT, Apache-2.0, BSD-3-Clause...",
+            "tagsPlaceholder": "codingAgent, workflow, docs",
+            "commercialUse": "Коммерческое использование разрешено",
+            "installTarget": "Каталог навыка GitHub",
+            "installTargetEmpty": "Каталог SKILL.md еще не обнаружен. Запустите предпросмотр GitHub повторно, чтобы заполнить варианты установки.",
+            "repositoryRoot": "Корень репозитория",
+            "fileCount": "{{count}} файлов",
+            "auditTitle": "Аудит установки",
+            "auditSource": "Источник",
+            "auditStatus": "Статус",
+            "auditInstallPath": "Путь установки",
+            "auditInstalledAt": "Установлено",
+            "auditInstallError": "Последняя ошибка установки",
+            "auditEmpty": "Нет записи",
+            "save": "Сохранить изменения",
+            "saveReady": "Данные навыка сохранены.",
+            "saveFailed": "Не удалось сохранить данные навыка.",
+            "approve": "Одобрить",
+            "reject": "Отклонить",
+            "reviewFailed": "Не удалось обновить статус проверки.",
+            "reviewReady": {
+                "approved": "Навык одобрен и будет опубликован, если разрешено коммерческое использование.",
+                "pending": "Навык возвращен на проверку.",
+                "rejected": "Навык отклонен."
+            },
+            "reviewFilters": {
+                "all": "Все",
+                "pending": "Ожидают",
+                "approved": "Одобрены",
+                "rejected": "Отклонены"
+            },
+            "reviewStatus": {
+                "pending": "Ожидает",
+                "approved": "Одобрен",
+                "rejected": "Отклонен"
+            }
+        },
+        "categories": {
+            "all": "Все",
+            "hot": "Популярные",
+            "safe": "Безопасность",
+            "developer": "Инструменты разработчика",
+            "content": "Создание контента",
+            "ai": "ИИ",
+            "productivity": "Продуктивность",
+            "analysis": "Анализ данных",
+            "communication": "Коммуникация",
+            "installed": "Установленные"
+        },
+        "installStatus": {
+            "available": "Установка запланирована",
+            "installed": "Установлено",
+            "planned": "Запланировано",
+            "enabled": "Установлено · включено",
+            "disabled": "Установлено · отключено"
+        },
+        "tags": {
+            "codingAgent": "Кодовый агент",
+            "qualityGate": "Контроль качества",
+            "workflow": "Рабочий процесс",
+            "directory": "Каталог",
+            "codex": "Codex",
+            "claude": "Claude",
+            "automation": "Автоматизация",
+            "docs": "Документы",
+            "planning": "Планирование",
+            "rules": "Правила",
+            "review": "Ревью",
+            "cursor": "Cursor",
+            "bestPractice": "Лучшие практики",
+            "ide": "IDE",
+            "writing": "Письмо",
+            "analysis": "Анализ",
+            "general": "Общее"
+        },
+        "items": {
+            "production-engineering": {
+                "name": "Production Engineering Skills",
+                "description": "Производственные инженерные процессы для AI coding agents: quality gates, дисциплина реализации и практики ревью."
+            },
+            "awesome-agent-skills": {
+                "name": "Awesome Agent Skills",
+                "description": "Большой каталог навыков для разных агентов, совместимый с Claude Code, Codex, Gemini CLI, Cursor и похожими инструментами."
+            },
+            "agent-toolkit": {
+                "name": "Agent Toolkit",
+                "description": "Практичная коллекция навыков для разработки, документации, планирования, автоматизации и профессиональных рабочих процессов."
+            },
+            "ai-skills": {
+                "name": "AI Skills",
+                "description": "Компактные поведенческие навыки для coding assistants с фокусом на правила, ревью-дисциплину и более безопасное поведение агентов."
+            },
+            "cursor-skills": {
+                "name": "Cursor Skills",
+                "description": "Навыки лучших практик для Cursor, полезные для IDE-процессов, стандартов кода и переиспользуемых проектных правил."
+            },
+            "universal-agent-skills": {
+                "name": "Universal Agent Skills",
+                "description": "Универсальные самодостаточные навыки для реальных задач: письмо, исследования, анализ и совместная работа агентов."
+            }
+        },
         "installDialogTitle": "Установить навыки",
         "installDialogSubtitle": "Обзор по умолчанию, или введите ключевые слова для поиска.",
         "sourceLabel": "Источник",

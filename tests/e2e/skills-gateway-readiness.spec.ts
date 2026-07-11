@@ -1,158 +1,113 @@
-import { completeSetup, expect, installIpcMocks, test } from './fixtures/electron';
+import { completeSetup, expect, test } from './fixtures/electron';
 
-test.describe('Skills page gateway readiness', () => {
-  test('shows local skills even when gateway is stopped', async ({ electronApp, page }) => {
+test.describe('AI apps page', () => {
+  test('shows ecommerce AI apps by default with search and category filters', async ({ page }) => {
     await completeSetup(page);
 
-    await installIpcMocks(electronApp, {
-      gatewayStatus: { state: 'stopped', port: 18789 },
-      gatewayRpc: {
-        '["skills.status",null]': { success: false, error: 'Gateway not connected' },
-      },
-      hostApi: {
-        '["skills","status",null]': { skills: [] },
-        '["skills","clawhubCapability",null]': {
-          success: true,
-          capability: { canSearch: false, canInstall: false },
-        },
-        '["skills","local",null]': {
-          success: true,
-          skills: [{
-            id: 'pdf',
-            slug: 'pdf',
-            name: 'PDF',
-            description: 'Local PDF tools',
-            enabled: true,
-            source: 'openclaw-managed',
-            baseDir: '/tmp/.openclaw/skills/pdf',
-          }, {
-            id: 'xlsx',
-            slug: 'xlsx',
-            name: 'XLSX',
-            description: 'Local spreadsheet tools',
-            enabled: false,
-            source: 'openclaw-managed',
-            baseDir: '/tmp/.openclaw/skills/xlsx',
-          }],
-        },
-      },
-    });
-
-    await page.getByTestId('sidebar-nav-skills').click();
+    await page.getByTestId('sidebar-nav-ai-apps').click();
     await expect(page.getByTestId('skills-page')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'PDF' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'XLSX' })).toBeVisible();
-    await expect(page.getByTestId('skills-gateway-banner')).toHaveAttribute('data-state', 'stopped', { timeout: 3_500 });
-    await expect(page.getByRole('button', { name: /Install Skills/i })).toHaveCount(0);
+    await expect(page.getByTestId('ai-apps-title')).toHaveText('AI Apps');
+    await expect(page.getByTestId('ai-apps-category-tabs')).toBeVisible();
 
-    await page.getByTestId('skills-filter-enabled').click();
-    await expect(page.getByRole('heading', { name: 'PDF' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'XLSX' })).toHaveCount(0);
+    await expect(page.getByTestId('ai-apps-category-all')).toBeVisible();
+    await expect(page.getByTestId('ai-apps-category-ecommerce')).toBeVisible();
+    await expect(page.getByTestId('ai-apps-category-media')).toBeVisible();
+    await expect(page.getByTestId('ai-apps-category-tools')).toBeVisible();
+    await expect(page.getByTestId('ai-apps-category-finance')).toBeVisible();
+    await expect(page.getByTestId('ai-apps-category-goddess')).toBeVisible();
 
-    await page.getByTestId('skills-filter-disabled').click();
-    await expect(page.getByRole('heading', { name: 'PDF' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'XLSX' })).toBeVisible();
+    await expect(page.getByTestId('ai-apps-grid').locator('[data-testid^="ai-app-card-"]')).toHaveCount(3);
+    await expect(page.getByTestId('ai-app-card-ecommerce-copywriting')).toContainText('Ecommerce Copy Generator');
+    await expect(page.getByTestId('ai-app-card-detail-poster-generator')).toContainText('Detail Image / Poster Generator');
+    await expect(page.getByTestId('ai-app-card-product-short-video')).toContainText('Product Short Video Generator');
+    await page.screenshot({ path: 'output/playwright/acceptance/ai-apps-page.png', fullPage: true });
+
+    await page.getByTestId('ai-app-card-ecommerce-copywriting').click();
+    await expect(page.getByTestId('ai-app-workbench')).toBeVisible();
+    await expect(page.getByTestId('ai-app-workbench-title')).toHaveText('Ecommerce Copy Generator');
+    await expect(page.getByTestId('ai-app-workbench-form')).toContainText('Product name');
+    await page.getByTestId('ai-app-create-demo-job').click();
+    await expect(page.getByTestId('ai-app-demo-job-result')).toContainText('Generation job created');
+    await expect(page.getByTestId('ai-app-demo-job-status')).toContainText('Completed', { timeout: 4_000 });
+    await expect(page.getByTestId('ai-app-generated-assets')).toContainText('Product title candidates');
+    await expect(page.getByTestId('ai-app-generated-assets')).toContainText('Detail page copy block');
+    await expect(page.getByTestId('ai-app-generated-assets')).toContainText('Open result');
+    await expect(page.getByTestId('ai-app-generated-assets')).toContainText('Reveal file');
+    await page.getByTestId('ai-app-generated-assets').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: 'output/playwright/acceptance/ai-apps-workbench-copywriting.png', fullPage: true });
+    await page.getByTestId('ai-app-workbench-back').click();
+    await expect(page.getByTestId('ai-apps-grid').locator('[data-testid^="ai-app-card-"]')).toHaveCount(3);
+
+    await page.getByTestId('ai-app-card-detail-poster-generator').click();
+    await expect(page.getByTestId('ai-app-workbench-title')).toHaveText('Detail Image / Poster Generator');
+    await expect(page.getByTestId('ai-app-workbench-form')).toContainText('Reference images');
+    await page.getByTestId('ai-app-create-demo-job').click();
+    await expect(page.getByTestId('ai-app-demo-job-status')).toContainText('Completed', { timeout: 4_000 });
+    await expect(page.getByTestId('ai-app-generated-assets')).toContainText('Detail image section');
+    await expect(page.getByTestId('ai-app-generated-assets')).toContainText('Long detail poster');
+    await page.getByTestId('ai-app-workbench-back').click();
+
+    await page.getByTestId('ai-app-card-product-short-video').click();
+    await expect(page.getByTestId('ai-app-workbench-title')).toHaveText('Product Short Video Generator');
+    await expect(page.getByTestId('ai-app-workbench-form')).toContainText('Generation mode');
+    await page.getByTestId('ai-app-create-demo-job').click();
+    await expect(page.getByTestId('ai-app-demo-job-status')).toContainText('Completed', { timeout: 4_000 });
+    await expect(page.getByTestId('ai-app-generated-assets')).toContainText('Product video storyboard');
+    await expect(page.getByTestId('ai-app-generated-assets')).toContainText('Video cover frame');
+    await page.getByTestId('ai-app-workbench-back').click();
+
+    await page.getByTestId('ai-apps-search').fill('short');
+    await expect(page.getByTestId('ai-apps-grid').locator('[data-testid^="ai-app-card-"]')).toHaveCount(1);
+    await expect(page.getByTestId('ai-app-card-product-short-video')).toBeVisible();
+
+    await page.getByLabel('Clear search').click();
+    await expect(page.getByTestId('ai-apps-grid').locator('[data-testid^="ai-app-card-"]')).toHaveCount(3);
+
+    await page.getByTestId('ai-apps-category-media').click();
+    await expect(page.getByText('Apps for this category are being planned')).toBeVisible();
+
+    await page.getByTestId('ai-apps-category-all').click();
+    await expect(page.getByTestId('ai-apps-grid').locator('[data-testid^="ai-app-card-"]')).toHaveCount(3);
   });
 
-  test('hides uninstall for plugin-provided skills', async ({ electronApp, page }) => {
+  test('captures Chinese ecommerce AI app acceptance screenshots', async ({ page }) => {
     await completeSetup(page);
 
-    await installIpcMocks(electronApp, {
-      gatewayStatus: { state: 'stopped', port: 18789 },
-      gatewayRpc: {
-        '["skills.status",null]': { success: false, error: 'Gateway not connected' },
-      },
-      hostApi: {
-        '["skills","status",null]': { skills: [] },
-        '["skills","clawhubCapability",null]': {
-          success: true,
-          capability: { canSearch: false, canInstall: false },
-        },
-        '["skills","local",null]': {
-          success: true,
-          skills: [{
-            id: 'browser-automation',
-            slug: 'browser-automation',
-            name: 'Browser Automation',
-            description: 'Plugin skill',
-            enabled: true,
-            source: 'openclaw-plugin',
-            baseDir: '/tmp/.openclaw/plugin-skills/browser-automation',
-          }],
-        },
-      },
-    });
+    await page.getByTestId('sidebar-nav-settings').click();
+    await page.getByRole('button', { name: '中文' }).click();
+    await expect(page.getByText('菜单语言已更新')).toBeVisible();
 
-    await page.getByTestId('sidebar-nav-skills').click();
-    await expect(page.getByRole('heading', { name: 'Browser Automation' })).toBeVisible();
-    await page.getByText('Browser Automation').click();
-    await expect(page.getByRole('button', { name: /Uninstall|卸载|アンインストール|Удалить/i })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /Disable|禁用|無効化|Выключить/i })).toBeVisible();
-  });
+    await page.getByTestId('sidebar-nav-ai-apps').click();
+    await expect(page.getByTestId('ai-apps-title')).toHaveText('AI应用');
+    await expect(page.getByTestId('ai-apps-category-tabs')).toContainText('全部应用');
+    await expect(page.getByTestId('ai-apps-category-tabs')).toContainText('电商');
+    await expect(page.getByTestId('ai-apps-grid').locator('[data-testid^="ai-app-card-"]')).toHaveCount(3);
+    await expect(page.getByTestId('ai-app-card-ecommerce-copywriting')).toContainText('电商文案生成');
+    await expect(page.getByTestId('ai-app-card-detail-poster-generator')).toContainText('详情图/详情海报生成');
+    await expect(page.getByTestId('ai-app-card-product-short-video')).toContainText('商品短视频生成');
+    await page.screenshot({ path: 'output/playwright/acceptance/ai-apps-page-zh.png', fullPage: true });
 
-  test('clears stale startup banner once local skills load while runtime rpc is still starting', async ({ electronApp, page }) => {
-    await completeSetup(page);
+    await page.getByTestId('ai-app-card-ecommerce-copywriting').click();
+    await expect(page.getByTestId('ai-app-workbench-title')).toHaveText('电商文案生成');
+    await page.getByTestId('ai-app-create-demo-job').click();
+    await expect(page.getByTestId('ai-app-demo-job-status')).toContainText('已完成', { timeout: 4_000 });
+    await page.screenshot({ path: 'output/playwright/acceptance/ai-apps-copywriting-workbench-zh.png', fullPage: true });
+    await page.getByTestId('ai-app-workbench-back').click();
 
-    await installIpcMocks(electronApp, {
-      gatewayRpc: {
-        '["skills.status",null]': { success: false, error: 'Gateway not connected' },
-      },
-      hostApi: {
-        '["skills","status",null]': { skills: [] },
-        '["skills","clawhubCapability",null]': {
-          success: true,
-          capability: { canSearch: false, canInstall: false },
-        },
-        '["skills","local",null]': {
-          success: true,
-          skills: [],
-        },
-      },
-    });
+    await page.getByTestId('ai-app-card-detail-poster-generator').click();
+    await expect(page.getByTestId('ai-app-workbench-title')).toHaveText('详情图/详情海报生成');
+    await expect(page.getByText('image-01', { exact: true })).toBeVisible();
+    await expect(page.getByText('image-01-live', { exact: true })).toBeVisible();
+    await page.getByTestId('ai-app-create-demo-job').click();
+    await expect(page.getByTestId('ai-app-demo-job-status')).toContainText('已完成', { timeout: 4_000 });
+    await page.screenshot({ path: 'output/playwright/acceptance/ai-apps-detail-poster-workbench-zh.png', fullPage: true });
+    await page.getByTestId('ai-app-workbench-back').click();
 
-    await page.getByTestId('sidebar-nav-skills').click();
-    await expect(page.getByTestId('skills-page')).toBeVisible();
-    await expect(page.getByTestId('skills-gateway-banner')).toHaveAttribute('data-state', 'stopped', { timeout: 3_500 });
-
-    await electronApp.evaluate(({ BrowserWindow }) => {
-      const win = BrowserWindow.getAllWindows()[0];
-      win?.webContents.send('gateway:status-changed', {
-        state: 'running',
-        port: 18789,
-        pid: 12345,
-        connectedAt: 1,
-        gatewayReady: false,
-      });
-    });
-
-    await expect(page.getByTestId('sidebar-gateway-restarting')).toHaveAttribute('data-state', 'visible');
-    await expect(page.getByTestId('skills-gateway-banner')).toHaveCount(0, { timeout: 3_500 });
-
-    await installIpcMocks(electronApp, {
-      gatewayRpc: {
-        '["skills.status",null]': { success: true, result: { skills: [] } },
-      },
-      hostApi: {
-        '["skills","status",null]': { skills: [] },
-        '["skills","local",null]': { success: true, skills: [] },
-        '["skills","clawhubCapability",null]': {
-          success: true,
-          capability: { canSearch: false, canInstall: false },
-        },
-      },
-    });
-
-    await electronApp.evaluate(({ BrowserWindow }) => {
-      const win = BrowserWindow.getAllWindows()[0];
-      win?.webContents.send('gateway:status-changed', {
-        state: 'running',
-        port: 18789,
-        pid: 12345,
-        connectedAt: 2,
-        gatewayReady: false,
-      });
-    });
-
-    await expect(page.getByTestId('skills-gateway-banner')).toHaveCount(0, { timeout: 2_000 });
+    await page.getByTestId('ai-app-card-product-short-video').click();
+    await expect(page.getByTestId('ai-app-workbench-title')).toHaveText('商品短视频生成');
+    await expect(page.getByText('seedance-2.0-720p')).toBeVisible();
+    await page.getByTestId('ai-app-create-demo-job').click();
+    await expect(page.getByTestId('ai-app-demo-job-status')).toContainText('已完成', { timeout: 4_000 });
+    await page.screenshot({ path: 'output/playwright/acceptance/ai-apps-short-video-workbench-zh.png', fullPage: true });
   });
 });

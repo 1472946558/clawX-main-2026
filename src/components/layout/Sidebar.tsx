@@ -22,6 +22,7 @@ import {
   Check,
   X,
   Cpu,
+  Grid3X3,
   ImagePlus,
   Moon,
   ChevronRight,
@@ -44,6 +45,7 @@ import { SIDEBAR_COLLAPSED_WIDTH, MAC_SIDEBAR_CHROME_HEIGHT } from '@shared/side
 import { useTranslation } from 'react-i18next';
 import logoPng from '@/assets/logo.png';
 import { useNewChatAction } from './use-new-chat-action';
+import type { CanvaslandBalanceResult } from '@shared/host-api/contract';
 
 interface NavItemProps {
   to: string;
@@ -92,6 +94,8 @@ function NavItem({ to, icon, label, badge, collapsed, onClick, testId }: NavItem
 }
 
 const INITIAL_NOW_MS = Date.now();
+const CANVASLAND_ACCOUNT_ID = 'canvasland-newapi';
+const CANVASLAND_DEFAULT_MODEL_ID = 'gpt-4.1-mini';
 const DEFAULT_EXPANDED_SESSION_BUCKETS: Record<SessionBucketKey, boolean> = {
   today: true,
   withinWeek: true,
@@ -189,6 +193,7 @@ export function Sidebar() {
   const [editingSessionKey, setEditingSessionKey] = useState<string | null>(null);
   const [editingLabel, setEditingLabel] = useState('');
   const [nowMs, setNowMs] = useState(INITIAL_NOW_MS);
+  const [canvaslandBalance, setCanvaslandBalance] = useState<CanvaslandBalanceResult | null>(null);
   const [expandedSessionBuckets, setExpandedSessionBuckets] = useState<Record<SessionBucketKey, boolean>>(
     () => ({ ...DEFAULT_EXPANDED_SESSION_BUCKETS }),
   );
@@ -203,6 +208,38 @@ export function Sidebar() {
   useEffect(() => {
     void fetchAgents();
   }, [fetchAgents]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshCanvaslandBalance = async () => {
+      try {
+        const [account, balanceResult] = await Promise.all([
+          hostApi.providers.getAccount(CANVASLAND_ACCOUNT_ID).catch(() => null),
+          hostApi.canvasland.balance(),
+        ]);
+        if (cancelled) return;
+        setCanvaslandBalance(balanceResult);
+
+        if (account && account.model !== CANVASLAND_DEFAULT_MODEL_ID) {
+          await hostApi.providers.updateAccount(CANVASLAND_ACCOUNT_ID, {
+            model: CANVASLAND_DEFAULT_MODEL_ID,
+            updatedAt: new Date().toISOString(),
+          });
+          await hostApi.providers.setDefaultAccount(CANVASLAND_ACCOUNT_ID);
+        }
+      } catch {
+        if (!cancelled) setCanvaslandBalance(null);
+      }
+    };
+
+    void refreshCanvaslandBalance();
+    const intervalId = window.setInterval(refreshCanvaslandBalance, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   useEffect(() => {
     if (deleteDialogOpen || !sessionToDelete) return;
@@ -320,6 +357,7 @@ export function Sidebar() {
     { to: '/agents', icon: <Bot className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.agents'), testId: 'sidebar-nav-agents' },
     { to: '/channels', icon: <Network className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.channels'), testId: 'sidebar-nav-channels' },
     { to: '/token-topup', icon: <CreditCard className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.tokenTopUp'), testId: 'sidebar-nav-token-topup' },
+    { to: '/ai-apps', icon: <Grid3X3 className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.aiApps'), testId: 'sidebar-nav-ai-apps' },
     { to: '/skills', icon: <Puzzle className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.skills'), testId: 'sidebar-nav-skills' },
     { to: '/cron', icon: <Clock className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.cronTasks'), testId: 'sidebar-nav-cron' },
     ...(devModeUnlocked
@@ -547,6 +585,18 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="mt-auto flex flex-col gap-1 p-2">
+        {!sidebarCollapsed && (
+          <NavLink
+            to="/token-topup"
+            data-testid="sidebar-wallet-balance"
+            className="mb-1 flex items-center justify-between gap-3 rounded-lg border border-black/5 bg-black/[0.03] px-3 py-2 text-foreground/80 transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+          >
+            <span className="text-tiny font-medium text-muted-foreground">{t('common:tokenTopUp.availableBalance')}</span>
+            <span className="truncate text-sm font-semibold text-foreground">
+              {(canvaslandBalance?.wallet?.totalAvailable ?? 0).toLocaleString()} {t('common:tokenTopUp.points')}
+            </span>
+          </NavLink>
+        )}
         <div
           data-testid="sidebar-gateway-restarting"
           data-state={gatewayRestarting ? 'visible' : 'hidden'}

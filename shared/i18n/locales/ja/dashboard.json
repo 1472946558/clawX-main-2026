@@ -1,7 +1,7 @@
 {
     "gateway": "ゲートウェイ",
     "channels": "チャンネル",
-    "skills": "スキル",
+    "skills": "AIアプリ",
     "uptime": "稼働時間",
     "port": "ポート: {{port}}",
     "pid": "PID: {{pid}}",
@@ -11,15 +11,19 @@
     "gatewayNotRunning": "ゲートウェイが停止中",
     "models": {
         "title": "モデル",
-        "subtitle": "canvasland のモデルチャンネルを確認し、トークン使用量を監視します"
+        "subtitle": "canvasland で利用できるモデルを確認し、トークン使用量を監視します"
     },
     "modelAccess": {
-        "title": "AI モデルチャンネル",
+        "title": "利用可能なモデル",
         "official": "公式チャンネル",
-        "description": "モデル API は canvasland によって管理されています。サードパーティ API プロバイダーの追加は無効です。",
+        "description": "モデルは canvasland に組み込まれており、チャットですぐに利用できます。",
         "checking": "確認中",
         "configured": "設定済み",
-        "notConfigured": "未設定"
+        "notConfigured": "未設定",
+        "fast": "高速チャット",
+        "balanced": "複雑なタスク",
+        "coding": "コードと推論",
+        "general": "汎用 Q&A"
     },
     "quickActions": {
         "title": "クイックアクション",

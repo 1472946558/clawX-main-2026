@@ -298,6 +298,131 @@ describe('hostApi facade', () => {
     }));
   });
 
+  it('calls skills.marketplaceImportPreview through hostInvoke', async () => {
+    hostInvoke.mockResolvedValueOnce({ id: 'req', ok: true, data: { success: true, skills: [] } });
+    const { hostApi } = await import('@/lib/host-api');
+
+    await hostApi.skills.marketplaceImportPreview({
+      source: 'github',
+      repositoryUrl: 'https://github.com/VoltAgent/awesome-agent-skills',
+    });
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'marketplaceImportPreview',
+      payload: {
+        source: 'github',
+        repositoryUrl: 'https://github.com/VoltAgent/awesome-agent-skills',
+      },
+    }));
+  });
+
+  it('calls skills marketplace admin mutations through hostInvoke', async () => {
+    hostInvoke.mockResolvedValue({ id: 'req', ok: true, data: { success: true } });
+    const { hostApi } = await import('@/lib/host-api');
+
+    await hostApi.skills.marketplaceAdminList({ reviewStatus: 'pending' });
+    await hostApi.skills.marketplaceImportCommit({ skills: [] });
+    await hostApi.skills.marketplaceExportCatalog();
+    await hostApi.skills.marketplaceImportCatalog({
+      mode: 'merge',
+      catalog: {
+        schemaVersion: 1,
+        exportedAt: '2026-07-10T00:00:00.000Z',
+        skills: [],
+      },
+    });
+    await hostApi.skills.marketplaceReview({ id: 'demo-skill', reviewStatus: 'approved' });
+    await hostApi.skills.marketplaceUpdate({ id: 'demo-skill', patch: { category: 'developer' } });
+    await hostApi.skills.marketplaceInstall({ id: 'demo-skill' });
+
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'marketplaceAdminList',
+      payload: { reviewStatus: 'pending' },
+    }));
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'marketplaceImportCommit',
+      payload: { skills: [] },
+    }));
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'marketplaceExportCatalog',
+    }));
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'marketplaceImportCatalog',
+      payload: {
+        mode: 'merge',
+        catalog: {
+          schemaVersion: 1,
+          exportedAt: '2026-07-10T00:00:00.000Z',
+          skills: [],
+        },
+      },
+    }));
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'marketplaceReview',
+      payload: { id: 'demo-skill', reviewStatus: 'approved' },
+    }));
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'marketplaceUpdate',
+      payload: { id: 'demo-skill', patch: { category: 'developer' } },
+    }));
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'marketplaceInstall',
+      payload: { id: 'demo-skill' },
+    }));
+  });
+
+  it('calls aiApps job APIs through hostInvoke', async () => {
+    const job = {
+      id: 'aiapp-detail-poster-generator-live',
+      appId: 'detail-poster-generator',
+      mode: 'live',
+      status: 'queued',
+      createdAt: '2026-07-10T00:00:00.000Z',
+      updatedAt: '2026-07-10T00:00:00.000Z',
+      inputs: {},
+    };
+    hostInvoke
+      .mockResolvedValueOnce({ id: 'req-1', ok: true, data: { success: true, job } })
+      .mockResolvedValueOnce({ id: 'req-2', ok: true, data: { success: true, job } })
+      .mockResolvedValueOnce({ id: 'req-3', ok: true, data: { success: true, jobs: [job] } });
+    const { hostApi } = await import('@/lib/host-api');
+
+    await hostApi.aiApps.createJob({
+      appId: 'detail-poster-generator',
+      mode: 'live',
+      inputs: { prompt: 'product' },
+    });
+    await hostApi.aiApps.getJob(job.id);
+    await hostApi.aiApps.listResults({ appId: 'detail-poster-generator' });
+
+    expect(hostInvoke).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      module: 'aiApps',
+      action: 'createJob',
+      payload: {
+        appId: 'detail-poster-generator',
+        mode: 'live',
+        inputs: { prompt: 'product' },
+      },
+    }));
+    expect(hostInvoke).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      module: 'aiApps',
+      action: 'getJob',
+      payload: { id: job.id },
+    }));
+    expect(hostInvoke).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      module: 'aiApps',
+      action: 'listResults',
+      payload: { appId: 'detail-poster-generator' },
+    }));
+  });
+
   it('calls usage.recentTokenHistory through hostInvoke', async () => {
     hostInvoke.mockResolvedValueOnce({ id: 'req', ok: true, data: [] });
     const { hostApi } = await import('@/lib/host-api');

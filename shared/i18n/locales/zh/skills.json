@@ -1,6 +1,6 @@
 {
-    "title": "技能",
-    "subtitle": "浏览和管理 AI 能力",
+    "title": "技能市场",
+    "subtitle": "浏览可安装的智能体技能，优先展示可商用开源协议与本地安装状态",
     "refresh": "刷新",
     "openFolder": "打开技能文件夹",
     "gatewayWarning": "网关未运行。你仍可查看本地技能，但运行时状态暂不可用。",
@@ -16,7 +16,7 @@
         "enabledList": "已开启 ({{count}})",
         "disabledList": "已禁用 ({{count}})"
     },
-    "search": "搜索技能...",
+    "search": "搜索技能",
     "searchMarketplace": "搜索市场...",
     "searchButton": "搜索",
     "actions": {
@@ -27,6 +27,243 @@
     "noSkills": "未找到技能",
     "noSkillsSearch": "尝试不同的搜索词",
     "noSkillsAvailable": "暂无可用技能",
+    "aiApps": {
+        "title": "AI应用",
+        "subtitle": "按 TaoClaw 的应用专区形态收拢常用 AI 生产工具，第一阶段优先服务电商展示、商品图和视频生成。",
+        "phaseBadge": "第一阶段：电商专区",
+        "search": "搜索应用",
+        "hot": "HOT",
+        "clearSearch": "清空搜索",
+        "view": {
+            "cover": "封面视图",
+            "grid": "网格视图"
+        },
+        "ioSummary": "{{input}} → {{output}}",
+        "categories": {
+            "all": "全部应用",
+            "ecommerce": "电商",
+            "media": "自媒体",
+            "tools": "工具",
+            "finance": "金融",
+            "goddess": "女神专区"
+        },
+        "status": {
+            "ready": "生成服务就绪",
+            "placeholder": "待接入"
+        },
+        "jobStatuses": {
+            "queued": "排队中",
+            "running": "运行中",
+            "completed": "已完成",
+            "failed": "失败"
+        },
+        "assetTypes": {
+            "text": "文案",
+            "image": "图片",
+            "video": "视频",
+            "poster": "海报"
+        },
+        "demoOutputs": {
+            "productTitleCandidates": {
+                "title": "商品标题方案",
+                "description": "生成 3 组适合平台投放的标题方向，覆盖核心关键词、人群和使用场景。"
+            },
+            "sellingPointBullets": {
+                "title": "卖点文案提炼",
+                "description": "生成可用于主图、详情页和短介绍的 5 条利益点文案。"
+            },
+            "detailPageCopyBlock": {
+                "title": "详情页文案模块",
+                "description": "按场景、材质、功能和转化引导组织详情页说明。"
+            },
+            "mainImageVariation": {
+                "title": "商品主图方案",
+                "description": "生成更突出主体和平台可读性的商品主图方向。"
+            },
+            "detailImageSection": {
+                "title": "详情图模块",
+                "description": "生成展示功能、材质、使用场景和对比卖点的详情图模块。"
+            },
+            "longDetailPoster": {
+                "title": "长图详情海报",
+                "description": "生成适合详情页和展会物料的电商长图版式。"
+            },
+            "videoScriptHook": {
+                "title": "短视频脚本钩子",
+                "description": "生成开场钩子、痛点句、核心卖点和行动引导。"
+            },
+            "productVideoStoryboard": {
+                "title": "产品视频分镜",
+                "description": "生成开场、特写、场景演示和收尾转化的短视频分镜。"
+            },
+            "videoCoverFrame": {
+                "title": "视频封面帧",
+                "description": "生成适合信息流首屏转化的视频封面方向。"
+            }
+        },
+        "empty": {
+            "search": "未找到匹配的应用",
+            "category": "该分类应用正在规划中"
+        },
+        "tags": {
+            "productPhoto": "商品图",
+            "detailImage": "详情图",
+            "styleClone": "风格复刻",
+            "referenceImage": "参考图",
+            "fashion": "服装",
+            "modelSet": "组图",
+            "imageGeneration": "图文生成",
+            "videoGeneration": "视频生成",
+            "retouch": "智能精修",
+            "oneClick": "一键处理",
+            "poster": "海报",
+            "copywriting": "卖点文案",
+            "sellingPoint": "卖点提炼",
+            "scenarioVideo": "场景视频"
+        },
+        "inputTypes": {
+            "productName": "产品名称",
+            "productImage": "商品图",
+            "brief": "需求说明",
+            "referenceImage": "参考图",
+            "garmentImage": "服装图",
+            "modelPrompt": "模特描述",
+            "script": "视频脚本",
+            "sellingPoints": "卖点",
+            "platform": "目标平台",
+            "scenario": "使用场景"
+        },
+        "outputTypes": {
+            "titleCopy": "标题文案",
+            "sellingPointCopy": "卖点文案",
+            "detailCopy": "详情页文案",
+            "mainImage": "主图",
+            "detailImage": "详情图",
+            "styledImage": "同风格图",
+            "imageSet": "组图",
+            "image": "图片",
+            "video": "视频",
+            "videoScript": "视频脚本",
+            "storyboard": "分镜",
+            "retouchedImage": "精修图",
+            "poster": "详情海报"
+        },
+        "modules": {
+            "productUpload": "商品素材上传",
+            "sellingPointBrief": "卖点与风格说明",
+            "mainImageSet": "主图方案生成",
+            "detailImageSet": "详情图批量生成",
+            "referenceStyle": "参考风格解析",
+            "styleTransfer": "风格迁移生成",
+            "batchPreview": "批量预览与对比",
+            "garmentUpload": "服装单品上传",
+            "modelPrompt": "模特与场景设定",
+            "scenePreset": "场景模板选择",
+            "lookbookSet": "服装组图输出",
+            "campaignScript": "脚本与促销主题",
+            "imageStoryboard": "图文素材生成",
+            "videoStoryboard": "视频分镜生成",
+            "cutoutCleanup": "抠图与瑕疵清理",
+            "lightingEnhance": "光影与质感增强",
+            "backgroundPolish": "背景优化",
+            "posterLayout": "详情海报排版",
+            "exportPoster": "长图导出"
+        },
+        "detail": {
+            "phase": "电商专区 · 第一阶段",
+            "inputs": "输入材料",
+            "outputs": "输出资产",
+            "modules": "生成模块",
+            "backendTitle": "正式接入状态",
+            "backendDescription": "当前 AI应用通过 host-api 调用 OpenClaw 文本、图片和视频能力；未配置对应 provider 时会明确提示，配置后直接执行正式生成任务。",
+            "createDemoJob": "创建生成任务",
+            "createAnotherJob": "再创建一个任务",
+            "creatingJob": "创建中...",
+            "createdAction": "生成任务已创建",
+            "jobCreated": "生成任务已创建",
+            "jobId": "任务 ID",
+            "jobStatus": "任务状态",
+            "jobError": "创建生成任务失败",
+            "recentJobs": "最近任务",
+            "noRecentJobs": "暂无任务记录",
+            "outputCount": "{{count}} 个输出资产",
+            "generatedAssets": "生成结果",
+            "assetRatio": "比例",
+            "openResult": "打开结果",
+            "revealResult": "定位文件",
+            "inlineResult": "该结果已在卡片中展示",
+            "fileUnavailable": "暂无可打开的本地文件",
+            "close": "关闭"
+        },
+        "platforms": {
+            "taobao": "淘宝/天猫",
+            "tmall": "天猫",
+            "jd": "京东",
+            "pdd": "拼多多",
+            "douyin": "抖音电商"
+        },
+        "workbench": {
+            "stepFill": "填写与上传",
+            "formTitle": "参数设置",
+            "session": "会话",
+            "generatedResult": "生成结果",
+            "resultTitle": "预览输出",
+            "clear": "清空",
+            "waitingTitle": "等待生成",
+            "waitingDescription": "填写左侧参数并提交后，将在这里显示文案、详情图或视频分镜结果。",
+            "submitGenerate": "提交生成",
+            "estimatedCost": "预计金额：约 0.2 元/次",
+            "productName": "产品名称",
+            "productNamePlaceholder": "例如：女士运动裤",
+            "coreSellingPoints": "核心卖点",
+            "sellingPointsPlaceholder": "例如：高腰显瘦、速干透气、适合通勤和健身",
+            "targetPlatform": "目标平台",
+            "brandName": "品牌名",
+            "brandNamePlaceholder": "如有品牌请填写",
+            "targetAudience": "目标人群",
+            "targetAudiencePlaceholder": "例如：大码女生、健身人群",
+            "usageScenario": "使用场景",
+            "usageScenarioPlaceholder": "例如：健身房、瑜伽、跑步",
+            "referenceImages": "参考图",
+            "uploadHelper": "上传",
+            "imageType": "图片类型",
+            "mainImage": "主图",
+            "detailImage": "详情图",
+            "productDescription": "商品描述",
+            "productDescriptionPlaceholder": "描述商品卖点、材质、场景等",
+            "generationMode": "生成能力",
+            "textToImage": "文生图",
+            "imageToImage": "图生图",
+            "textToVideo": "文生视频",
+            "imageToVideo": "图生视频",
+            "inputText": "输入文本",
+            "videoPromptPlaceholder": "例如：电影质感，黄昏海岸，镜头慢推，人物背光站立。",
+            "aspectRatio": "画面比例",
+            "model": "生成模型",
+            "generateCount": "生成张数",
+            "imagePrice": "预计金额：￥0.5",
+            "videoPrice": "预计金额：￥1.2",
+            "modelDescriptions": {
+                "0": "正式商用图片生成，适合主图和详情图",
+                "1": "实时图片生成，适合快速预览和风格迭代",
+                "2": "720P 商品短视频生成，适合电商场景展示"
+            }
+        },
+        "apps": {
+            "copywriting": {
+                "title": "电商文案生成",
+                "description": "输入产品名称、卖点、平台和人群，生成标题、卖点、详情页和短视频脚本文案。"
+            },
+            "detailPosterGenerator": {
+                "title": "详情图/详情海报生成",
+                "description": "上传商品图和参考图，按平台比例生成详情图模块、长图海报和主图方向。"
+            },
+            "shortVideo": {
+                "title": "商品短视频生成",
+                "description": "基于产品图、脚本和场景要求，生成短视频脚本、分镜和视频封面方案。"
+            }
+        }
+    },
     "detail": {
         "info": "信息",
         "config": "配置",
@@ -114,6 +351,172 @@
     },
     "marketplace": {
         "title": "市场",
+        "licenseBadge": "优先收录可商用协议",
+        "languagePill": "简体中文",
+        "clearSearch": "清空搜索",
+        "openRepository": "打开仓库",
+        "manage": "管理",
+        "action": {
+            "openSource": "打开来源",
+            "openedSource": "已打开来源仓库。",
+            "install": "安装",
+            "installed": "已安装",
+            "use": "使用",
+            "useReady": "已打开已安装技能。",
+            "useFailed": "打开已安装技能失败。",
+            "installReady": "技能已成功安装。",
+            "installReadyWithPath": "技能已成功安装：{{path}}",
+            "installFailed": "技能安装失败。"
+        },
+        "localDescription": "从本机 OpenClaw 技能目录发现的已安装本地技能。",
+        "localLicense": "本地",
+        "localToggleHint": "控制该已安装技能是否对运行时可用。",
+        "publicSource": {
+            "verified": "Canvasland 官方认证",
+            "clawhub": "ClawHub",
+            "local": "本地技能"
+        },
+        "detail": {
+            "title": "技能详情",
+            "close": "关闭技能详情",
+            "category": "分类",
+            "version": "版本",
+            "intro": "简介",
+            "details": "详情",
+            "requirements": "Requirements",
+            "requirementDesktop": "Canvasland Desktop 2.3+",
+            "requirementRuntime": "OpenClaw 运行时可用",
+            "requirementEnabled": "技能市场安装能力已启用",
+            "entryPoint": "Entry Point",
+            "entrySkill": "Skill:",
+            "entryRuntime": "Runtime:",
+            "tags": "Tags",
+            "homepage": "主页",
+            "commands": {
+                "install": "canvasland skill install {{id}}",
+                "use": "canvasland skill use {{id}}"
+            }
+        },
+        "admin": {
+            "title": "技能市场管理",
+            "description": "从 GitHub 或 ClawHub 导入候选技能，审核后再发布到技能市场。",
+            "importTitle": "导入候选",
+            "sourceGithub": "GitHub",
+            "sourceClawHub": "ClawHub",
+            "githubPlaceholder": "https://github.com/owner/repository",
+            "clawHubPlaceholder": "搜索 ClawHub 技能",
+            "preview": "预览",
+            "commit": "加入待审核",
+            "previewReady": "{{count}} 个候选可提交，{{rejected}} 个已拒绝。",
+            "previewFailed": "导入预览失败。",
+            "commitReady": "已加入 {{count}} 个候选到待审核。",
+            "commitFailed": "加入候选失败。",
+            "rejectedPreview": "因协议不适合商业技能市场发布而被拒绝。",
+            "reviewTitle": "审核队列",
+            "refresh": "刷新",
+            "empty": "当前队列没有技能。",
+            "selectEmpty": "选择一个技能以编辑市场元数据。",
+            "licensePlaceholder": "MIT、Apache-2.0、BSD-3-Clause...",
+            "tagsPlaceholder": "codingAgent, workflow, docs",
+            "commercialUse": "允许免费商用",
+            "installTarget": "GitHub 技能目录",
+            "installTargetEmpty": "尚未发现 SKILL.md 目录。请重新执行 GitHub 预览以填充可安装目录。",
+            "repositoryRoot": "仓库根目录",
+            "fileCount": "{{count}} 个文件",
+            "auditTitle": "安装审计",
+            "auditSource": "来源",
+            "auditStatus": "状态",
+            "auditInstallPath": "安装路径",
+            "auditInstalledAt": "安装时间",
+            "auditInstallError": "最近安装错误",
+            "auditEmpty": "未记录",
+            "save": "保存修改",
+            "saveReady": "技能元数据已保存。",
+            "saveFailed": "保存技能元数据失败。",
+            "approve": "通过",
+            "reject": "拒绝",
+            "reviewFailed": "更新审核状态失败。",
+            "reviewReady": {
+                "approved": "技能已通过；若允许商用，将发布到市场。",
+                "pending": "技能已退回待审核。",
+                "rejected": "技能已拒绝。"
+            },
+            "reviewFilters": {
+                "all": "全部",
+                "pending": "待审核",
+                "approved": "已通过",
+                "rejected": "已拒绝"
+            },
+            "reviewStatus": {
+                "pending": "待审核",
+                "approved": "已通过",
+                "rejected": "已拒绝"
+            }
+        },
+        "categories": {
+            "all": "全部",
+            "hot": "热门技能榜单",
+            "safe": "安全",
+            "developer": "开发人员工具",
+            "content": "内容创作",
+            "ai": "人工智能",
+            "productivity": "生产力",
+            "analysis": "数据分析",
+            "communication": "通信协作",
+            "installed": "已安装"
+        },
+        "installStatus": {
+            "available": "计划接入安装",
+            "installed": "已安装",
+            "planned": "规划中",
+            "enabled": "已安装 · 已启用",
+            "disabled": "已安装 · 已禁用"
+        },
+        "tags": {
+            "codingAgent": "编码智能体",
+            "qualityGate": "质量门禁",
+            "workflow": "工作流",
+            "directory": "目录",
+            "codex": "Codex",
+            "claude": "Claude",
+            "automation": "自动化",
+            "docs": "文档",
+            "planning": "规划",
+            "rules": "规则",
+            "review": "审查",
+            "cursor": "Cursor",
+            "bestPractice": "最佳实践",
+            "ide": "IDE",
+            "writing": "写作",
+            "analysis": "分析",
+            "general": "通用"
+        },
+        "items": {
+            "production-engineering": {
+                "name": "生产级工程技能",
+                "description": "面向 AI 编码智能体的生产级工程工作流，覆盖质量门禁、实现纪律和代码审查习惯。"
+            },
+            "awesome-agent-skills": {
+                "name": "Awesome Agent Skills",
+                "description": "大型跨智能体技能目录，兼容 Claude Code、Codex、Gemini CLI、Cursor 等工具。"
+            },
+            "agent-toolkit": {
+                "name": "Agent Toolkit",
+                "description": "覆盖开发、文档、规划、自动化和专业工作流的实用技能集合。"
+            },
+            "ai-skills": {
+                "name": "AI Skills",
+                "description": "面向编码助手的紧凑行为技能，重点强化规则、审查纪律和更安全的智能体行为。"
+            },
+            "cursor-skills": {
+                "name": "Cursor Skills",
+                "description": "面向 Cursor 的最佳实践技能，可用于 IDE 工作流、编码标准和可复用项目指导。"
+            },
+            "universal-agent-skills": {
+                "name": "通用智能体技能",
+                "description": "面向写作、研究、分析和智能体协作等真实任务的通用自包含技能。"
+            }
+        },
         "installDialogTitle": "安装技能",
         "installDialogSubtitle": "默认展示 Explore，输入关键词后执行搜索。",
         "sourceLabel": "来源",
