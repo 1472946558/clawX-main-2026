@@ -277,9 +277,9 @@ async function resolveCurrentVideoProvider(): Promise<VideoProviderContext> {
   const service = getProviderService();
   const accounts = (await service.listAccounts()).filter((account) => account.enabled);
   const defaultId = await service.getDefaultAccountId();
-  const account = (defaultId ? accounts.find((candidate) => candidate.id === defaultId) : undefined) || accounts[0];
+  const account = defaultId ? accounts.find((candidate) => candidate.id === defaultId) : undefined;
   if (!account) {
-    throw new Error('No current AI Provider is configured. Configure a video-capable Provider in Settings first.');
+    throw new Error('No current default AI Provider is configured. Select a video-capable default Provider in Settings first.');
   }
 
   const baseUrl = account.baseUrl || getProviderConfig(account.vendorId)?.baseUrl;
@@ -851,7 +851,7 @@ class ProviderVideoTaskClient implements AiAppVideoTaskClient {
       const service = getProviderService();
       const accounts = (await service.listAccounts()).filter((account) => account.enabled);
       const defaultId = await service.getDefaultAccountId();
-      const account = (defaultId ? accounts.find((candidate) => candidate.id === defaultId) : undefined) || accounts[0];
+      const account = defaultId ? accounts.find((candidate) => candidate.id === defaultId) : undefined;
       return {
         supported: false,
         providerId: account?.id,
