@@ -134,6 +134,8 @@ Skills 页面可展示来自多个 OpenClaw 来源的技能（托管目录、wor
 在开发者模式下，独立的“图像生成”页面支持配置 OpenAI 兼容生图端点（Base URL、API Key 和模型名，例如 `gpt-image-2`），生图请求会走专用的 `/v1/images/generations` 服务，聊天仍继续使用正常的 OpenAI Provider。
 
 AI 应用的详情图/海报工作台支持通过系统选择器上传 PNG、JPG、JPEG、WebP 参考图，完成 staging 后显示预览、文件名和大小，并可移除。无参考图时可直接文生图；模型支持图生图时请求会携带参考图，不支持时会明确提示，Provider 原始错误摘要也会显示在结果区。
+
+商品短视频工作台使用当前 Provider，优先展示其模型列表中的视频模型，并支持商品文本、核心卖点、目标平台和画面比例输入。异步任务会显示本地任务 ID、Provider taskId、标准化状态、脱敏后的原始响应摘要和手动状态查询按钮；完成后展示视频播放器与结果 URL。
 如果你通过 **自定义（Custom）Provider** 对接 OpenAI-compatible 网关，可以在 **设置 → AI Providers → 编辑 Provider** 中配置自定义 `User-Agent`，以提高兼容性。
 如果兼容网关的 `/models` 因非鉴权原因不可用，canvasland 会在校验 API Key 时自动降级为轻量的 `/chat/completions` 或 `/responses` 探测。
 

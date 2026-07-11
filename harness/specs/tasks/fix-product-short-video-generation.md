@@ -38,7 +38,7 @@ acceptance:
   - Status refresh normalizes provider states and surfaces result URLs or provider error details.
   - E2E covers the visible product fields, platform, ratio, model selector, task metadata, and status-query action.
 docs:
-  required: false
+  required: true
 ---
 
 ## Background
