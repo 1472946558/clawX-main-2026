@@ -22,8 +22,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import {
   useProviderStore,
   type ProviderAccount,
@@ -1267,18 +1267,21 @@ function AddProviderDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent asChild className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border-0 shadow-2xl bg-surface-modal overflow-hidden">
-        <Card data-testid="add-provider-dialog">
-        <CardHeader className="relative pb-2 shrink-0">
-          <DialogTitle asChild>
+    <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <SheetContent
+        side="right"
+        className="w-full border-l border-black/10 bg-surface-modal p-0 shadow-2xl dark:border-white/10 sm:max-w-[620px]"
+      >
+        <Card data-testid="add-provider-dialog" className="flex h-full flex-col rounded-none border-0 bg-transparent shadow-none">
+        <CardHeader className="relative shrink-0 border-b border-black/10 px-6 py-5 dark:border-white/10">
+          <SheetTitle asChild>
             <CardTitle className="text-2xl font-serif font-normal">{t('aiProviders.dialog.title')}</CardTitle>
-          </DialogTitle>
-          <DialogDescription asChild>
+          </SheetTitle>
+          <SheetDescription asChild>
             <CardDescription className="text-sm mt-1 text-foreground/70">
               {t('aiProviders.dialog.desc')}
             </CardDescription>
-          </DialogDescription>
+          </SheetDescription>
           <Button
             data-testid="add-provider-close-button"
             variant="ghost"
@@ -1289,7 +1292,7 @@ function AddProviderDialog({
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="overflow-y-auto flex-1 p-6">
+        <CardContent className="min-h-0 flex-1 overflow-y-auto p-6">
           {!selectedType ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {availableTypes.map((type) => (
@@ -1733,7 +1736,7 @@ function AddProviderDialog({
           )}
         </CardContent>
       </Card>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
