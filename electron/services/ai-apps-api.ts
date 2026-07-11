@@ -160,7 +160,7 @@ function safeApiMessage(value: string, secrets: string[] = []): string {
   return secrets
     .filter(Boolean)
     .reduce((message, secret) => message.split(secret).join('[redacted]'), value)
-    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/gi, 'Bearer [redacted]')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+/gi, 'Bearer [redacted]')
     .replace(/sk-[A-Za-z0-9_-]+/g, '[redacted]')
     .slice(0, 600);
 }
@@ -615,6 +615,7 @@ async function createNewApiImage(
     model,
     prompt,
     size: sizeForRatio(ratio),
+    aspect_ratio: ratio,
     n: 1,
     ...(referenceImage ? {
       subject_reference: [{ type: 'character', image_file: referenceImage }],
@@ -690,7 +691,7 @@ async function createProviderText(prompt: string): Promise<string> {
     return extractChatCompletionText(json);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Provider 请求超时，请稍后重试。');
+      throw new Error('Provider 请求超时，请稍后重试。', { cause: error });
     }
     throw error;
   } finally {
@@ -829,9 +830,9 @@ class AcceptanceAiAppRunner implements AiAppRunner {
       return createAcceptedOutputs(input.appId, input.jobId, 'acceptance', 'Acceptance runner output');
     }
     const outputDir = join(getDataDir(), 'ai-app-results', input.jobId);
-    const outputPath = join(outputDir, 'detail-image.png');
+    const outputPath = join(outputDir, 'detail-image.webp');
     await mkdir(outputDir, { recursive: true });
-    await writeFile(outputPath, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=', 'base64'));
+    await writeFile(outputPath, await readFile(join(process.cwd(), 'src/assets/ai-apps/detail-poster.webp')));
     return createAcceptedOutputs(input.appId, input.jobId, 'acceptance', 'Acceptance runner output', outputPath);
   }
 }

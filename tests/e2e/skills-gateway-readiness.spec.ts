@@ -1,13 +1,13 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { completeSetup, expect, installIpcMocks, test } from './fixtures/electron';
 
 test.describe('AI apps page', () => {
-  test('shows ecommerce AI apps by default with search and category filters', async ({ page, electronApp, homeDir }) => {
+  test('shows ecommerce AI apps by default with search and category filters', async ({ page, electronApp }) => {
     await completeSetup(page);
-    const referencePath = join(homeDir, 'reference-product.png');
-    const referenceBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=';
-    await writeFile(referencePath, Buffer.from(referenceBase64, 'base64'));
+    const referencePath = join(process.cwd(), 'src/assets/ai-apps/detail-poster.webp');
+    const referenceBuffer = await readFile(referencePath);
+    const referenceBase64 = referenceBuffer.toString('base64');
     await installIpcMocks(electronApp, {
       hostApi: {
         [`["dialog","open",{"filters":[{"extensions":["png","jpg","jpeg","webp"],"name":"Image files"}],"properties":["openFile"],"title":"Select reference image"}]`]: {
@@ -16,11 +16,11 @@ test.describe('AI apps page', () => {
         },
         [`["files","stagePaths",{"allowedExtensions":["png","jpg","jpeg","webp"],"filePaths":[${JSON.stringify(referencePath)}]}]`]: [{
           id: 'e2e-reference-image',
-          fileName: 'reference-product.png',
-          mimeType: 'image/png',
-          fileSize: 68,
+          fileName: 'detail-poster.webp',
+          mimeType: 'image/webp',
+          fileSize: referenceBuffer.length,
           stagedPath: referencePath,
-          preview: `data:image/png;base64,${referenceBase64}`,
+          preview: `data:image/webp;base64,${referenceBase64}`,
         }],
       },
     });
@@ -71,8 +71,8 @@ test.describe('AI apps page', () => {
     await expect(page.getByTestId('ai-app-workbench-form')).toContainText('Reference images');
     await page.getByTestId('ai-app-reference-upload').click();
     await expect(page.getByTestId('ai-app-reference-preview')).toBeVisible();
-    await expect(page.getByTestId('ai-app-reference-file')).toContainText('reference-product.png');
-    await expect(page.getByTestId('ai-app-reference-file')).toContainText('68 B');
+    await expect(page.getByTestId('ai-app-reference-file')).toContainText('detail-poster.webp');
+    await expect(page.getByTestId('ai-app-reference-file')).toContainText('KB');
     await page.screenshot({ path: 'output/playwright/acceptance/ai-apps-detail-poster-reference-upload.png', fullPage: true });
     await page.getByTestId('ai-app-reference-remove').click();
     await expect(page.getByTestId('ai-app-reference-upload')).toBeVisible();
