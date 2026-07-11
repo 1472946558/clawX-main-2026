@@ -470,7 +470,40 @@ describe('host services', () => {
     );
   });
 
-  it('sets the canvasland default provider account and syncs runtime defaults', async () => {
+  it('creates a local Ollama provider account and syncs runtime config', async () => {
+    const account = {
+      id: 'ollama-local',
+      vendorId: 'ollama',
+      label: 'Ollama',
+      authMode: 'local',
+      baseUrl: 'http://localhost:11434/v1',
+      model: 'qwen3:latest',
+      enabled: true,
+      createdAt: '2026-07-11T00:00:00.000Z',
+      updatedAt: '2026-07-11T00:00:00.000Z',
+    };
+    providerServiceMock.createAccount.mockResolvedValue(account);
+    const gatewayManager = { debouncedReload: vi.fn() };
+    const { createProvidersApi } = await import('@electron/services/providers-api');
+
+    await expect(createProvidersApi({
+      gatewayManager: gatewayManager as never,
+      mainWindow: {} as never,
+    }).createAccount({ account, apiKey: 'ollama-local' })).resolves.toEqual({
+      success: true,
+      account,
+    });
+
+    expect(providerServiceMock.createAccount).toHaveBeenCalledWith(account, 'ollama-local');
+    expect(providerAccountToConfigMock).toHaveBeenCalledWith(account);
+    expect(syncSavedProviderToRuntimeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ollama-local', type: 'ollama' }),
+      'ollama-local',
+      gatewayManager,
+    );
+  });
+
+  it('sets any provider account as default and syncs runtime defaults', async () => {
     providerServiceMock.getDefaultAccountId.mockResolvedValue('old-default');
     const gatewayManager = { debouncedReload: vi.fn() };
     const { createProvidersApi } = await import('@electron/services/providers-api');
@@ -478,10 +511,10 @@ describe('host services', () => {
     await expect(createProvidersApi({
       gatewayManager: gatewayManager as never,
       mainWindow: {} as never,
-    }).setDefaultAccount({ accountId: 'canvasland-newapi' })).resolves.toEqual({ success: true });
+    }).setDefaultAccount({ accountId: 'ollama-local' })).resolves.toEqual({ success: true });
 
-    expect(providerServiceMock.setDefaultAccount).toHaveBeenCalledWith('canvasland-newapi');
-    expect(syncDefaultProviderToRuntimeMock).toHaveBeenCalledWith('canvasland-newapi', gatewayManager);
+    expect(providerServiceMock.setDefaultAccount).toHaveBeenCalledWith('ollama-local');
+    expect(syncDefaultProviderToRuntimeMock).toHaveBeenCalledWith('ollama-local', gatewayManager);
   });
 
   it('builds channel accounts from config without gateway rpc in config mode', async () => {
