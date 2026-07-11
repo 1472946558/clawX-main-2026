@@ -30,6 +30,10 @@ test.describe('canvasland main navigation without setup flow', () => {
       await expect(page.getByTestId('models-page')).toBeVisible();
       await expect(page.getByTestId('models-page-title')).toBeVisible();
       await expect(page.getByTestId('canvasland-provider-card')).toBeVisible();
+      const modelProvidersSettings = page.getByTestId('providers-settings');
+      await modelProvidersSettings.scrollIntoViewIfNeeded();
+      await expect(modelProvidersSettings).toBeVisible();
+      await expect(page.getByTestId('providers-add-button')).toBeVisible();
 
       await page.getByTestId('sidebar-nav-agents').click();
       await expect(page.getByTestId('agents-page')).toBeVisible();
@@ -39,7 +43,7 @@ test.describe('canvasland main navigation without setup flow', () => {
 
       await page.getByTestId('sidebar-nav-token-topup').click();
       await expect(page.getByTestId('token-topup-page')).toBeVisible();
-      await expect(page.getByTestId('token-topup-connection-json')).toBeVisible();
+      await expect(page.getByTestId('token-topup-connection-json')).toHaveCount(0);
       await expect(page.getByTestId('token-topup-refresh-balance')).toBeVisible();
       await expect(page.getByTestId('token-topup-recharge-balance')).toContainText('0');
       await expect(page.getByTestId('token-topup-balance')).toContainText('0');
@@ -49,7 +53,27 @@ test.describe('canvasland main navigation without setup flow', () => {
       await expect(page.getByTestId('token-topup-tier-points-10')).toContainText('1,000');
       await page.getByTestId('token-topup-custom-amount').fill('12');
       await expect(page.getByTestId('token-topup-custom-points-preview')).toContainText('1,200');
+      await page.getByTestId('token-topup-custom-amount').fill('0.09');
+      await expect(page.getByTestId('token-topup-custom-points-preview')).toContainText('0');
+      await page.getByTestId('token-topup-custom-amount').fill('0.1');
+      await expect(page.getByTestId('token-topup-custom-points-preview')).toContainText('10');
+      await page.getByRole('button', { name: 'Creem' }).click();
+      await expect(page.getByTestId('token-topup-creem-currency')).toBeVisible();
+      await expect(page.getByTestId('token-topup-create-selected-payment-qr')).toContainText('Creem');
       await expect(page.getByTestId('token-topup-create-selected-payment-qr')).toBeVisible();
+      await expect(page.getByTestId('token-topup-blueocean-config')).toHaveCount(0);
+      await expect(page.getByTestId('token-topup-epay-config')).toHaveCount(0);
+      await expect.poll(async () => {
+        const [cardBox, actionsBox] = await Promise.all([
+          page.getByTestId('token-topup-payment-method').boundingBox(),
+          page.getByTestId('token-topup-payment-actions').boundingBox(),
+        ]);
+        if (!cardBox || !actionsBox) return Number.POSITIVE_INFINITY;
+
+        const cardCenter = cardBox.x + cardBox.width / 2;
+        const actionsCenter = actionsBox.x + actionsBox.width / 2;
+        return Math.abs(cardCenter - actionsCenter);
+      }).toBeLessThanOrEqual(1);
       await expect(page.getByTestId('token-topup-usage-records')).toBeVisible();
     } finally {
       await closeElectronApp(app);

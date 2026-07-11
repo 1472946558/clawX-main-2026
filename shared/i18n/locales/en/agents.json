@@ -34,6 +34,7 @@
         "modelProviderLabel": "Provider",
         "modelProviderPlaceholder": "Select a provider",
         "modelProviderEmpty": "No provider accounts configured. Add one in Settings → AI Providers.",
+        "addProviderAction": "Add provider",
         "modelIdLabel": "Model ID",
         "modelIdPlaceholder": "model-id",
         "modelPreview": "Preview",

@@ -1,6 +1,7 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { Agents } from '../../src/pages/Agents/index';
 
 const channelsAccountsMock = vi.fn();
@@ -92,6 +93,10 @@ vi.mock('sonner', () => ({
   },
 }));
 
+function renderAgents() {
+  return render(<Agents />, { wrapper: MemoryRouter });
+}
+
 describe('Agents page status refresh', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -121,7 +126,7 @@ describe('Agents page status refresh', () => {
       return vi.fn();
     });
 
-    render(<Agents />);
+    renderAgents();
 
     await waitFor(() => {
       expect(fetchAgentsMock).toHaveBeenCalledTimes(1);
@@ -141,7 +146,7 @@ describe('Agents page status refresh', () => {
   it('refetches channel accounts when the gateway transitions to running after mount', async () => {
     gatewayState.status = { state: 'starting', port: 18789 };
 
-    const { rerender } = render(<Agents />);
+    const { rerender } = renderAgents();
 
     await waitFor(() => {
       expect(fetchAgentsMock).toHaveBeenCalledTimes(1);
@@ -161,7 +166,7 @@ describe('Agents page status refresh', () => {
   it('does not render the legacy gateway warning during transient stopped status', async () => {
     gatewayState.status = { state: 'stopped', port: 18789 };
 
-    render(<Agents />);
+    renderAgents();
 
     await waitFor(() => {
       expect(fetchAgentsMock).toHaveBeenCalledTimes(1);
@@ -205,7 +210,7 @@ describe('Agents page status refresh', () => {
     ];
     providersState.defaultAccountId = 'openrouter-default';
 
-    render(<Agents />);
+    renderAgents();
 
     await waitFor(() => {
       expect(fetchAgentsMock).toHaveBeenCalledTimes(1);
@@ -231,6 +236,39 @@ describe('Agents page status refresh', () => {
     expect(useDefaultButton).toBeDisabled();
   });
 
+  it('shows a direct provider settings action when no configured provider exists', async () => {
+    agentsState.agents = [
+      {
+        id: 'main',
+        name: 'Main',
+        isDefault: true,
+        modelDisplay: 'gpt-5.4',
+        modelRef: null,
+        overrideModelRef: null,
+        inheritedModel: true,
+        workspace: '~/.openclaw/workspace',
+        agentDir: '~/.openclaw/agents/main/agent',
+        mainSessionKey: 'agent:main:main',
+        channelTypes: [],
+      },
+    ];
+    agentsState.defaultModelRef = null;
+    providersState.accounts = [];
+    providersState.statuses = [];
+
+    renderAgents();
+
+    await waitFor(() => {
+      expect(fetchAgentsMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByTitle('settings'));
+    fireEvent.click(screen.getByText('settingsDialog.modelLabel').closest('button') as HTMLButtonElement);
+
+    expect(await screen.findByText('settingsDialog.modelProviderEmpty')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'settingsDialog.addProviderAction' })).toBeEnabled();
+  });
+
   it('keeps the last agent snapshot visible while a refresh is in flight', async () => {
     agentsState.agents = [
       {
@@ -248,7 +286,7 @@ describe('Agents page status refresh', () => {
       },
     ];
 
-    const { rerender } = render(<Agents />);
+    const { rerender } = renderAgents();
 
     expect(await screen.findByText('Main')).toBeInTheDocument();
 
@@ -267,7 +305,7 @@ describe('Agents page status refresh', () => {
     refreshProviderSnapshotMock.mockImplementation(() => new Promise(() => {}));
     channelsAccountsMock.mockImplementation(() => new Promise(() => {}));
 
-    const { container } = render(<Agents />);
+    const { container } = renderAgents();
 
     expect(container.querySelector('svg.animate-spin')).toBeTruthy();
     expect(screen.queryByText('title')).not.toBeInTheDocument();

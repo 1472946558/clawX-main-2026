@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CreditCard, KeyRound, Loader2, QrCode, RefreshCw, Settings2, Trash2 } from 'lucide-react';
+import { CreditCard, ExternalLink, Loader2, QrCode, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type {
   BlueOceanPayConfigResult,
   BlueOceanPayPaymentResult,
   CanvaslandBalanceResult,
+  CreemCheckoutResult,
+  CreemCurrency,
   EpayConfigResult,
   EpayPaymentResult,
 } from '@shared/host-api/contract';
@@ -13,22 +15,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { hostApi } from '@/lib/host-api';
 import { toUserMessage } from '@/lib/error-message';
 
-const CANVASLAND_ACCOUNT_ID = 'canvasland-newapi';
-const DEFAULT_MODEL_ID = 'gpt-4o-mini';
-const DEFAULT_BASE_URL = 'https://feiniu.space';
-const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
-const DEFAULT_EPAY_GATEWAY_URL = 'https://mzf.mapay.cc/xpay/epay';
-const DEFAULT_EPAY_PID = '11222';
-const DEFAULT_BLUEOCEAN_NOTIFY_URL = 'https://apitoken.unihuax.com/payments/blueocean/notify';
-const DEFAULT_EPAY_NOTIFY_URL = 'https://apitoken.unihuax.com/payments/epay/notify';
-const DEFAULT_EPAY_RETURN_URL = 'https://apitoken.unihuax.com/health';
 const POINTS_PER_CNY = 100;
-const MIN_RECHARGE_AMOUNT = 5;
+const MIN_PAYMENT_AMOUNT = 0.1;
+const MIN_CREEM_AMOUNT = 1;
+const DEFAULT_CREEM_RATES: Record<CreemCurrency, number> = {
+  USD: 6.8,
+  HKD: 0.87,
+};
 const DEFAULT_RECHARGE_TIERS = [
   { amount: 5, points: 5 * POINTS_PER_CNY },
   { amount: 10, points: 10 * POINTS_PER_CNY },
@@ -39,13 +36,8 @@ const DEFAULT_RECHARGE_TIERS = [
   { amount: 500, points: 500 * POINTS_PER_CNY },
 ];
 
-type NewApiConnection = {
-  _type?: string;
-  key?: string;
-  url?: string;
-};
-type PaymentProvider = 'blueocean' | 'epay';
-type PaymentKind = 'wechat' | 'alipay';
+type PaymentProvider = 'blueocean' | 'epay' | 'creem';
+type PaymentKind = 'wechat' | 'alipay' | 'creem';
 type RechargeTier = {
   amount: number;
   points: number;
@@ -60,92 +52,70 @@ type QrPaymentState = {
   sn?: string;
   status?: number;
   tradeState?: string;
+  checkoutUrl?: string;
+  checkoutId?: string;
+  amount?: number;
+  currency?: CreemCurrency;
+  cnyRate?: number;
+  cnyAmount?: number;
+  points?: number;
   error?: string;
 };
-
-function normalizeRootUrl(url: string): string {
-  return url.trim().replace(/\/+$/, '');
-}
-
-function normalizeModelBaseUrl(url: string): string {
-  const root = normalizeRootUrl(url);
-  return root.endsWith('/v1') ? root : `${root}/v1`;
-}
-
-function parseConnectionJson(value: string): NewApiConnection {
-  const parsed = JSON.parse(value) as unknown;
-  if (!parsed || typeof parsed !== 'object') {
-    throw new Error('invalid');
-  }
-  return parsed as NewApiConnection;
-}
 
 function pointsForAmount(amount: number): number {
   return Math.round(amount * POINTS_PER_CNY);
 }
 
+function currencySymbol(currency: CreemCurrency): string {
+  return currency === 'HKD' ? 'HK$' : 'US$';
+}
+
+function pointsForCreemAmount(amount: number, currency: CreemCurrency, rates: Record<CreemCurrency, number>): number {
+  return Math.round(amount * (rates[currency] || DEFAULT_CREEM_RATES[currency]) * POINTS_PER_CNY);
+}
+
 export function TokenTopUp() {
   const { t } = useTranslation('common');
-  const [connectionJson, setConnectionJson] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const [showConnectionForm, setShowConnectionForm] = useState(false);
-  const [savedRootUrl, setSavedRootUrl] = useState(DEFAULT_BASE_URL);
   const [balance, setBalance] = useState<CanvaslandBalanceResult | null>(null);
   const [refreshingBalance, setRefreshingBalance] = useState(false);
   const [blueOceanConfig, setBlueOceanConfig] = useState<BlueOceanPayConfigResult | null>(null);
-  const [showBlueOceanForm, setShowBlueOceanForm] = useState(false);
-  const [blueOceanAppid, setBlueOceanAppid] = useState('');
-  const [blueOceanApiBaseUrl, setBlueOceanApiBaseUrl] = useState(DEFAULT_BLUEOCEAN_API_BASE_URL);
-  const [blueOceanMerchantKey, setBlueOceanMerchantKey] = useState('');
-  const [blueOceanNotifyUrl, setBlueOceanNotifyUrl] = useState(DEFAULT_BLUEOCEAN_NOTIFY_URL);
-  const [savingBlueOcean, setSavingBlueOcean] = useState(false);
-  const [clearingBlueOcean, setClearingBlueOcean] = useState(false);
   const [epayConfig, setEpayConfig] = useState<EpayConfigResult | null>(null);
-  const [showEpayForm, setShowEpayForm] = useState(false);
-  const [epayGatewayUrl, setEpayGatewayUrl] = useState(DEFAULT_EPAY_GATEWAY_URL);
-  const [epayPid, setEpayPid] = useState(DEFAULT_EPAY_PID);
-  const [epayMerchantKey, setEpayMerchantKey] = useState('');
-  const [epayNotifyUrl, setEpayNotifyUrl] = useState(DEFAULT_EPAY_NOTIFY_URL);
-  const [epayReturnUrl, setEpayReturnUrl] = useState(DEFAULT_EPAY_RETURN_URL);
-  const [epaySiteName, setEpaySiteName] = useState('canvasland');
-  const [savingEpay, setSavingEpay] = useState(false);
-  const [clearingEpay, setClearingEpay] = useState(false);
   const [creatingPaymentKey, setCreatingPaymentKey] = useState<string | null>(null);
   const [selectedPaymentKind, setSelectedPaymentKind] = useState<PaymentKind>('wechat');
+  const [selectedCreemCurrency, setSelectedCreemCurrency] = useState<CreemCurrency>('USD');
+  const [creemRates, setCreemRates] = useState<Record<CreemCurrency, number>>(DEFAULT_CREEM_RATES);
   const [selectedRechargeKey, setSelectedRechargeKey] = useState('fixed-5');
   const [qrPayment, setQrPayment] = useState<QrPaymentState | null>(null);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [queryingPayment, setQueryingPayment] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
 
-  const parsedConnection = useMemo(() => {
-    if (!connectionJson.trim()) return null;
-    try {
-      return parseConnectionJson(connectionJson);
-    } catch {
-      return null;
-    }
-  }, [connectionJson]);
-
-  const effectiveRootUrl = parsedConnection?.url ? normalizeRootUrl(parsedConnection.url) : savedRootUrl;
   const rechargeTiers = useMemo(() => {
     return DEFAULT_RECHARGE_TIERS;
   }, []);
+  const selectedMinimumAmount = selectedPaymentKind === 'creem' ? MIN_CREEM_AMOUNT : MIN_PAYMENT_AMOUNT;
+  const pointsForSelectedAmount = useCallback((amount: number) => (
+    selectedPaymentKind === 'creem'
+      ? pointsForCreemAmount(amount, selectedCreemCurrency, creemRates)
+      : pointsForAmount(amount)
+  ), [creemRates, selectedCreemCurrency, selectedPaymentKind]);
   const customTier = useMemo<RechargeTier | null>(() => {
     const amount = Number(customAmount);
-    if (!customAmount.trim() || !Number.isFinite(amount) || amount <= 0) return null;
+    if (!customAmount.trim() || !Number.isFinite(amount) || amount < selectedMinimumAmount) return null;
     return {
       amount,
-      points: pointsForAmount(amount),
+      points: pointsForSelectedAmount(amount),
     };
-  }, [customAmount]);
+  }, [customAmount, pointsForSelectedAmount, selectedMinimumAmount]);
   const selectedRechargeTier = useMemo<RechargeTier | null>(() => {
     if (selectedRechargeKey === 'custom') return customTier;
     const amount = Number(selectedRechargeKey.replace('fixed-', ''));
-    return rechargeTiers.find((tier) => tier.amount === amount) || rechargeTiers[0] || null;
-  }, [customTier, rechargeTiers, selectedRechargeKey]);
-  const selectedPaymentConfigured = selectedPaymentKind === 'wechat'
+    const tier = rechargeTiers.find((item) => item.amount === amount) || rechargeTiers[0] || null;
+    return tier ? { ...tier, points: pointsForSelectedAmount(tier.amount) } : null;
+  }, [customTier, pointsForSelectedAmount, rechargeTiers, selectedRechargeKey]);
+  const selectedPaymentConfigured = selectedPaymentKind === 'creem'
+    ? true
+    : selectedPaymentKind === 'wechat'
     ? Boolean(blueOceanConfig?.configured)
     : Boolean(epayConfig?.configured);
   const walletBalance = balance?.wallet ?? {
@@ -160,7 +130,6 @@ export function TokenTopUp() {
     try {
       const nextBalance = await hostApi.canvasland.balance();
       setBalance(nextBalance);
-      if (nextBalance.endpoint) setSavedRootUrl(nextBalance.endpoint);
       if (!nextBalance.success && nextBalance.error) {
         toast.error(`${t('tokenTopUp.errors.balanceFailed')}: ${nextBalance.error}`);
       }
@@ -179,237 +148,68 @@ export function TokenTopUp() {
     try {
       const config = await hostApi.canvasland.blueOceanConfig();
       setBlueOceanConfig(config);
-      setBlueOceanAppid(config.config?.appid || '');
-      setBlueOceanApiBaseUrl(config.config?.apiBaseUrl || DEFAULT_BLUEOCEAN_API_BASE_URL);
-      setBlueOceanNotifyUrl(config.config?.notifyUrl || DEFAULT_BLUEOCEAN_NOTIFY_URL);
-      setBlueOceanMerchantKey('');
-      setShowBlueOceanForm(!config.configured);
-    } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.blueOceanLoadFailed')}: ${toUserMessage(error)}`);
+    } catch {
+      setBlueOceanConfig(null);
     }
-  }, [t]);
+  }, []);
 
   const loadEpayConfig = useCallback(async () => {
     try {
       const config = await hostApi.canvasland.epayConfig();
       setEpayConfig(config);
-      setEpayGatewayUrl(config.config?.gatewayUrl || DEFAULT_EPAY_GATEWAY_URL);
-      setEpayPid(config.config?.pid || DEFAULT_EPAY_PID);
-      setEpayNotifyUrl(config.config?.notifyUrl || DEFAULT_EPAY_NOTIFY_URL);
-      setEpayReturnUrl(config.config?.returnUrl || DEFAULT_EPAY_RETURN_URL);
-      setEpaySiteName(config.config?.siteName || 'canvasland');
-      setEpayMerchantKey('');
-      setShowEpayForm(!config.configured);
-    } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.epayLoadFailed')}: ${toUserMessage(error)}`);
+    } catch {
+      setEpayConfig(null);
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     void loadBlueOceanConfig();
     void loadEpayConfig();
   }, [loadBlueOceanConfig, loadEpayConfig]);
 
-  const handleSaveConnection = async () => {
-    let connection: NewApiConnection;
-    try {
-      connection = parseConnectionJson(connectionJson);
-    } catch {
-      toast.error(t('tokenTopUp.errors.invalidJson'));
-      return;
-    }
-
-    if (connection._type !== 'newapi_channel_conn') {
-      toast.error(t('tokenTopUp.errors.invalidType'));
-      return;
-    }
-
-    const key = typeof connection.key === 'string' ? connection.key.trim() : '';
-    const rootUrl = typeof connection.url === 'string' ? normalizeRootUrl(connection.url) : '';
-    if (!key) {
-      toast.error(t('tokenTopUp.errors.missingKey'));
-      return;
-    }
-    if (!rootUrl) {
-      toast.error(t('tokenTopUp.errors.missingUrl'));
-      return;
-    }
-    if (rootUrl !== DEFAULT_BASE_URL) {
-      toast.error(t('tokenTopUp.errors.unsupportedEndpoint'));
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const now = new Date().toISOString();
-      const existing = await hostApi.providers.getAccount(CANVASLAND_ACCOUNT_ID);
-      const account = {
-        id: CANVASLAND_ACCOUNT_ID,
-        vendorId: 'custom' as const,
-        label: 'canvasland',
-        authMode: 'api_key' as const,
-        baseUrl: normalizeModelBaseUrl(rootUrl),
-        apiProtocol: 'openai-completions' as const,
-        model: DEFAULT_MODEL_ID,
-        enabled: true,
-        isDefault: true,
-        createdAt: existing?.createdAt || now,
-        updatedAt: now,
-      };
-
-      if (existing) {
-        await hostApi.providers.updateAccount(CANVASLAND_ACCOUNT_ID, account, key);
-      } else {
-        await hostApi.providers.createAccount({ account, apiKey: key });
-      }
-      await hostApi.providers.setDefaultAccount(CANVASLAND_ACCOUNT_ID);
-      setSavedRootUrl(rootUrl);
-      setConnectionJson('');
-      setShowConnectionForm(false);
-      await refreshBalance();
-      toast.success(t('tokenTopUp.saved'));
-    } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.saveFailed')}: ${toUserMessage(error)}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleClearConnection = async () => {
-    setClearing(true);
-    try {
-      await hostApi.providers.deleteAccountApiKey(CANVASLAND_ACCOUNT_ID);
-      setBalance((current) => current ? { ...current, configured: false } : current);
-      setShowConnectionForm(true);
-      toast.success(t('tokenTopUp.cleared'));
-    } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.clearFailed')}: ${toUserMessage(error)}`);
-    } finally {
-      setClearing(false);
-    }
-  };
-
-  const handleSaveBlueOceanConfig = async () => {
-    const appid = blueOceanAppid.trim();
-    const apiBaseUrl = blueOceanApiBaseUrl.trim();
-    const merchantKey = blueOceanMerchantKey.trim();
-    if (!appid) {
-      toast.error(t('tokenTopUp.errors.blueOceanMissingAppid'));
-      return;
-    }
-    if (!apiBaseUrl) {
-      toast.error(t('tokenTopUp.errors.blueOceanMissingApiBaseUrl'));
-      return;
-    }
-    if (!blueOceanConfig?.hasMerchantKey && !merchantKey) {
-      toast.error(t('tokenTopUp.errors.blueOceanMissingMerchantKey'));
-      return;
-    }
-
-    setSavingBlueOcean(true);
-    try {
-      await hostApi.canvasland.saveBlueOceanConfig({
-        appid,
-        apiBaseUrl,
-        notifyUrl: blueOceanNotifyUrl.trim() || undefined,
-        merchantKey: merchantKey || undefined,
+  useEffect(() => {
+    let cancelled = false;
+    void hostApi.canvasland.creemRates()
+      .then((result) => {
+        if (!cancelled && result.rates) setCreemRates(result.rates);
+      })
+      .catch(() => {
+        if (!cancelled) setCreemRates(DEFAULT_CREEM_RATES);
       });
-      await loadBlueOceanConfig();
-      setShowBlueOceanForm(false);
-      toast.success(t('tokenTopUp.blueOceanSaved'));
-    } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.blueOceanSaveFailed')}: ${toUserMessage(error)}`);
-    } finally {
-      setSavingBlueOcean(false);
-    }
-  };
-
-  const handleClearBlueOceanConfig = async () => {
-    setClearingBlueOcean(true);
-    try {
-      await hostApi.canvasland.clearBlueOceanConfig();
-      setQrPayment(null);
-      await loadBlueOceanConfig();
-      setShowBlueOceanForm(true);
-      toast.success(t('tokenTopUp.blueOceanCleared'));
-    } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.blueOceanClearFailed')}: ${toUserMessage(error)}`);
-    } finally {
-      setClearingBlueOcean(false);
-    }
-  };
-
-  const handleSaveEpayConfig = async () => {
-    const gatewayUrl = epayGatewayUrl.trim();
-    const pid = epayPid.trim();
-    const merchantKey = epayMerchantKey.trim();
-    const notifyUrl = epayNotifyUrl.trim();
-    const returnUrl = epayReturnUrl.trim();
-    if (!gatewayUrl) {
-      toast.error(t('tokenTopUp.errors.epayMissingGatewayUrl'));
-      return;
-    }
-    if (!pid) {
-      toast.error(t('tokenTopUp.errors.epayMissingPid'));
-      return;
-    }
-    if (!epayConfig?.hasMerchantKey && !merchantKey) {
-      toast.error(t('tokenTopUp.errors.epayMissingMerchantKey'));
-      return;
-    }
-    if (!notifyUrl) {
-      toast.error(t('tokenTopUp.errors.epayMissingNotifyUrl'));
-      return;
-    }
-    if (!returnUrl) {
-      toast.error(t('tokenTopUp.errors.epayMissingReturnUrl'));
-      return;
-    }
-
-    setSavingEpay(true);
-    try {
-      await hostApi.canvasland.saveEpayConfig({
-        gatewayUrl,
-        pid,
-        notifyUrl,
-        returnUrl,
-        siteName: epaySiteName.trim() || 'canvasland',
-        merchantKey: merchantKey || undefined,
-      });
-      await loadEpayConfig();
-      setShowEpayForm(false);
-      toast.success(t('tokenTopUp.epaySaved'));
-    } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.epaySaveFailed')}: ${toUserMessage(error)}`);
-    } finally {
-      setSavingEpay(false);
-    }
-  };
-
-  const handleClearEpayConfig = async () => {
-    setClearingEpay(true);
-    try {
-      await hostApi.canvasland.clearEpayConfig();
-      setQrPayment(null);
-      await loadEpayConfig();
-      setShowEpayForm(true);
-      toast.success(t('tokenTopUp.epayCleared'));
-    } catch (error) {
-      toast.error(`${t('tokenTopUp.errors.epayClearFailed')}: ${toUserMessage(error)}`);
-    } finally {
-      setClearingEpay(false);
-    }
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleCreateQrPayment = async (tier: RechargeTier, paymentKey: string) => {
-    if (!Number.isFinite(tier.amount) || tier.amount < MIN_RECHARGE_AMOUNT || tier.points < 1) {
+    if (!Number.isFinite(tier.amount) || tier.amount < selectedMinimumAmount || tier.points < 1) {
       toast.error(t('tokenTopUp.errors.customAmountInvalid'));
       return;
     }
     setCreatingPaymentKey(paymentKey);
     try {
       let payment: QrPaymentState;
-      if (selectedPaymentKind === 'wechat') {
+      if (selectedPaymentKind === 'creem') {
+        const result: CreemCheckoutResult = await hostApi.canvasland.createCreemCheckout({
+          amount: tier.amount,
+          currency: selectedCreemCurrency,
+        });
+        payment = {
+          success: result.success,
+          provider: 'creem',
+          paymentKind: 'creem',
+          checkoutUrl: result.checkoutUrl,
+          checkoutId: result.checkoutId,
+          outTradeNo: result.outTradeNo,
+          amount: result.amount,
+          currency: result.currency,
+          cnyRate: result.cnyRate,
+          cnyAmount: result.cnyAmount,
+          points: result.points,
+          tradeState: result.status,
+          error: result.error,
+        };
+      } else if (selectedPaymentKind === 'wechat') {
         const result: BlueOceanPayPaymentResult = await hostApi.canvasland.createBlueOceanWechatPayment({
           amount: tier.amount,
           points: tier.points,
@@ -447,7 +247,7 @@ export function TokenTopUp() {
       setQrPayment(payment);
       if (payment.success) {
         setShowQrDialog(true);
-        toast.success(t('tokenTopUp.paymentQrCreated'));
+        toast.success(selectedPaymentKind === 'creem' ? t('tokenTopUp.creemCheckoutCreated') : t('tokenTopUp.paymentQrCreated'));
       } else {
         toast.error(`${t('tokenTopUp.errors.paymentFailed')}: ${payment.error || t('tokenTopUp.notAvailable')}`);
       }
@@ -470,7 +270,10 @@ export function TokenTopUp() {
     if (!qrPayment?.tradeNo && !qrPayment?.sn && !qrPayment?.outTradeNo) return;
     setQueryingPayment(true);
     try {
-      if (qrPayment.provider === 'blueocean') {
+      if (qrPayment.provider === 'creem') {
+        await refreshBalance();
+        toast.success(t('tokenTopUp.paymentStatusUpdated'));
+      } else if (qrPayment.provider === 'blueocean') {
         const result = await hostApi.canvasland.queryBlueOceanPayment({
           sn: qrPayment.sn,
           outTradeNo: qrPayment.outTradeNo,
@@ -529,66 +332,6 @@ export function TokenTopUp() {
         <div className="overflow-y-auto pb-10 space-y-6">
           <section className="rounded-2xl border border-black/5 dark:border-white/10 bg-surface-modal p-6">
             <div className="mb-6 flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                <KeyRound className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-serif font-normal tracking-tight">{t('tokenTopUp.connectionTitle')}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{t('tokenTopUp.connectionDesc')}</p>
-              </div>
-            </div>
-
-            {balance?.configured && !showConnectionForm ? (
-              <div className="space-y-5">
-                <div data-testid="token-topup-connection-locked" className="rounded-xl bg-surface-input p-4">
-                  <p className="text-sm font-semibold text-foreground">{t('tokenTopUp.connectionLocked')}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{t('tokenTopUp.connectedDesc')}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button data-testid="token-topup-change-connection" onClick={() => setShowConnectionForm(true)} variant="outline" className="rounded-full px-5">
-                    <KeyRound className="h-4 w-4 mr-2" />
-                    {t('tokenTopUp.changeConnection')}
-                  </Button>
-                  <Button data-testid="token-topup-clear" onClick={handleClearConnection} disabled={clearing} variant="outline" className="rounded-full px-5">
-                    {clearing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                    {t('tokenTopUp.clearConnection')}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="newapi-connection">{t('tokenTopUp.connectionJson')}</Label>
-                  <Textarea
-                    id="newapi-connection"
-                    data-testid="token-topup-connection-json"
-                    value={connectionJson}
-                    onChange={(event) => setConnectionJson(event.target.value)}
-                    placeholder={t('tokenTopUp.connectionPlaceholder')}
-                    className="min-h-36 rounded-xl bg-surface-input font-mono text-xs"
-                  />
-                </div>
-                <div className="rounded-xl bg-surface-input p-4">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.officialEndpoint')}</p>
-                  <p className="mt-2 break-all font-mono text-sm text-foreground">{DEFAULT_BASE_URL}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">{t('tokenTopUp.endpointHelp')}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button data-testid="token-topup-save" onClick={handleSaveConnection} disabled={saving || !connectionJson.trim()} className="rounded-full px-5">
-                    {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                    {t('tokenTopUp.saveConnection')}
-                  </Button>
-                  <Button data-testid="token-topup-clear" onClick={handleClearConnection} disabled={clearing} variant="outline" className="rounded-full px-5">
-                    {clearing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                    {t('tokenTopUp.clearConnection')}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </section>
-
-          <section className="rounded-2xl border border-black/5 dark:border-white/10 bg-surface-modal p-6">
-            <div className="mb-6 flex items-start gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10 text-green-700 dark:text-green-400">
                 <CreditCard className="h-5 w-5" />
               </div>
@@ -621,30 +364,18 @@ export function TokenTopUp() {
                   </p>
                 </div>
               </div>
-              <div className="rounded-xl bg-surface-input p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.tokenStatus')}</p>
-                  <Badge variant={balance?.configured ? 'success' : 'warning'}>
-                    {balance?.configured ? t('tokenTopUp.configured') : t('tokenTopUp.notConfigured')}
-                  </Badge>
-                </div>
-                <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
-                  <p>{t('tokenTopUp.tokenName')}: <span className="font-mono text-foreground">{balance?.token?.name || 'canvasland New API'}</span></p>
-                  <p>{t('tokenTopUp.totalGranted')}: <span className="font-mono text-foreground">{(balance?.token?.totalGranted ?? walletBalance.totalGranted).toLocaleString()} {t('tokenTopUp.points')}</span></p>
-                  <p>{t('tokenTopUp.checkedAt')}: <span className="font-mono text-foreground">{balance?.checkedAt ? new Date(balance.checkedAt).toLocaleString() : '-'}</span></p>
-                </div>
-              </div>
-              <div className="rounded-xl bg-surface-input p-4">
-                <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.currentEndpoint')}</p>
-                <p className="mt-2 break-all font-mono text-sm text-foreground">{effectiveRootUrl}</p>
-              </div>
               <div data-testid="token-topup-recharge-tiers" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.amountOptions')}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{t('tokenTopUp.pointsRate')}</p>
                   </div>
-                  <Badge variant="secondary">{t('tokenTopUp.selectedAmount')}: ¥{selectedRechargeTier?.amount ?? '-'}</Badge>
+                  <Badge variant="secondary">
+                    {t('tokenTopUp.selectedAmount')}:{' '}
+                    {selectedPaymentKind === 'creem'
+                      ? `${currencySymbol(selectedCreemCurrency)}${selectedRechargeTier?.amount ?? '-'}`
+                      : `¥${selectedRechargeTier?.amount ?? '-'}`}
+                  </Badge>
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
                   {rechargeTiers.map((tier) => {
@@ -662,9 +393,11 @@ export function TokenTopUp() {
                             : 'border-black/5 bg-surface-input hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10'
                         }`}
                       >
-                        <p className="text-sm font-semibold text-foreground">¥{tier.amount}</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {selectedPaymentKind === 'creem' ? `${currencySymbol(selectedCreemCurrency)}${tier.amount}` : `¥${tier.amount}`}
+                        </p>
                         <p data-testid={`token-topup-tier-points-${tier.amount}`} className="text-xs text-muted-foreground">
-                          {tier.points.toLocaleString()} {t('tokenTopUp.points')}
+                          {pointsForSelectedAmount(tier.amount).toLocaleString()} {t('tokenTopUp.points')}
                         </p>
                       </button>
                     );
@@ -682,15 +415,17 @@ export function TokenTopUp() {
                         id="token-topup-custom-amount"
                         data-testid="token-topup-custom-amount"
                         type="number"
-                        min={MIN_RECHARGE_AMOUNT}
-                        step="1"
+                        min={selectedMinimumAmount}
+                        step="0.01"
                         value={customAmount}
                         onFocus={() => setSelectedRechargeKey('custom')}
                         onChange={(event) => {
                           setCustomAmount(event.target.value);
                           setSelectedRechargeKey('custom');
                         }}
-                        placeholder={t('tokenTopUp.customAmountPlaceholder')}
+                        placeholder={selectedPaymentKind === 'creem'
+                          ? t('tokenTopUp.creemAmountPlaceholder')
+                          : t('tokenTopUp.customAmountPlaceholder')}
                         className="rounded-xl bg-background"
                       />
                       <p data-testid="token-topup-custom-points-preview" className="text-xs text-muted-foreground">
@@ -706,8 +441,8 @@ export function TokenTopUp() {
                 </div>
                 <div data-testid="token-topup-payment-method" className="mt-4 rounded-lg border border-black/5 bg-surface-input p-4 dark:border-white/10">
                   <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.paymentMethod')}</p>
-                  <div className="mt-3 w-full sm:max-w-[50%]">
-                    <div className="grid grid-cols-2 gap-2">
+                  <div data-testid="token-topup-payment-actions" className="mx-auto mt-3 w-full sm:max-w-[70%]">
+                    <div className="grid grid-cols-3 gap-2">
                       <Button
                         type="button"
                         variant={selectedPaymentKind === 'wechat' ? 'default' : 'outline'}
@@ -724,14 +459,37 @@ export function TokenTopUp() {
                       >
                         {t('tokenTopUp.alipayPay')}
                       </Button>
+                      <Button
+                        type="button"
+                        variant={selectedPaymentKind === 'creem' ? 'default' : 'outline'}
+                        onClick={() => setSelectedPaymentKind('creem')}
+                        className="rounded-lg"
+                      >
+                        {t('tokenTopUp.creemPay')}
+                      </Button>
                     </div>
+                    {selectedPaymentKind === 'creem' && (
+                      <div data-testid="token-topup-creem-currency" className="mt-3 grid grid-cols-2 gap-2">
+                        {(['USD', 'HKD'] as CreemCurrency[]).map((currency) => (
+                          <Button
+                            key={currency}
+                            type="button"
+                            variant={selectedCreemCurrency === currency ? 'default' : 'outline'}
+                            onClick={() => setSelectedCreemCurrency(currency)}
+                            className="rounded-lg"
+                          >
+                            {currency}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
                     <Button
                       data-testid="token-topup-create-selected-payment-qr"
                       onClick={handleCreateSelectedQrPayment}
                       disabled={
                         creatingPaymentKey !== null
                         || !selectedRechargeTier
-                        || selectedRechargeTier.amount < MIN_RECHARGE_AMOUNT
+                        || selectedRechargeTier.amount < selectedMinimumAmount
                         || !selectedPaymentConfigured
                       }
                       className="mt-4 w-full rounded-lg"
@@ -741,199 +499,26 @@ export function TokenTopUp() {
                       ) : (
                         <QrCode className="h-4 w-4 mr-2" />
                       )}
-                      {t('tokenTopUp.createPaymentQr')}
+                      {selectedPaymentKind === 'creem' ? t('tokenTopUp.createCreemCheckout') : t('tokenTopUp.createPaymentQr')}
                     </Button>
                   </div>
                 </div>
               </div>
-              {selectedPaymentKind === 'wechat' ? (
-                <div data-testid="token-topup-blueocean-config" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.blueOceanTitle')}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">{t('tokenTopUp.blueOceanDesc')}</p>
-                    </div>
-                    <Badge variant={blueOceanConfig?.configured ? 'success' : 'warning'}>
-                      {blueOceanConfig?.configured ? t('tokenTopUp.configured') : t('tokenTopUp.notConfigured')}
-                    </Badge>
-                  </div>
-                  {!showBlueOceanForm && blueOceanConfig?.configured ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Button onClick={() => setShowBlueOceanForm(true)} variant="outline" size="sm" className="rounded-full">
-                        <Settings2 className="h-4 w-4 mr-2" />
-                        {t('tokenTopUp.changeBlueOcean')}
-                      </Button>
-                      <Button onClick={handleClearBlueOceanConfig} disabled={clearingBlueOcean} variant="outline" size="sm" className="rounded-full">
-                        {clearingBlueOcean ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                        {t('tokenTopUp.clearBlueOcean')}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="mt-4 grid gap-3">
-                      <div className="grid gap-2">
-                        <Label htmlFor="blueocean-appid">{t('tokenTopUp.blueOceanAppid')}</Label>
-                        <Input
-                          id="blueocean-appid"
-                          value={blueOceanAppid}
-                          onChange={(event) => setBlueOceanAppid(event.target.value)}
-                          className="rounded-xl bg-surface-input font-mono text-xs"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="blueocean-api-base-url">{t('tokenTopUp.blueOceanApiBaseUrl')}</Label>
-                        <Input
-                          id="blueocean-api-base-url"
-                          value={blueOceanApiBaseUrl}
-                          onChange={(event) => setBlueOceanApiBaseUrl(event.target.value)}
-                          className="rounded-xl bg-surface-input font-mono text-xs"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="blueocean-merchant-key">{t('tokenTopUp.blueOceanMerchantKey')}</Label>
-                        <Input
-                          id="blueocean-merchant-key"
-                          type="password"
-                          value={blueOceanMerchantKey}
-                          onChange={(event) => setBlueOceanMerchantKey(event.target.value)}
-                          placeholder={blueOceanConfig?.hasMerchantKey ? t('tokenTopUp.blueOceanMerchantKeyPlaceholderSaved') : ''}
-                          className="rounded-xl bg-surface-input font-mono text-xs"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="blueocean-notify-url">{t('tokenTopUp.blueOceanNotifyUrl')}</Label>
-                        <Input
-                          id="blueocean-notify-url"
-                          value={blueOceanNotifyUrl}
-                          onChange={(event) => setBlueOceanNotifyUrl(event.target.value)}
-                          placeholder="https://example.com/payments/blueocean/notify"
-                          className="rounded-xl bg-surface-input font-mono text-xs"
-                        />
-                        <p className="text-xs text-muted-foreground">{t('tokenTopUp.blueOceanNotifyHelp')}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button onClick={handleSaveBlueOceanConfig} disabled={savingBlueOcean} size="sm" className="rounded-full">
-                          {savingBlueOcean ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                          {t('tokenTopUp.saveBlueOcean')}
-                        </Button>
-                        <Button onClick={handleClearBlueOceanConfig} disabled={clearingBlueOcean} variant="outline" size="sm" className="rounded-full">
-                          {clearingBlueOcean ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                          {t('tokenTopUp.clearBlueOcean')}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div data-testid="token-topup-epay-config" className="rounded-xl border border-black/5 dark:border-white/10 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium uppercase text-muted-foreground">{t('tokenTopUp.epayTitle')}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{t('tokenTopUp.epayDesc')}</p>
-                  </div>
-                  <Badge variant={epayConfig?.configured ? 'success' : 'warning'}>
-                    {epayConfig?.configured ? t('tokenTopUp.configured') : t('tokenTopUp.notConfigured')}
-                  </Badge>
-                </div>
-                {!showEpayForm && epayConfig?.configured ? (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button onClick={() => setShowEpayForm(true)} variant="outline" size="sm" className="rounded-full">
-                      <Settings2 className="h-4 w-4 mr-2" />
-                      {t('tokenTopUp.changeEpay')}
-                    </Button>
-                    <Button onClick={handleClearEpayConfig} disabled={clearingEpay} variant="outline" size="sm" className="rounded-full">
-                      {clearingEpay ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                      {t('tokenTopUp.clearEpay')}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="mt-4 grid gap-3">
-                    <div className="grid gap-2">
-                      <Label htmlFor="epay-gateway-url">{t('tokenTopUp.epayGatewayUrl')}</Label>
-                      <Input
-                        id="epay-gateway-url"
-                        value={epayGatewayUrl}
-                        onChange={(event) => setEpayGatewayUrl(event.target.value)}
-                        placeholder="https://pay.example.com"
-                        className="rounded-xl bg-surface-input font-mono text-xs"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="epay-pid">{t('tokenTopUp.epayPid')}</Label>
-                      <Input
-                        id="epay-pid"
-                        value={epayPid}
-                        onChange={(event) => setEpayPid(event.target.value)}
-                        className="rounded-xl bg-surface-input font-mono text-xs"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="epay-merchant-key">{t('tokenTopUp.epayMerchantKey')}</Label>
-                      <Input
-                        id="epay-merchant-key"
-                        type="password"
-                        value={epayMerchantKey}
-                        onChange={(event) => setEpayMerchantKey(event.target.value)}
-                        placeholder={epayConfig?.hasMerchantKey ? t('tokenTopUp.epayMerchantKeyPlaceholderSaved') : ''}
-                        className="rounded-xl bg-surface-input font-mono text-xs"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="epay-notify-url">{t('tokenTopUp.epayNotifyUrl')}</Label>
-                      <Input
-                        id="epay-notify-url"
-                        value={epayNotifyUrl}
-                        onChange={(event) => setEpayNotifyUrl(event.target.value)}
-                        placeholder="https://example.com/payments/epay/notify"
-                        className="rounded-xl bg-surface-input font-mono text-xs"
-                      />
-                      <p className="text-xs text-muted-foreground">{t('tokenTopUp.epayNotifyHelp')}</p>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="epay-return-url">{t('tokenTopUp.epayReturnUrl')}</Label>
-                      <Input
-                        id="epay-return-url"
-                        value={epayReturnUrl}
-                        onChange={(event) => setEpayReturnUrl(event.target.value)}
-                        placeholder="https://example.com/payments/success"
-                        className="rounded-xl bg-surface-input font-mono text-xs"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="epay-site-name">{t('tokenTopUp.epaySiteName')}</Label>
-                      <Input
-                        id="epay-site-name"
-                        value={epaySiteName}
-                        onChange={(event) => setEpaySiteName(event.target.value)}
-                        className="rounded-xl bg-surface-input"
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button onClick={handleSaveEpayConfig} disabled={savingEpay} size="sm" className="rounded-full">
-                        {savingEpay ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                        {t('tokenTopUp.saveEpay')}
-                      </Button>
-                      <Button onClick={handleClearEpayConfig} disabled={clearingEpay} variant="outline" size="sm" className="rounded-full">
-                        {clearingEpay ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                        {t('tokenTopUp.clearEpay')}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              )}
-              <Dialog open={showQrDialog && Boolean(qrPayment?.qrcodeDataUrl)} onOpenChange={setShowQrDialog}>
+              <Dialog open={showQrDialog && Boolean(qrPayment?.qrcodeDataUrl || qrPayment?.checkoutUrl)} onOpenChange={setShowQrDialog}>
                 <DialogContent data-testid="token-topup-payment-qr" className="w-[calc(100%-2rem)] max-w-xl rounded-2xl border-0 bg-surface-modal p-0 shadow-2xl">
-                  {qrPayment?.qrcodeDataUrl && (
+                  {qrPayment && (
                     <div className="p-6">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <DialogTitle className="text-2xl font-serif font-normal tracking-tight">
-                            {qrPayment.paymentKind === 'alipay'
+                            {qrPayment.provider === 'creem'
+                              ? t('tokenTopUp.creemCheckoutTitle')
+                              : qrPayment.paymentKind === 'alipay'
                               ? t('tokenTopUp.alipayQrTitle')
                               : t('tokenTopUp.wechatQrTitle')}
                           </DialogTitle>
                           <DialogDescription className="mt-1 text-sm text-muted-foreground">
-                            {t('tokenTopUp.scanToPay')}
+                            {qrPayment.provider === 'creem' ? t('tokenTopUp.creemCheckoutDesc') : t('tokenTopUp.scanToPay')}
                           </DialogDescription>
                         </div>
                         <Button onClick={handleQueryQrPayment} disabled={queryingPayment} variant="outline" size="sm" className="rounded-full">
@@ -942,15 +527,41 @@ export function TokenTopUp() {
                         </Button>
                       </div>
                       <div className="mt-5 flex flex-col sm:flex-row gap-4">
-                        <div className="rounded-xl bg-white p-3 shadow-sm">
-                          <img src={qrPayment.qrcodeDataUrl} alt={t('tokenTopUp.paymentQrTitle')} className="h-48 w-48" />
-                        </div>
+                        {qrPayment.qrcodeDataUrl ? (
+                          <div className="rounded-xl bg-white p-3 shadow-sm">
+                            <img src={qrPayment.qrcodeDataUrl} alt={t('tokenTopUp.paymentQrTitle')} className="h-48 w-48" />
+                          </div>
+                        ) : (
+                          <div className="flex min-h-48 w-full items-center justify-center rounded-xl bg-surface-input p-4 sm:w-56">
+                            <Button
+                              data-testid="token-topup-open-creem-checkout"
+                              onClick={() => qrPayment.checkoutUrl && hostApi.shell.openExternal(qrPayment.checkoutUrl)}
+                              className="rounded-full"
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              {t('tokenTopUp.openCreemCheckout')}
+                            </Button>
+                          </div>
+                        )}
                         <div className="min-w-0 flex-1 rounded-xl bg-surface-input p-4 text-sm">
                           <p className="text-muted-foreground">{t('tokenTopUp.paymentOrder')}</p>
-                          <p className="mt-1 break-all font-mono text-foreground">{qrPayment.outTradeNo || qrPayment.tradeNo || '-'}</p>
+                          <p className="mt-1 break-all font-mono text-foreground">{qrPayment.outTradeNo || qrPayment.tradeNo || qrPayment.checkoutId || '-'}</p>
+                          {qrPayment.provider === 'creem' && (
+                            <>
+                              <p className="mt-4 text-muted-foreground">{t('tokenTopUp.creemAmount')}</p>
+                              <p className="mt-1 font-mono text-foreground">
+                                {currencySymbol(qrPayment.currency || selectedCreemCurrency)}
+                                {(qrPayment.amount ?? selectedRechargeTier?.amount ?? 0).toFixed(2)}
+                                {' -> '}
+                                {(qrPayment.points ?? 0).toLocaleString()} {t('tokenTopUp.points')}
+                              </p>
+                            </>
+                          )}
                           <p className="mt-4 text-muted-foreground">{t('tokenTopUp.paymentStatus')}</p>
                           <p className="mt-1 font-mono text-foreground">
-                            {qrPayment.provider === 'blueocean'
+                            {qrPayment.provider === 'creem'
+                              ? qrPayment.tradeState || t('tokenTopUp.paymentPending')
+                              : qrPayment.provider === 'blueocean'
                               ? qrPayment.tradeState || '-'
                               : typeof qrPayment.status === 'number'
                               ? qrPayment.status === 7 ? t('tokenTopUp.paymentPaid') : t('tokenTopUp.paymentUnpaid')
@@ -977,6 +588,8 @@ export function TokenTopUp() {
                             <span className="font-medium text-foreground">
                               {record.kind === 'usage'
                                 ? t('tokenTopUp.modelUsage')
+                                : record.paymentKind === 'creem'
+                                ? t('tokenTopUp.creemPay')
                                 : record.paymentKind === 'wechat'
                                 ? t('tokenTopUp.wechatPay')
                                 : t('tokenTopUp.alipayPay')}
@@ -1002,7 +615,7 @@ export function TokenTopUp() {
                           <p className="text-xs text-muted-foreground">
                             {record.kind === 'usage'
                               ? `${record.tokenUsed ? `${record.tokenUsed.toLocaleString()} ${t('tokenTopUp.tokens')}` : t('tokenTopUp.tokenUsage')} · ${new Date(record.createdAt).toLocaleString()}`
-                              : `¥${(record.amount ?? 0).toFixed(2)} · ${new Date(record.paidAt || record.createdAt).toLocaleString()}`}
+                              : `${record.currency === 'USD' ? 'US$' : record.currency === 'HKD' ? 'HK$' : '¥'}${(record.amount ?? 0).toFixed(2)} · ${new Date(record.paidAt || record.createdAt).toLocaleString()}`}
                           </p>
                         </div>
                       </div>

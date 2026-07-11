@@ -34,6 +34,7 @@
         "modelProviderLabel": "Provider",
         "modelProviderPlaceholder": "选择 Provider",
         "modelProviderEmpty": "尚未配置 Provider 账号。请先前往 设置 → AI Providers 添加。",
+        "addProviderAction": "去添加 Provider",
         "modelIdLabel": "模型 ID",
         "modelIdPlaceholder": "model-id",
         "modelPreview": "预览",

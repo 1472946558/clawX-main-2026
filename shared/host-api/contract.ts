@@ -411,9 +411,12 @@ export type CanvaslandWalletRecord = {
   id: string;
   kind?: 'topup' | 'usage';
   outTradeNo?: string;
-  provider?: 'blueocean' | 'epay' | 'newapi';
-  paymentKind?: 'wechat' | 'alipay' | 'model';
+  provider?: 'blueocean' | 'epay' | 'creem' | 'newapi';
+  paymentKind?: 'wechat' | 'alipay' | 'creem' | 'model';
   amount?: number;
+  currency?: 'CNY' | 'USD' | 'HKD';
+  cnyRate?: number;
+  cnyAmount?: number;
   points: number;
   status?: 'pending' | 'paid' | 'used';
   createdAt: string;
@@ -525,6 +528,28 @@ export type EpayQueryResult = HostSuccess & {
   tradeNo?: string;
   outTradeNo?: string;
   status?: number;
+  raw?: JsonRecord;
+};
+export type CreemCurrency = 'USD' | 'HKD';
+export type CreemRatesResult = HostSuccess & {
+  rates?: Record<CreemCurrency, number>;
+  checkedAt?: string;
+};
+export type CreemCreateCheckoutPayload = {
+  amount: number;
+  currency: CreemCurrency;
+};
+export type CreemCheckoutResult = HostSuccess & {
+  configured?: boolean;
+  checkoutUrl?: string;
+  checkoutId?: string;
+  outTradeNo?: string;
+  amount?: number;
+  currency?: CreemCurrency;
+  cnyRate?: number;
+  cnyAmount?: number;
+  points?: number;
+  status?: string;
   raw?: JsonRecord;
 };
 
@@ -946,6 +971,8 @@ export type HostApiContract = {
     clearEpayConfig: () => HostSuccess;
     createEpayPayment: (payload: EpayCreatePaymentPayload) => EpayPaymentResult;
     queryEpayPayment: (payload: EpayQueryPayload) => EpayQueryResult;
+    creemRates: () => CreemRatesResult;
+    createCreemCheckout: (payload: CreemCreateCheckoutPayload) => CreemCheckoutResult;
   };
   files: {
     stagePaths: (payload: StagePathsPayload) => StagedFileResult[];

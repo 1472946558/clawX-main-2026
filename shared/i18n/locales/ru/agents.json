@@ -34,6 +34,7 @@
         "modelProviderLabel": "Провайдер",
         "modelProviderPlaceholder": "Выберите провайдера",
         "modelProviderEmpty": "Учётные записи провайдеров не настроены. Добавьте в Настройки → AI-провайдеры.",
+        "addProviderAction": "Добавить провайдера",
         "modelIdLabel": "ID модели",
         "modelIdPlaceholder": "model-id",
         "modelPreview": "Предпросмотр",

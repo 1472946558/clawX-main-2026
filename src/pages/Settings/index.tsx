@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { useSettingsStore } from '@/stores/settings';
 import { useGatewayStore } from '@/stores/gateway';
 import { UpdateSettings } from '@/components/settings/UpdateSettings';
+import { ProvidersSettings } from '@/components/settings/ProvidersSettings';
 import { toUserMessage } from '@/lib/error-message';
 import {
   clearUiTelemetry,
@@ -230,6 +231,13 @@ export function Settings() {
       toast.success(`openclaw CLI installed at ${installedPath}`);
     });
     return () => { unsubscribe?.(); };
+  }, []);
+
+  useEffect(() => {
+    if (window.location.hash !== '#ai-providers') return;
+    window.requestAnimationFrame(() => {
+      document.getElementById('ai-providers')?.scrollIntoView({ block: 'start' });
+    });
   }, []);
 
   useEffect(() => {
@@ -498,6 +506,12 @@ export function Settings() {
                 />
               </div>
             </div>
+          </div>
+
+          <Separator className="bg-black/5 dark:bg-white/5" />
+
+          <div id="ai-providers" className="scroll-mt-10">
+            <ProvidersSettings />
           </div>
 
           <Separator className="bg-black/5 dark:bg-white/5" />

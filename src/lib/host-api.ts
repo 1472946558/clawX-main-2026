@@ -10,6 +10,7 @@ import type {
   ChannelTargetsPayload,
   ChatSendWithMediaPayload,
   ClawHubSearchPayload,
+  CreemCreateCheckoutPayload,
   CronSessionHistoryPayload,
   DialogMessagePayload,
   DialogOpenPayload,
@@ -292,6 +293,10 @@ export const hostApi = {
     ),
     queryEpayPayment: (input: EpayQueryPayload) => (
       invokeHost('canvasland', 'queryEpayPayment', input)
+    ),
+    creemRates: () => invokeHost('canvasland', 'creemRates'),
+    createCreemCheckout: (input: CreemCreateCheckoutPayload) => (
+      invokeHost('canvasland', 'createCreemCheckout', input)
     ),
   },
   files: {

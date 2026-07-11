@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Bot, Check, Plus, RefreshCw, Settings2, Trash2, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -672,6 +673,7 @@ function AgentModelModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation('agents');
+  const navigate = useNavigate();
   const providerAccounts = useProviderStore((state) => state.accounts);
   const providerStatuses = useProviderStore((state) => state.statuses);
   const providerVendors = useProviderStore((state) => state.vendors);
@@ -779,6 +781,11 @@ function AgentModelModal({
     setModelIdInput(parsedDefault.modelId);
   };
 
+  const handleOpenProviderSettings = () => {
+    onClose();
+    navigate('/settings#ai-providers');
+  };
+
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleRequestClose()}>
       <DialogContent asChild className="z-[60] w-[calc(100%-2rem)] max-w-xl rounded-3xl border-0 shadow-2xl bg-surface-modal overflow-hidden">
@@ -845,9 +852,20 @@ function AgentModelModal({
             </p>
           )}
           {runtimeProviderOptions.length === 0 && (
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              {t('settingsDialog.modelProviderEmpty')}
-            </p>
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                {t('settingsDialog.modelProviderEmpty')}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleOpenProviderSettings}
+                className="mt-3 h-9 rounded-full border-amber-500/30 bg-transparent px-4 text-meta font-medium text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+              >
+                <Settings2 className="mr-2 h-3.5 w-3.5" />
+                {t('settingsDialog.addProviderAction')}
+              </Button>
+            </div>
           )}
           <div className="flex items-center justify-end gap-2 pt-2">
             <Button

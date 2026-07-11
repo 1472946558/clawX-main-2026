@@ -8,7 +8,7 @@
 4. 打开左侧 `钱包管理`。
 5. 检查以下内容：
    - 固定档位最低为 5 元。
-   - 自定义充值金额最低为 5 元。
+   - 自定义充值金额最低为 0.1 元。
    - 充值规则为 `1 元 = 100 积分`。
    - 支付宝回调地址为 `https://apitoken.unihuax.com/payments/epay/notify`。
    - 微信回调地址为 `https://apitoken.unihuax.com/payments/blueocean/notify`。
@@ -85,10 +85,17 @@ https://apitoken.unihuax.com/api/wallet/balance
 https://apitoken.unihuax.com/api/wallet/records
 ```
 
+支付下单接口：
+
+```text
+https://apitoken.unihuax.com/payments/blueocean/checkout
+https://apitoken.unihuax.com/payments/epay/checkout
+```
+
 ## 6. 当前版本信息
 
 - 产品名：canvasland
 - 版本：1.0.0
 - 源码提交：d15e92a
-- 正式充值最低金额：5 元
+- 正式自定义充值最低金额：0.1 元
 - 积分规则：1 元 = 100 积分

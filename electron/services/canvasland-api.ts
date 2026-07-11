@@ -13,6 +13,10 @@ import type {
   CanvaslandTopUpInfo,
   CanvaslandTopUpMethod,
   CanvaslandTokenUsage,
+  CreemCheckoutResult,
+  CreemCreateCheckoutPayload,
+  CreemCurrency,
+  CreemRatesResult,
   EpayConfig,
   EpayConfigPayload,
   EpayConfigResult,
@@ -40,7 +44,14 @@ const WALLET_LEDGER_KEY = 'walletLedger';
 const DEFAULT_ROOT_URL = 'https://feiniu.space';
 const DEFAULT_BLUEOCEAN_API_BASE_URL = 'https://api.hk.blueoceanpay.com';
 const DEFAULT_WALLET_API_BASE_URL = 'https://apitoken.unihuax.com';
+const DEFAULT_BLUEOCEAN_NOTIFY_URL = `${DEFAULT_WALLET_API_BASE_URL}/payments/blueocean/notify`;
+const DEFAULT_EPAY_NOTIFY_URL = `${DEFAULT_WALLET_API_BASE_URL}/payments/epay/notify`;
+const DEFAULT_PAYMENT_RETURN_URL = 'https://feiniu-ai.cn';
 const DEFAULT_QUOTA_PER_UNIT = 500000;
+const DEFAULT_CREEM_RATES: Record<CreemCurrency, number> = {
+  USD: 6.8,
+  HKD: 0.87,
+};
 const TOKENS_PER_POINT = 100;
 const BLUEOCEAN_QR_PAYMENT_METHODS = new Set<BlueOceanPayPaymentMethod>([
   'wechat.qrcode',
@@ -307,8 +318,12 @@ function normalizeWalletRecord(value: unknown): WalletLedgerEntry | null {
   if (!isRecord(value)) return null;
   const id = typeof value.id === 'string' ? value.id : undefined;
   const outTradeNo = typeof value.outTradeNo === 'string' ? value.outTradeNo : undefined;
-  const provider = value.provider === 'blueocean' || value.provider === 'epay' ? value.provider : undefined;
-  const paymentKind = value.paymentKind === 'wechat' || value.paymentKind === 'alipay' ? value.paymentKind : undefined;
+  const provider = value.provider === 'blueocean' || value.provider === 'epay' || value.provider === 'creem'
+    ? value.provider
+    : undefined;
+  const paymentKind = value.paymentKind === 'wechat' || value.paymentKind === 'alipay' || value.paymentKind === 'creem'
+    ? value.paymentKind
+    : undefined;
   const amount = getNumber(value.amount);
   const points = getNumber(value.points);
   const status = value.status === 'paid' ? 'paid' : 'pending';
@@ -324,6 +339,9 @@ function normalizeWalletRecord(value: unknown): WalletLedgerEntry | null {
     provider,
     paymentKind,
     amount,
+    currency: value.currency === 'USD' || value.currency === 'HKD' || value.currency === 'CNY' ? value.currency : undefined,
+    cnyRate: getNumber(value.cnyRate),
+    cnyAmount: getNumber(value.cnyAmount),
     points: Math.max(0, Math.round(points)),
     status,
     createdAt,
@@ -448,7 +466,8 @@ function isBlueOceanPaidState(state: unknown): boolean {
 }
 
 function isEpayPaidStatus(status: unknown): boolean {
-  return getNumber(status) === 7;
+  const value = getNumber(status);
+  return value === 1 || value === 7;
 }
 
 function normalizeBlueOceanBaseUrl(url: string | undefined): string {
@@ -462,7 +481,28 @@ function normalizeOptionalUrl(url: string | undefined): string | undefined {
 }
 
 function normalizeEpayGatewayUrl(url: string | undefined): string {
-  return url?.trim().replace(/\/+$/, '') || '';
+  const trimmed = url?.trim().replace(/\/+$/, '') || '';
+  if (!trimmed) return '';
+  try {
+    const parsed = new URL(trimmed);
+    const normalizedPath = parsed.pathname.replace(/\/+$/, '');
+    const openApiIndex = normalizedPath.toLowerCase().indexOf('/capi/openapi');
+    if (openApiIndex >= 0) {
+      parsed.pathname = normalizedPath.slice(0, openApiIndex);
+      parsed.search = '';
+      parsed.hash = '';
+      return parsed.toString().replace(/\/+$/, '');
+    }
+    if ((normalizedPath === '' || normalizedPath === '/') && parsed.hostname.toLowerCase() === 'mzf.mapay.cc') {
+      parsed.pathname = '/xpay/epay';
+      parsed.search = '';
+      parsed.hash = '';
+      return parsed.toString().replace(/\/+$/, '');
+    }
+  } catch {
+    return trimmed;
+  }
+  return trimmed;
 }
 
 function generateOutTradeNo(): string {
@@ -513,15 +553,33 @@ function signEpayParam(param: Record<string, unknown>, apiKey: string): string {
     .toUpperCase();
 }
 
+function signEpayCompatibleParam(param: Record<string, unknown>, apiKey: string): string {
+  const signString = Object.keys(param)
+    .filter((key) => key !== 'sign' && key !== 'sign_type')
+    .filter((key) => param[key] !== undefined && param[key] !== null && param[key] !== '')
+    .sort()
+    .map((key) => `${key}=${String(param[key])}`)
+    .join('&');
+  return createHash('md5')
+    .update(`${signString}${apiKey}`, 'utf8')
+    .digest('hex');
+}
+
 async function getEpayConfig(): Promise<EpayConfig> {
   const store = await getcanvaslandProviderStore();
   const value = store.get(EPAY_CONFIG_KEY) as EpayConfig | undefined;
-  if (!value || typeof value !== 'object') return {};
+  if (!value || typeof value !== 'object') {
+    return {
+      notifyUrl: DEFAULT_EPAY_NOTIFY_URL,
+      returnUrl: DEFAULT_PAYMENT_RETURN_URL,
+      siteName: 'canvasland',
+    };
+  }
   return {
     gatewayUrl: typeof value.gatewayUrl === 'string' ? normalizeEpayGatewayUrl(value.gatewayUrl) : undefined,
     pid: typeof value.pid === 'string' ? value.pid : undefined,
-    notifyUrl: typeof value.notifyUrl === 'string' ? value.notifyUrl : undefined,
-    returnUrl: typeof value.returnUrl === 'string' ? value.returnUrl : undefined,
+    notifyUrl: normalizeOptionalUrl(typeof value.notifyUrl === 'string' ? value.notifyUrl : undefined) || DEFAULT_EPAY_NOTIFY_URL,
+    returnUrl: normalizeOptionalUrl(typeof value.returnUrl === 'string' ? value.returnUrl : undefined) || DEFAULT_PAYMENT_RETURN_URL,
     siteName: typeof value.siteName === 'string' ? value.siteName : undefined,
   };
 }
@@ -531,8 +589,8 @@ async function setEpayConfig(config: EpayConfig): Promise<void> {
   store.set(EPAY_CONFIG_KEY, {
     gatewayUrl: normalizeEpayGatewayUrl(config.gatewayUrl),
     pid: config.pid?.trim() || '',
-    notifyUrl: normalizeOptionalUrl(config.notifyUrl) || '',
-    returnUrl: normalizeOptionalUrl(config.returnUrl) || '',
+    notifyUrl: normalizeOptionalUrl(config.notifyUrl) || DEFAULT_EPAY_NOTIFY_URL,
+    returnUrl: normalizeOptionalUrl(config.returnUrl) || DEFAULT_PAYMENT_RETURN_URL,
     siteName: config.siteName?.trim() || 'canvasland',
   });
 }
@@ -583,10 +641,6 @@ async function fetchEpayJson(
   param: Record<string, unknown>,
   apiKey: string,
 ): Promise<unknown> {
-  const body = {
-    sign: signEpayParam(param, apiKey),
-    param,
-  };
   const response = await proxyAwareFetch(epayUrl(gatewayUrl, path), {
     method: 'POST',
     headers: {
@@ -594,7 +648,10 @@ async function fetchEpayJson(
       'Content-Type': 'application/json; charset=utf-8',
       'User-Agent': 'canvasland/1.0',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      sign: signEpayParam(param, apiKey),
+      param,
+    }),
   });
   const text = await response.text();
   let parsed: unknown = null;
@@ -618,6 +675,89 @@ async function fetchEpayJson(
   return parsed;
 }
 
+async function fetchEpayCompatibleJson(
+  gatewayUrl: string,
+  endpoint: string,
+  param: Record<string, unknown>,
+  apiKey: string,
+): Promise<unknown> {
+  const signedParam = {
+    ...param,
+    sign: signEpayCompatibleParam(param, apiKey),
+    sign_type: 'MD5',
+  };
+  const response = await proxyAwareFetch(epayUrl(gatewayUrl, `/${endpoint.replace(/^\/+/, '')}`), {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json,text/plain,*/*',
+      'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+      'User-Agent': 'canvasland/1.0',
+    },
+    body: Object.entries(signedParam).reduce((body, [key, value]) => {
+      body.append(key, String(value));
+      return body;
+    }, new URLSearchParams()),
+  });
+  const text = await response.text();
+  let parsed: unknown = null;
+  if (text) {
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      parsed = { msg: text };
+    }
+  }
+  if (!response.ok) {
+    const message = isRecord(parsed)
+      ? typeof parsed.message === 'string'
+        ? parsed.message
+        : typeof parsed.msg === 'string'
+          ? parsed.msg
+          : `HTTP ${response.status}`
+      : `HTTP ${response.status}`;
+    throw new Error(message);
+  }
+  return parsed;
+}
+
+async function queryEpayCompatibleOrder(
+  gatewayUrl: string,
+  pid: string,
+  apiKey: string,
+  payload: EpayQueryPayload,
+): Promise<unknown> {
+  const params = new URLSearchParams({
+    act: 'order',
+    pid,
+    key: apiKey,
+  });
+  if (payload.tradeNo?.trim()) {
+    params.set('trade_no', payload.tradeNo.trim());
+  }
+  if (payload.outTradeNo?.trim()) {
+    params.set('out_trade_no', payload.outTradeNo.trim());
+  }
+  const response = await proxyAwareFetch(epayUrl(gatewayUrl, `/api.php?${params.toString()}`), {
+    headers: {
+      Accept: 'application/json,text/plain,*/*',
+      'User-Agent': 'canvasland/1.0',
+    },
+  });
+  const text = await response.text();
+  let parsed: unknown = null;
+  if (text) {
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      parsed = { msg: text };
+    }
+  }
+  if (!response.ok) {
+    throw new Error(isRecord(parsed) && typeof parsed.msg === 'string' ? parsed.msg : `HTTP ${response.status}`);
+  }
+  return parsed;
+}
+
 function unwrapEpayData(value: unknown): Record<string, unknown> {
   if (!isRecord(value)) throw new Error('Invalid Epay response');
   const code = getNumber(value.code);
@@ -629,19 +769,44 @@ function unwrapEpayData(value: unknown): Record<string, unknown> {
         : `Epay error ${code ?? 'unknown'}`;
     throw new Error(message);
   }
-  return isRecord(value.data) ? value.data : {};
+  return isRecord(value.data) ? value.data : value;
+}
+
+function resolveEpayQrOrPayUrl(data: Record<string, unknown>): { qrcode: string; payUrl?: string } {
+  const qrcode = typeof data.qrcode === 'string'
+    ? data.qrcode
+    : typeof data.code_url === 'string'
+      ? data.code_url
+      : typeof data.payurl === 'string'
+        ? data.payurl
+        : typeof data.url === 'string'
+          ? data.url
+          : typeof data.epayUrl === 'string'
+            ? data.epayUrl
+            : '';
+  const payUrl = typeof data.payurl === 'string'
+    ? data.payurl
+    : typeof data.url === 'string'
+      ? data.url
+      : typeof data.epayUrl === 'string'
+        ? data.epayUrl
+        : undefined;
+  return { qrcode, payUrl };
 }
 
 async function getBlueOceanConfig(): Promise<BlueOceanPayConfig> {
   const store = await getcanvaslandProviderStore();
   const value = store.get(BLUEOCEAN_CONFIG_KEY) as BlueOceanPayConfig | undefined;
   if (!value || typeof value !== 'object') {
-    return { apiBaseUrl: DEFAULT_BLUEOCEAN_API_BASE_URL };
+    return {
+      apiBaseUrl: DEFAULT_BLUEOCEAN_API_BASE_URL,
+      notifyUrl: DEFAULT_BLUEOCEAN_NOTIFY_URL,
+    };
   }
   return {
     appid: typeof value.appid === 'string' ? value.appid : undefined,
     apiBaseUrl: normalizeBlueOceanBaseUrl(value.apiBaseUrl),
-    notifyUrl: typeof value.notifyUrl === 'string' ? value.notifyUrl : undefined,
+    notifyUrl: normalizeOptionalUrl(typeof value.notifyUrl === 'string' ? value.notifyUrl : undefined) || DEFAULT_BLUEOCEAN_NOTIFY_URL,
   };
 }
 
@@ -650,7 +815,7 @@ async function setBlueOceanConfig(config: BlueOceanPayConfig): Promise<void> {
   store.set(BLUEOCEAN_CONFIG_KEY, {
     appid: config.appid?.trim() || '',
     apiBaseUrl: normalizeBlueOceanBaseUrl(config.apiBaseUrl),
-    notifyUrl: normalizeOptionalUrl(config.notifyUrl) || '',
+    notifyUrl: normalizeOptionalUrl(config.notifyUrl) || DEFAULT_BLUEOCEAN_NOTIFY_URL,
   });
 }
 
@@ -729,6 +894,82 @@ function normalizeBlueOceanPaymentMethod(value: unknown): BlueOceanPayPaymentMet
   return typeof value === 'string' && BLUEOCEAN_QR_PAYMENT_METHODS.has(value as BlueOceanPayPaymentMethod)
     ? value as BlueOceanPayPaymentMethod
     : 'wechat.qrcode';
+}
+
+function normalizeCreemCurrency(value: unknown): CreemCurrency {
+  return value === 'HKD' ? 'HKD' : 'USD';
+}
+
+function normalizeCreemRates(value: unknown): Record<CreemCurrency, number> {
+  const data = unwrapData(value);
+  const source = isRecord(data) && isRecord(data.rates) ? data.rates : data;
+  return {
+    USD: isRecord(source) ? getNumber(source.USD) ?? DEFAULT_CREEM_RATES.USD : DEFAULT_CREEM_RATES.USD,
+    HKD: isRecord(source) ? getNumber(source.HKD) ?? DEFAULT_CREEM_RATES.HKD : DEFAULT_CREEM_RATES.HKD,
+  };
+}
+
+async function fetchCreemRates(): Promise<Record<CreemCurrency, number>> {
+  const raw = await fetchJson(`${DEFAULT_WALLET_API_BASE_URL}/payments/creem/rates`).catch(() => null);
+  return normalizeCreemRates(raw);
+}
+
+async function fetchCreemCheckout(payload: CreemCreateCheckoutPayload): Promise<unknown> {
+  return fetchJson(`${DEFAULT_WALLET_API_BASE_URL}/payments/creem/checkout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify(payload),
+  });
+}
+
+async function fetchBlueOceanServerCheckout(payload: BlueOceanPayCreatePaymentPayload): Promise<BlueOceanPayPaymentResult> {
+  const raw = await fetchJson(`${DEFAULT_WALLET_API_BASE_URL}/payments/blueocean/checkout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify(payload),
+  });
+  const data = unwrapData(raw);
+  if (!isRecord(data)) throw new Error('Invalid BlueOceanPay checkout response');
+  const qrcode = typeof data.qrcode === 'string' ? data.qrcode : '';
+  if (!qrcode) throw new Error('BlueOceanPay response did not include a QR code');
+  return {
+    success: true,
+    configured: true,
+    paymentMethod: normalizeBlueOceanPaymentMethod(data.paymentMethod ?? payload.paymentMethod),
+    qrcode,
+    qrcodeDataUrl: renderQrPngDataUrl(qrcode),
+    outTradeNo: typeof data.outTradeNo === 'string' ? data.outTradeNo : undefined,
+    sn: typeof data.sn === 'string' ? data.sn : undefined,
+    tradeState: typeof data.tradeState === 'string' ? data.tradeState : undefined,
+    totalFee: toInt(data.totalFee),
+    payAmount: toInt(data.payAmount),
+    provider: typeof data.provider === 'string' ? data.provider : undefined,
+    raw: data,
+  };
+}
+
+async function fetchEpayServerCheckout(payload: EpayCreatePaymentPayload): Promise<EpayPaymentResult> {
+  const raw = await fetchJson(`${DEFAULT_WALLET_API_BASE_URL}/payments/epay/checkout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify(payload),
+  });
+  const data = unwrapData(raw);
+  if (!isRecord(data)) throw new Error('Invalid EPAY checkout response');
+  const qrcode = typeof data.qrcode === 'string' ? data.qrcode : '';
+  if (!qrcode) throw new Error('EPAY response did not include a QR code or pay URL');
+  return {
+    success: true,
+    configured: true,
+    paymentMethod: normalizeEpayPaymentMethod(data.paymentMethod ?? payload.paymentMethod),
+    qrcode,
+    qrcodeDataUrl: renderQrPngDataUrl(qrcode),
+    payUrl: typeof data.payUrl === 'string' ? data.payUrl : undefined,
+    outTradeNo: typeof data.outTradeNo === 'string' ? data.outTradeNo : undefined,
+    tradeNo: typeof data.tradeNo === 'string' ? data.tradeNo : undefined,
+    status: toInt(data.status),
+    raw: data,
+  };
 }
 
 export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland'] {
@@ -820,7 +1061,7 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
       const merchantKey = await getBlueOceanMerchantKey();
       return {
         success: true,
-        configured: Boolean(config.appid && merchantKey),
+        configured: true,
         hasMerchantKey: Boolean(merchantKey),
         config,
       };
@@ -829,9 +1070,9 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
       const appid = payload.appid?.trim();
       if (!appid) throw new Error('BlueOceanPay appid is required');
       const apiBaseUrl = normalizeBlueOceanBaseUrl(payload.apiBaseUrl);
-      const notifyUrl = normalizeOptionalUrl(payload.notifyUrl);
+      const notifyUrl = normalizeOptionalUrl(payload.notifyUrl) || DEFAULT_BLUEOCEAN_NOTIFY_URL;
       if (!/^https?:\/\//i.test(apiBaseUrl)) throw new Error('BlueOceanPay API base URL must use http or https');
-      if (notifyUrl && !/^https?:\/\//i.test(notifyUrl)) throw new Error('BlueOceanPay notify URL must use http or https');
+      if (!/^https?:\/\//i.test(notifyUrl)) throw new Error('BlueOceanPay notify URL must use http or https');
 
       await setBlueOceanConfig({ appid, apiBaseUrl, notifyUrl });
       const merchantKey = payload.merchantKey?.trim();
@@ -854,6 +1095,23 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
       payload: BlueOceanPayCreatePaymentPayload,
     ): Promise<BlueOceanPayPaymentResult> => {
       try {
+        const configSnapshot = await getBlueOceanConfig();
+        const merchantKeySnapshot = await getBlueOceanMerchantKey();
+        if (!configSnapshot.appid || !merchantKeySnapshot) {
+          const payment = await fetchBlueOceanServerCheckout(payload);
+          if (payment.outTradeNo) {
+            const amount = Number(payload.amount);
+            await savePendingWalletOrder({
+              id: payment.outTradeNo,
+              outTradeNo: payment.outTradeNo,
+              provider: 'blueocean',
+              paymentKind: normalizeBlueOceanPaymentMethod(payload.paymentMethod) === 'alipay.qrcode' ? 'alipay' : 'wechat',
+              amount: Number.isFinite(amount) ? amount : 0,
+              points: Math.round(payload.points || (Number.isFinite(amount) ? amount * 100 : 0)),
+            });
+          }
+          return payment;
+        }
         const { config, merchantKey } = await requireBlueOceanCredentials();
         const amount = Number(payload.amount);
         if (!Number.isFinite(amount) || amount <= 0) {
@@ -902,7 +1160,7 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
       } catch (error) {
         return {
           success: false,
-          configured: (await getBlueOceanConfig()).appid ? Boolean(await getBlueOceanMerchantKey()) : false,
+          configured: true,
           error: error instanceof Error ? error.message : String(error),
         };
       }
@@ -944,7 +1202,7 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
       const merchantKey = await getEpayMerchantKey();
       return {
         success: true,
-        configured: Boolean(config.gatewayUrl && config.pid && config.notifyUrl && config.returnUrl && merchantKey),
+        configured: true,
         hasMerchantKey: Boolean(merchantKey),
         config,
       };
@@ -952,14 +1210,12 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
     saveEpayConfig: async (payload: EpayConfigPayload): Promise<{ success: true }> => {
       const gatewayUrl = normalizeEpayGatewayUrl(payload.gatewayUrl);
       const pid = payload.pid?.trim();
-      const notifyUrl = normalizeOptionalUrl(payload.notifyUrl);
-      const returnUrl = normalizeOptionalUrl(payload.returnUrl);
+      const notifyUrl = normalizeOptionalUrl(payload.notifyUrl) || DEFAULT_EPAY_NOTIFY_URL;
+      const returnUrl = normalizeOptionalUrl(payload.returnUrl) || DEFAULT_PAYMENT_RETURN_URL;
       if (!gatewayUrl) throw new Error('Epay gateway URL is required');
       if (!/^https?:\/\//i.test(gatewayUrl)) throw new Error('Epay gateway URL must use http or https');
       if (!pid) throw new Error('Epay merchant ID is required');
-      if (!notifyUrl) throw new Error('Epay notify URL is required');
       if (!/^https?:\/\//i.test(notifyUrl)) throw new Error('Epay notify URL must use http or https');
-      if (!returnUrl) throw new Error('Epay return URL is required');
       if (!/^https?:\/\//i.test(returnUrl)) throw new Error('Epay return URL must use http or https');
 
       await setEpayConfig({
@@ -987,12 +1243,30 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
     },
     createEpayPayment: async (payload: EpayCreatePaymentPayload): Promise<EpayPaymentResult> => {
       try {
+        const configSnapshot = await getEpayConfig();
+        const merchantKeySnapshot = await getEpayMerchantKey();
+        if (!configSnapshot.gatewayUrl || !configSnapshot.pid || !merchantKeySnapshot) {
+          const payment = await fetchEpayServerCheckout(payload);
+          if (payment.outTradeNo) {
+            const amount = Number(payload.amount);
+            await savePendingWalletOrder({
+              id: payment.outTradeNo,
+              outTradeNo: payment.outTradeNo,
+              provider: 'epay',
+              paymentKind: 'alipay',
+              amount: Number.isFinite(amount) ? amount : 0,
+              points: Math.round(payload.points || (Number.isFinite(amount) ? amount * 100 : 0)),
+            });
+          }
+          return payment;
+        }
         const { config, merchantKey } = await requireEpayCredentials();
         const amount = Number(payload.amount);
         if (!Number.isFinite(amount) || amount <= 0) throw new Error('Invalid payment amount');
         const paymentMethod = normalizeEpayPaymentMethod(payload.paymentMethod);
         const outTradeNo = generateOutTradeNo();
-        const requestPayload: Record<string, unknown> = {
+        const orderName = payload.name?.trim() || `canvasland ${Math.round(payload.points || 0).toLocaleString()} points`;
+        const officialPayload: Record<string, unknown> = {
           epayAccount: config.pid,
           version: 'V2.0.0',
           merchantName: config.siteName || 'canvasland',
@@ -1006,7 +1280,7 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
           failUrl: config.returnUrl,
           successUrlMethod: 'GET',
           failUrlMethod: 'GET',
-          remark: payload.name?.trim() || `canvasland ${Math.round(payload.points || 0).toLocaleString()} points`,
+          remark: orderName,
           language: 'CN',
           extendFields: payload.points
             ? {
@@ -1015,33 +1289,46 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
               }
             : undefined,
         };
-        const raw = await fetchEpayJson(
-          config.gatewayUrl,
-          '/capi/openapi/gateway/sendTransaction',
-          requestPayload,
-          merchantKey,
-        );
+        const compatiblePayload: Record<string, unknown> = {
+          pid: config.pid,
+          type: paymentMethod,
+          out_trade_no: outTradeNo,
+          notify_url: config.notifyUrl,
+          return_url: config.returnUrl,
+          name: orderName,
+          money: amount.toFixed(2),
+          clientip: '127.0.0.1',
+          device: 'pc',
+        };
+        let raw: unknown;
+        try {
+          const officialRaw = await fetchEpayJson(
+            config.gatewayUrl,
+            '/capi/openapi/gateway/sendTransaction',
+            officialPayload,
+            merchantKey,
+          );
+          if (isRecord(officialRaw) && getNumber(officialRaw.code) !== 1) {
+            const message = typeof officialRaw.message === 'string'
+              ? officialRaw.message
+              : typeof officialRaw.msg === 'string'
+                ? officialRaw.msg
+                : `Epay error ${getNumber(officialRaw.code) ?? 'unknown'}`;
+            throw new Error(message);
+          }
+          raw = officialRaw;
+        } catch (officialError) {
+          console.warn('[canvasland] EPAY official payment failed, trying compatible mapi:', officialError);
+          raw = await fetchEpayCompatibleJson(config.gatewayUrl, 'mapi.php', compatiblePayload, merchantKey);
+        }
         const data = unwrapEpayData(raw);
-        const qrcode = typeof data.qrcode === 'string'
-          ? data.qrcode
-          : typeof data.code_url === 'string'
-            ? data.code_url
-            : typeof data.payurl === 'string'
-              ? data.payurl
-              : typeof data.url === 'string'
-                ? data.url
-                : typeof data.epayUrl === 'string'
-                  ? data.epayUrl
-                : '';
-        const payUrl = typeof data.payurl === 'string'
-          ? data.payurl
-          : typeof data.url === 'string'
-            ? data.url
-            : typeof data.epayUrl === 'string'
-              ? data.epayUrl
-              : undefined;
+        const { qrcode, payUrl } = resolveEpayQrOrPayUrl(data);
         if (!qrcode) throw new Error('Epay response did not include a QR code or pay URL');
-        const resolvedOutTradeNo = typeof data.merchantOrderNo === 'string' ? data.merchantOrderNo : outTradeNo;
+        const resolvedOutTradeNo = typeof data.merchantOrderNo === 'string'
+          ? data.merchantOrderNo
+          : typeof data.out_trade_no === 'string'
+            ? data.out_trade_no
+            : outTradeNo;
         await savePendingWalletOrder({
           id: resolvedOutTradeNo,
           outTradeNo: resolvedOutTradeNo,
@@ -1058,15 +1345,18 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
           qrcodeDataUrl: renderQrPngDataUrl(qrcode),
           payUrl,
           outTradeNo: resolvedOutTradeNo,
-          tradeNo: typeof data.epayOrderNo === 'string' ? data.epayOrderNo : undefined,
+          tradeNo: typeof data.epayOrderNo === 'string'
+            ? data.epayOrderNo
+            : typeof data.trade_no === 'string'
+              ? data.trade_no
+              : undefined,
           status: toInt(data.status),
           raw: data,
         };
       } catch (error) {
-        const config = await getEpayConfig();
         return {
           success: false,
-          configured: Boolean(config.gatewayUrl && config.pid && await getEpayMerchantKey()),
+          configured: true,
           error: error instanceof Error ? error.message : String(error),
         };
       }
@@ -1074,27 +1364,41 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
     queryEpayPayment: async (payload: EpayQueryPayload): Promise<EpayQueryResult> => {
       try {
         const { config, merchantKey } = await requireEpayCredentials();
-        const merchantOrderNo = payload.outTradeNo?.trim();
-        if (!merchantOrderNo) throw new Error('Order number is required');
-        const raw = await fetchEpayJson(
-          config.gatewayUrl,
-          '/capi/openapi/payinApi/queryTransaction',
-          {
-            epayAccount: config.pid,
-            version: 'V2.0.0',
-            merchantOrderNo,
-          },
-          merchantKey,
-        );
+        if (!payload.outTradeNo?.trim() && !payload.tradeNo?.trim()) throw new Error('Order number is required');
+        let raw: unknown;
+        try {
+          raw = await fetchEpayJson(
+            config.gatewayUrl,
+            '/capi/openapi/payinApi/queryTransaction',
+            {
+              epayAccount: config.pid,
+              version: 'V2.0.0',
+              merchantOrderNo: payload.outTradeNo?.trim(),
+              epayOrderNo: payload.tradeNo?.trim() || undefined,
+            },
+            merchantKey,
+          );
+        } catch (officialError) {
+          console.warn('[canvasland] EPAY official query failed, trying compatible api:', officialError);
+          raw = await queryEpayCompatibleOrder(config.gatewayUrl, config.pid, merchantKey, payload);
+        }
         const data = unwrapEpayData(raw);
         const status = toInt(data.status);
-        const resolvedOutTradeNo = typeof data.merchantOrderNo === 'string' ? data.merchantOrderNo : payload.outTradeNo;
+        const resolvedOutTradeNo = typeof data.merchantOrderNo === 'string'
+          ? data.merchantOrderNo
+          : typeof data.out_trade_no === 'string'
+            ? data.out_trade_no
+            : payload.outTradeNo;
         if (isEpayPaidStatus(status)) {
           await markWalletOrderPaid(resolvedOutTradeNo);
         }
         return {
           success: true,
-          tradeNo: typeof data.epayOrderNo === 'string' ? data.epayOrderNo : payload.tradeNo,
+          tradeNo: typeof data.epayOrderNo === 'string'
+            ? data.epayOrderNo
+            : typeof data.trade_no === 'string'
+              ? data.trade_no
+              : payload.tradeNo,
           outTradeNo: resolvedOutTradeNo,
           status,
           raw: data,
@@ -1102,6 +1406,86 @@ export function createCanvaslandApi(): CompleteHostServiceRegistry['canvasland']
       } catch (error) {
         return {
           success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+    creemRates: async (): Promise<CreemRatesResult> => {
+      try {
+        const rates = await fetchCreemRates();
+        return {
+          success: true,
+          rates,
+          checkedAt: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          success: false,
+          rates: DEFAULT_CREEM_RATES,
+          checkedAt: new Date().toISOString(),
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+    createCreemCheckout: async (payload: CreemCreateCheckoutPayload): Promise<CreemCheckoutResult> => {
+      try {
+        const amount = Number(payload.amount);
+        const currency = normalizeCreemCurrency(payload.currency);
+        if (!Number.isFinite(amount) || amount < 1) {
+          throw new Error('Creem payment amount must be at least 1.00');
+        }
+        const raw = await fetchCreemCheckout({ amount, currency });
+        const data = unwrapData(raw);
+        if (!isRecord(data)) throw new Error('Invalid Creem checkout response');
+        const checkoutUrl = typeof data.checkoutUrl === 'string'
+          ? data.checkoutUrl
+          : typeof data.checkout_url === 'string'
+            ? data.checkout_url
+            : '';
+        if (!checkoutUrl) throw new Error('Creem response did not include checkout URL');
+        const outTradeNo = typeof data.outTradeNo === 'string'
+          ? data.outTradeNo
+          : typeof data.request_id === 'string'
+            ? data.request_id
+            : generateOutTradeNo();
+        const resolvedAmount = getNumber(data.amount) ?? amount;
+        const resolvedCurrency = normalizeCreemCurrency(data.currency);
+        const cnyRate = getNumber(data.cnyRate) ?? DEFAULT_CREEM_RATES[resolvedCurrency];
+        const cnyAmount = getNumber(data.cnyAmount) ?? resolvedAmount * cnyRate;
+        const points = Math.max(0, Math.round(getNumber(data.points) ?? cnyAmount * 100));
+        await savePendingWalletOrder({
+          id: outTradeNo,
+          outTradeNo,
+          provider: 'creem',
+          paymentKind: 'creem',
+          amount: resolvedAmount,
+          currency: resolvedCurrency,
+          cnyRate,
+          cnyAmount,
+          points,
+        });
+        return {
+          success: true,
+          configured: true,
+          checkoutUrl,
+          checkoutId: typeof data.checkoutId === 'string'
+            ? data.checkoutId
+            : typeof data.id === 'string'
+              ? data.id
+              : undefined,
+          outTradeNo,
+          amount: resolvedAmount,
+          currency: resolvedCurrency,
+          cnyRate,
+          cnyAmount,
+          points,
+          status: typeof data.status === 'string' ? data.status : undefined,
+          raw: data,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          configured: false,
           error: error instanceof Error ? error.message : String(error),
         };
       }
