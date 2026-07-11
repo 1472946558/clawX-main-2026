@@ -63,6 +63,27 @@ test.describe('canvasland provider lifecycle', () => {
     }
   });
 
+  test('keeps a saved provider model after relaunch', async ({ electronApp, launchElectronApp, page }) => {
+    await completeSetup(page);
+    await seedTestProvider(page);
+
+    await electronApp.close();
+
+    const relaunchedApp = await launchElectronApp();
+    try {
+      const relaunchedPage = await relaunchedApp.firstWindow();
+      await relaunchedPage.waitForLoadState('domcontentloaded');
+      await expect(relaunchedPage.getByTestId('main-layout')).toBeVisible();
+      await relaunchedPage.getByTestId('sidebar-nav-models').click();
+
+      const providerCard = relaunchedPage.getByTestId(`provider-card-${TEST_PROVIDER_ID}`);
+      await expect(providerCard).toContainText(TEST_PROVIDER_LABEL);
+      await expect(providerCard).toContainText('kimi-k2.6');
+    } finally {
+      await relaunchedApp.close();
+    }
+  });
+
   test('shows OpenAI OAuth and API key auth mode toggle in add-provider dialog', async ({ page }) => {
     await completeSetup(page);
 
@@ -81,7 +102,7 @@ test.describe('canvasland provider lifecycle', () => {
     await expect(page.getByTestId('add-provider-api-key-input')).toHaveCount(0);
   });
 
-  test('trims whitespace before validating and saving a custom provider key', async ({ electronApp, page }) => {
+  test('fetches, selects, and saves a custom provider model', async ({ electronApp, page }) => {
     await completeSetup(page);
 
     await electronApp.evaluate(async ({ app: _app }) => {
@@ -119,11 +140,17 @@ test.describe('canvasland provider lifecycle', () => {
         if (request.action === 'getDefaultAccount') return respond(request.id, { accountId: defaultAccountId });
         if (request.action === 'list') return respond(request.id, statuses);
 
-        if (request.action === 'validateKey') {
+        if (request.action === 'fetchModels') {
           if (body.apiKey !== 'sk-lm-test') {
             return respond(request.id, { valid: false, error: `unexpected key: ${String(body.apiKey)}` });
           }
-          return respond(request.id, { valid: true });
+          if (body.baseUrl !== 'http://127.0.0.1:1234') {
+            return respond(request.id, { success: false, models: [], errorCode: 'invalid_base_url' });
+          }
+          return respond(request.id, {
+            success: true,
+            models: ['local-model', 'local-model-fast'],
+          });
         }
 
         if (request.action === 'createAccount') {
@@ -167,11 +194,20 @@ test.describe('canvasland provider lifecycle', () => {
     await page.getByTestId('add-provider-type-custom').click();
     await page.getByTestId('add-provider-name-input').fill('LM Studio Local');
     await page.getByTestId('add-provider-api-key-input').fill('  sk-lm-test \n');
-    await page.getByTestId('add-provider-base-url-input').fill('http://127.0.0.1:1234/v1');
-    await page.getByTestId('add-provider-model-id-input').fill('local-model');
+    await page.getByTestId('add-provider-base-url-input').fill('http://127.0.0.1:1234');
+    await expect(page.getByTestId('add-provider-submit-button')).toBeDisabled();
+    await page.getByTestId('add-provider-fetch-models-button').click();
+    await page.getByTestId('add-provider-model-id-input').selectOption('local-model');
+    await expect(page.getByTestId('add-provider-submit-button')).toBeEnabled();
+    await page.screenshot({
+      path: 'output/playwright/provider-model-list-selection.png',
+      fullPage: true,
+    });
     await page.getByTestId('add-provider-submit-button').click();
 
-    await expect(page.getByTestId('provider-card-custom')).toContainText('LM Studio Local');
+    const providerCard = page.getByTestId('provider-card-custom');
+    await expect(providerCard).toContainText('LM Studio Local');
+    await expect(providerCard).toContainText('local-model');
   });
 
   test('edit form validates the new API key inline before saving (single button)', async ({ electronApp, page }) => {

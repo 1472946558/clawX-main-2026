@@ -19,7 +19,10 @@ import {
   syncSavedProviderToRuntime,
   syncUpdatedProviderToRuntime,
 } from './providers/provider-runtime-sync';
-import { validateApiKeyWithProvider } from './providers/provider-validation';
+import {
+  fetchOpenAiCompatibleModels,
+  validateApiKeyWithProvider,
+} from './providers/provider-validation';
 import type { ProviderAccount } from '../shared/providers/types';
 import { isRecord } from './payload-utils';
 
@@ -172,6 +175,13 @@ async function validateKey(payload: ProviderPayload<'validateKey'>): Promise<{ v
   } catch (error) {
     return { valid: false, error: String(error) };
   }
+}
+
+async function fetchModels(payload: ProviderPayload<'fetchModels'>) {
+  const body = getPayloadRecord(payload, 'fetchModels');
+  const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl : '';
+  const apiKey = typeof body.apiKey === 'string' ? body.apiKey : '';
+  return fetchOpenAiCompatibleModels(baseUrl, apiKey);
 }
 
 async function saveProvider(payload: ProviderPayload<'save'>, gatewayManager?: GatewayManager) {
@@ -453,6 +463,7 @@ export function createProvidersApi(ctx: ProvidersApiContext): CompleteHostServic
     hasApiKey: async (payload) => providerService._hasProviderApiKeyInternal(getProviderId(payload, 'hasApiKey')),
     getApiKey: async (payload) => providerService._getProviderApiKeyInternal(getProviderId(payload, 'getApiKey')),
     validateKey,
+    fetchModels,
     save: async (payload) => saveProvider(payload, ctx.gatewayManager),
     delete: async (payload) => deleteProvider(payload, ctx.gatewayManager),
     setApiKey: setProviderApiKey,

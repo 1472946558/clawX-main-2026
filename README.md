@@ -130,7 +130,10 @@ Environment variables for bundled search skills:
 
 ### 🔐 Secure Provider Integration
 Connect to multiple AI providers (OpenAI, Anthropic, and more) with credentials stored securely in your system's native keychain. OpenAI supports both API key and browser OAuth (Codex subscription) sign-in.
+When adding an OpenAI-compatible API-key provider such as a New API or Feiniu endpoint, enter its Base URL and API key, choose **Fetch models**, and select a returned model before saving. Model discovery runs in Electron Main through the typed host API; provider credentials are never requested directly from the renderer.
 In developer mode, the dedicated Image Generation page supports an independent OpenAI-compatible image-generation endpoint (Base URL, API key, and model name such as `gpt-image-2`) so image generation can use a dedicated `/v1/images/generations` service while chat continues using the normal OpenAI provider.
+
+The AI Apps detail-image/poster workbench supports native PNG, JPG, JPEG, and WebP reference-image selection, staged previews, removable attachments, text-only generation, and reference-aware requests for image-to-image-capable models. Provider errors and unsupported-model messages are shown in the result panel.
 For **Custom** providers used with OpenAI-compatible gateways, you can set a custom `User-Agent` in **Settings → AI Providers → Edit Provider** for compatibility-sensitive endpoints.
 When a compatible gateway rejects `/models` for non-auth reasons, canvasland automatically falls back to a lightweight `/chat/completions` or `/responses` probe during API key validation.
 

@@ -212,6 +212,7 @@ vi.mock('@electron/services/providers/provider-store', () => ({
 
 vi.mock('@electron/services/providers/provider-validation', () => ({
   validateApiKeyWithProvider: (...args: unknown[]) => validateApiKeyWithProviderMock(...args),
+  fetchOpenAiCompatibleModels: vi.fn().mockResolvedValue({ success: true, models: [] }),
 }));
 
 vi.mock('@electron/utils/browser-oauth', () => ({

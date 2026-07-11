@@ -11,6 +11,7 @@ import type {
 } from '@/lib/providers';
 import { normalizeProviderApiKeyInput } from '@/lib/providers';
 import { hostApi } from '@/lib/host-api';
+import type { ProviderModelListResult } from '@/lib/host-api';
 import { fetchProviderSnapshot } from '@/lib/provider-accounts';
 
 // Re-export types for consumers that imported from here
@@ -41,6 +42,7 @@ interface ProviderState {
     options?: { baseUrl?: string; apiProtocol?: ProviderAccount['apiProtocol'] }
   ) => Promise<{ valid: boolean; error?: string }>;
   getAccountApiKey: (accountId: string) => Promise<string | null>;
+  fetchModels: (baseUrl: string, apiKey: string) => Promise<ProviderModelListResult>;
 
   // Legacy compatibility aliases
   fetchProviders: () => Promise<void>;
@@ -98,6 +100,11 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
   },
 
   fetchProviders: async () => get().refreshProviderSnapshot(),
+
+  fetchModels: async (baseUrl, apiKey) => hostApi.providers.fetchModels({
+    baseUrl: baseUrl.trim(),
+    apiKey: normalizeProviderApiKeyInput(apiKey),
+  }),
 
   // Legacy ProviderConfig-shaped alias kept for backward compatibility
   // with any stale caller. Internally projects the legacy config payload

@@ -28,6 +28,7 @@ import type {
   OpenClawDoctorResult,
   ProviderAccount,
   ProviderConfig,
+  ProviderModelListPayload,
   ProviderOAuthRequestPayload,
   ProviderUpdateWithKeyPayload,
   ProviderValidationPayload,
@@ -47,6 +48,7 @@ import type {
   SkillQuickAccessPayload,
   SkillUpdateConfigPayload,
   SkillUpdatePayload,
+  StagePathsPayload,
   UpdateChannel,
   UpdateSetFeedUrlPayload,
 } from '@shared/host-api/contract';
@@ -81,6 +83,8 @@ export type {
   OpenClawStatusResult,
   ProviderAccountKeyInfo,
   ProviderDefaultAccountResult,
+  ProviderModelListErrorCode,
+  ProviderModelListResult,
   ProviderValidationResult,
   SessionHistoryResult,
   SessionLabelSummary,
@@ -100,6 +104,7 @@ export type {
   AiAppListResultsResult,
   SkillsStatusResult,
   StagedFileResult,
+  StagePathsPayload,
   UsageHistoryEntry,
 } from '@shared/host-api/contract';
 
@@ -247,6 +252,7 @@ export const hostApi = {
       invokeHost('providers', 'getApiKey', { providerId })
     ),
     validateKey: (input: ProviderValidationPayload) => invokeHost('providers', 'validateKey', input),
+    fetchModels: (input: ProviderModelListPayload) => invokeHost('providers', 'fetchModels', input),
     save: (input: { config: ProviderConfig; apiKey?: string }) => invokeHost('providers', 'save', input),
     delete: (providerId: string) => invokeHost('providers', 'delete', { providerId }),
     setApiKey: (providerId: string, apiKey: string) => (
@@ -321,7 +327,7 @@ export const hostApi = {
     ),
   },
   files: {
-    stagePaths: (input: { filePaths: string[] }) => invokeHost('files', 'stagePaths', input),
+    stagePaths: (input: StagePathsPayload) => invokeHost('files', 'stagePaths', input),
     stageBuffer: (input: { base64: string; fileName: string; mimeType?: string }) => (
       invokeHost('files', 'stageBuffer', input)
     ),
@@ -421,6 +427,8 @@ export const hostApi = {
   aiApps: {
     createJob: (input: AiAppCreateJobPayload) => invokeHost('aiApps', 'createJob', input),
     getJob: (id: string) => invokeHost('aiApps', 'getJob', { id } satisfies AiAppJobPayload),
+    refreshJob: (id: string) => invokeHost('aiApps', 'refreshJob', { id } satisfies AiAppJobPayload),
+    videoCapabilities: () => invokeHost('aiApps', 'videoCapabilities'),
     listResults: (input?: AiAppListResultsPayload) => invokeHost('aiApps', 'listResults', input),
   },
   usage: {

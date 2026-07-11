@@ -364,6 +364,21 @@ export type ProviderValidationPayload = {
   options?: ProviderValidationOptions;
 };
 export type ProviderValidationResult = { valid: boolean; error?: string };
+export type ProviderModelListErrorCode =
+  | 'invalid_base_url'
+  | 'invalid_api_key'
+  | 'network_error'
+  | 'no_models'
+  | 'unsupported_format';
+export type ProviderModelListPayload = {
+  baseUrl: string;
+  apiKey: string;
+};
+export type ProviderModelListResult = {
+  success: boolean;
+  models: string[];
+  errorCode?: ProviderModelListErrorCode;
+};
 export type ProviderIdPayload = { providerId: string };
 export type ProviderApiKeyPayload = ProviderIdPayload & { apiKey: string };
 export type ProviderSavePayload = { config: ProviderConfig; apiKey?: string };
@@ -562,7 +577,7 @@ export type StagedFileResult = {
   preview: string | null;
   filePath?: string;
 };
-export type StagePathsPayload = { filePaths: string[] };
+export type StagePathsPayload = { filePaths: string[]; allowedExtensions?: string[] };
 export type StageBufferPayload = { base64: string; fileName: string; mimeType?: string };
 export type FilePathPayload = { path: string };
 export type FileReadBinaryOptions = { maxBytes?: number };
@@ -911,6 +926,7 @@ export type AiAppJobOutputs = {
 };
 export type AiAppJob = {
   id: string;
+  localJobId: string;
   appId: string;
   mode: AiAppJobMode;
   status: AiAppJobStatus;
@@ -918,6 +934,11 @@ export type AiAppJob = {
   updatedAt: string;
   inputs: JsonRecord;
   outputs?: AiAppJobOutputs;
+  providerId?: string;
+  providerLabel?: string;
+  providerTaskId?: string;
+  rawResponseSummary?: string;
+  resultUrl?: string;
   error?: string;
 };
 export type AiAppCreateJobPayload = {
@@ -936,6 +957,16 @@ export type AiAppJobResult = HostSuccess & {
 };
 export type AiAppListResultsResult = HostSuccess & {
   jobs?: AiAppJob[];
+};
+export type AiAppVideoCapabilities = {
+  supported: boolean;
+  providerId?: string;
+  providerLabel?: string;
+  models: string[];
+  reason?: string;
+};
+export type AiAppVideoCapabilitiesResult = HostSuccess & {
+  capabilities?: AiAppVideoCapabilities;
 };
 export type ClawHubInstalledSkill = {
   slug: string;
@@ -1088,6 +1119,7 @@ export type HostApiContract = {
     hasApiKey: (payload: ProviderIdPayload) => boolean;
     getApiKey: (payload: ProviderIdPayload) => string | null;
     validateKey: (payload: ProviderValidationPayload) => ProviderValidationResult;
+    fetchModels: (payload: ProviderModelListPayload) => ProviderModelListResult;
     save: (payload: ProviderSavePayload) => HostSuccess;
     delete: (payload: ProviderIdPayload) => HostSuccess;
     setApiKey: (payload: ProviderApiKeyPayload) => HostSuccess;
@@ -1192,6 +1224,8 @@ export type HostApiContract = {
   aiApps: {
     createJob: (payload: AiAppCreateJobPayload) => AiAppJobResult;
     getJob: (payload: AiAppJobPayload) => AiAppJobResult;
+    refreshJob: (payload: AiAppJobPayload) => AiAppJobResult;
+    videoCapabilities: () => AiAppVideoCapabilitiesResult;
     listResults: (payload?: AiAppListResultsPayload) => AiAppListResultsResult;
   };
   usage: {

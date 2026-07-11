@@ -53,6 +53,10 @@
       "replaceApiKeyHelp": "Leave this field empty if you want to keep the currently stored API key.",
       "baseUrl": "Base URL",
       "modelId": "Model ID",
+      "fetchModels": "Fetch models",
+      "selectModel": "Select a model",
+      "modelsLoaded_one": "{{count}} model loaded",
+      "modelsLoaded_other": "{{count}} models loaded",
       "codePlanPreset": "Code Plan Preset",
       "codePlanMode": "Code Plan",
       "useCodePlanPreset": "Use Ark Code Plan Preset",
@@ -75,6 +79,13 @@
       "customDoc": "Documentation",
       "validate": "Validate",
       "failed": "Failed"
+    },
+    "modelErrors": {
+      "invalid_base_url": "The Base URL is incorrect. Check it and try again.",
+      "invalid_api_key": "The API Key is invalid.",
+      "network_error": "Network error. Check your connection and try again.",
+      "no_models": "No available models were returned.",
+      "unsupported_format": "The model response format is not supported."
     },
     "card": {
       "default": "Default",

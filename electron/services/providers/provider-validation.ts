@@ -1,5 +1,9 @@
 import { proxyAwareFetch } from '../../utils/proxy-fetch';
 import { getProviderConfig } from '../../utils/provider-registry';
+import type {
+  ProviderModelListErrorCode,
+  ProviderModelListResult,
+} from '@shared/host-api/contract';
 
 type ValidationProfile =
   | 'openai-completions'
@@ -11,6 +15,10 @@ type ValidationProfile =
 
 type ValidationResult = { valid: boolean; error?: string; status?: number };
 type ClassifiedValidationResult = ValidationResult & { authFailure?: boolean };
+
+type ModelListAttempt = ProviderModelListResult & {
+  status?: number;
+};
 
 const AUTH_ERROR_PATTERN = /\b(unauthorized|forbidden|access denied|invalid api key|api key invalid|incorrect api key|api key incorrect|authentication failed|auth failed|invalid credential|credential invalid|invalid signature|signature invalid|invalid access token|access token invalid|invalid bearer token|bearer token invalid|access token expired)\b|鉴权失败|認証失敗|认证失败|無效密鑰|无效密钥|密钥无效|密鑰無效|憑證無效|凭证无效/i;
 const AUTH_ERROR_CODE_PATTERN = /\b(unauthorized|forbidden|access[_-]?denied|invalid[_-]?api[_-]?key|api[_-]?key[_-]?invalid|incorrect[_-]?api[_-]?key|api[_-]?key[_-]?incorrect|authentication[_-]?failed|auth[_-]?failed|invalid[_-]?credential|credential[_-]?invalid|invalid[_-]?signature|signature[_-]?invalid|invalid[_-]?access[_-]?token|access[_-]?token[_-]?invalid|invalid[_-]?bearer[_-]?token|bearer[_-]?token[_-]?invalid|access[_-]?token[_-]?expired|invalid[_-]?token|token[_-]?invalid|token[_-]?expired)\b/i;
@@ -50,6 +58,108 @@ function sanitizeHeaders(headers: Record<string, string>): Record<string, string
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/+$/, '');
+}
+
+function parseModelIds(data: unknown): ModelListAttempt {
+  const rows = Array.isArray(data)
+    ? data
+    : (data && typeof data === 'object' && Array.isArray((data as { data?: unknown }).data)
+      ? (data as { data: unknown[] }).data
+      : null);
+
+  if (!rows) {
+    return { success: false, models: [], errorCode: 'unsupported_format' };
+  }
+
+  const models = Array.from(new Set(rows.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const id = (item as { id?: unknown }).id;
+    return typeof id === 'string' && id.trim() ? [id.trim()] : [];
+  })));
+
+  if (models.length === 0) {
+    return { success: false, models: [], errorCode: 'no_models' };
+  }
+
+  return { success: true, models };
+}
+
+function classifyModelListStatus(status: number): ProviderModelListErrorCode {
+  if (status === 401 || status === 403) return 'invalid_api_key';
+  if (status === 408 || status === 429 || status >= 500) return 'network_error';
+  return 'invalid_base_url';
+}
+
+async function requestModelList(url: string, apiKey: string): Promise<ModelListAttempt> {
+  try {
+    const response = await proxyAwareFetch(url, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    console.log(`[provider-models] HTTP ${response.status}`);
+
+    if (!response.ok) {
+      return {
+        success: false,
+        models: [],
+        errorCode: classifyModelListStatus(response.status),
+        status: response.status,
+      };
+    }
+
+    const data = await response.json().catch(() => undefined);
+    return { ...parseModelIds(data), status: response.status };
+  } catch {
+    return { success: false, models: [], errorCode: 'network_error' };
+  }
+}
+
+export async function fetchOpenAiCompatibleModels(
+  baseUrl: string,
+  apiKey: string,
+): Promise<ProviderModelListResult> {
+  const trimmedBaseUrl = baseUrl.trim();
+  const trimmedApiKey = apiKey.trim();
+
+  let normalizedBaseUrl: string;
+  try {
+    const parsed = new URL(trimmedBaseUrl);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return { success: false, models: [], errorCode: 'invalid_base_url' };
+    }
+    parsed.hash = '';
+    parsed.search = '';
+    normalizedBaseUrl = normalizeBaseUrl(parsed.toString());
+  } catch {
+    return { success: false, models: [], errorCode: 'invalid_base_url' };
+  }
+
+  if (!trimmedApiKey) {
+    return { success: false, models: [], errorCode: 'invalid_api_key' };
+  }
+
+  const attempts = [
+    `${normalizedBaseUrl}/models`,
+    `${normalizedBaseUrl}/v1/models`,
+  ];
+  const failures: ModelListAttempt[] = [];
+
+  for (const url of attempts) {
+    const result = await requestModelList(url, trimmedApiKey);
+    if (result.success) return { success: true, models: result.models };
+    failures.push(result);
+  }
+
+  const errorCode = failures.find((result) => result.errorCode === 'invalid_api_key')?.errorCode
+    ?? failures.find((result) => result.errorCode === 'no_models')?.errorCode
+    ?? failures.find((result) => result.errorCode === 'unsupported_format')?.errorCode
+    ?? failures.find((result) => result.errorCode === 'network_error')?.errorCode
+    ?? 'invalid_base_url';
+
+  return {
+    success: false,
+    models: [],
+    errorCode,
+  };
 }
 
 function buildOpenAiModelsUrl(baseUrl: string): string {

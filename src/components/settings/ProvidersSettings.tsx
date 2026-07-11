@@ -52,6 +52,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/stores/settings';
 import { hostApi } from '@/lib/host-api';
+import type { ProviderModelListErrorCode } from '@/lib/host-api';
 import { hostEvents } from '@/lib/host-events';
 import type { OAuthCodeEvent, OAuthErrorEvent, OAuthSuccessEvent } from '@shared/host-events/contract';
 
@@ -951,6 +952,9 @@ function AddProviderDialog({
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [modelId, setModelId] = useState('');
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [modelFetchError, setModelFetchError] = useState<ProviderModelListErrorCode | null>(null);
   const [apiProtocol, setApiProtocol] = useState<ProviderAccount['apiProtocol']>('openai-completions');
   const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
   const [userAgent, setUserAgent] = useState('');
@@ -987,6 +991,9 @@ function AddProviderDialog({
       setApiKey('');
       setBaseUrl('');
       setModelId('');
+      setModelOptions([]);
+      setFetchingModels(false);
+      setModelFetchError(null);
       setApiProtocol('openai-completions');
       setShowAdvancedConfig(false);
       setUserAgent('');
@@ -1028,6 +1035,10 @@ function AddProviderDialog({
       : null);
   // Effective OAuth mode: pure OAuth providers, or dual-mode with oauth selected
   const useOAuthFlow = isOAuth && !oauthUiHidden && (!supportsApiKey || authMode === 'oauth');
+  const requiresFetchedModel = showModelIdField
+    && !useOAuthFlow
+    && selectedType !== 'ollama'
+    && !(selectedType === 'ark' && arkMode === 'codeplan');
 
   useEffect(() => {
     if (!selectedVendor || !isOAuth || !supportsApiKey) {
@@ -1203,6 +1214,43 @@ function AddProviderDialog({
     return vendor.supportsMultipleAccounts || !existingVendorIds.has(type.id);
   });
 
+  const resetFetchedModels = () => {
+    setModelId('');
+    setModelOptions([]);
+    setModelFetchError(null);
+  };
+
+  const handleFetchModels = async () => {
+    const normalizedApiKey = normalizeProviderApiKeyInput(apiKey);
+    if (!baseUrl.trim()) {
+      setModelFetchError('invalid_base_url');
+      return;
+    }
+    if (!normalizedApiKey) {
+      setModelFetchError('invalid_api_key');
+      return;
+    }
+
+    setFetchingModels(true);
+    setModelId('');
+    setModelOptions([]);
+    setModelFetchError(null);
+    setValidationError(null);
+
+    try {
+      const result = await useProviderStore.getState().fetchModels(baseUrl, normalizedApiKey);
+      if (result.success) {
+        setModelOptions(result.models);
+      } else {
+        setModelFetchError(result.errorCode || 'network_error');
+      }
+    } catch {
+      setModelFetchError('network_error');
+    } finally {
+      setFetchingModels(false);
+    }
+  };
+
   const handleAdd = async () => {
     if (!selectedType) return;
 
@@ -1224,7 +1272,7 @@ function AddProviderDialog({
         setSaving(false);
         return;
       }
-      if (requiresKey && normalizedApiKey) {
+      if (requiresKey && normalizedApiKey && !requiresFetchedModel) {
         const result = await onValidateKey(selectedType, normalizedApiKey, {
           baseUrl: baseUrl.trim() || undefined,
           apiProtocol: (selectedType === 'custom' || selectedType === 'ollama') ? apiProtocol : undefined,
@@ -1238,6 +1286,11 @@ function AddProviderDialog({
 
       const requiresModel = showModelIdField;
       if (requiresModel && !modelId.trim()) {
+        setValidationError(t('aiProviders.toast.modelRequired'));
+        setSaving(false);
+        return;
+      }
+      if (requiresFetchedModel && !modelOptions.includes(modelId)) {
         setValidationError(t('aiProviders.toast.modelRequired'));
         setSaving(false);
         return;
@@ -1302,8 +1355,10 @@ function AddProviderDialog({
                   onClick={() => {
                     setSelectedType(type.id);
                     setName(type.id === 'custom' ? t('aiProviders.custom') : type.name);
-                    setBaseUrl(type.defaultBaseUrl || '');
-                    setModelId(type.defaultModelId || '');
+                    setBaseUrl(type.defaultBaseUrl || vendorMap.get(type.id)?.defaultBaseUrl || '');
+                    setModelId(type.id === 'ollama' ? (type.defaultModelId || '') : '');
+                    setModelOptions([]);
+                    setModelFetchError(null);
                     setUserAgent('');
                     setShowAdvancedConfig(false);
                     setArkMode('apikey');
@@ -1339,6 +1394,8 @@ function AddProviderDialog({
                     setValidationError(null);
                     setBaseUrl('');
                     setModelId('');
+                    setModelOptions([]);
+                    setModelFetchError(null);
                     setUserAgent('');
                     setShowAdvancedConfig(false);
                     setArkMode('apikey');
@@ -1430,6 +1487,7 @@ function AddProviderDialog({
                         onChange={(e) => {
                           setApiKey(e.target.value);
                           setValidationError(null);
+                          resetFetchedModels();
                         }}
                         className={inputClasses}
                       />
@@ -1458,7 +1516,10 @@ function AddProviderDialog({
                       id="baseUrl"
                       placeholder={getProtocolBaseUrlPlaceholder(apiProtocol)}
                       value={baseUrl}
-                      onChange={(e) => setBaseUrl(e.target.value)}
+                      onChange={(e) => {
+                        setBaseUrl(e.target.value);
+                        resetFetchedModels();
+                      }}
                       className={inputClasses}
                     />
                   </div>
@@ -1466,18 +1527,63 @@ function AddProviderDialog({
 
                 {showModelIdField && (
                   <div className="space-y-2.5">
-                    <Label htmlFor="modelId" className={labelClasses}>{t('aiProviders.dialog.modelId')}</Label>
-                    <Input
-                      data-testid="add-provider-model-id-input"
-                      id="modelId"
-                      placeholder={typeInfo?.modelIdPlaceholder || 'provider/model-id'}
-                      value={modelId}
-                      onChange={(e) => {
-                        setModelId(e.target.value);
-                        setValidationError(null);
-                      }}
-                      className={inputClasses}
-                    />
+                    <div className="flex items-center justify-between gap-3">
+                      <Label htmlFor="modelId" className={labelClasses}>{t('aiProviders.dialog.modelId')}</Label>
+                      {requiresFetchedModel && (
+                        <Button
+                          data-testid="add-provider-fetch-models-button"
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleFetchModels}
+                          disabled={fetchingModels || !baseUrl.trim() || !apiKey.trim()}
+                          className="rounded-full"
+                        >
+                          {fetchingModels && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {t('aiProviders.dialog.fetchModels')}
+                        </Button>
+                      )}
+                    </div>
+                    {requiresFetchedModel ? (
+                      <select
+                        data-testid="add-provider-model-id-input"
+                        id="modelId"
+                        value={modelId}
+                        onChange={(event) => {
+                          setModelId(event.target.value);
+                          setValidationError(null);
+                        }}
+                        disabled={modelOptions.length === 0}
+                        className={cn(inputClasses, 'w-full px-3 disabled:cursor-not-allowed disabled:opacity-60')}
+                      >
+                        <option value="">{t('aiProviders.dialog.selectModel')}</option>
+                        {modelOptions.map((model) => (
+                          <option key={model} value={model}>{model}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Input
+                        data-testid="add-provider-model-id-input"
+                        id="modelId"
+                        placeholder={typeInfo?.modelIdPlaceholder || 'provider/model-id'}
+                        value={modelId}
+                        onChange={(e) => {
+                          setModelId(e.target.value);
+                          setValidationError(null);
+                        }}
+                        className={inputClasses}
+                      />
+                    )}
+                    {modelFetchError && (
+                      <p data-testid="add-provider-model-fetch-error" className="text-meta font-medium text-red-700 dark:text-red-400">
+                        {t(`aiProviders.modelErrors.${modelFetchError}`)}
+                      </p>
+                    )}
+                    {requiresFetchedModel && modelOptions.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {t('aiProviders.dialog.modelsLoaded', { count: modelOptions.length })}
+                      </p>
+                    )}
                   </div>
                 )}
                 {selectedType === 'ark' && codePlanPreset && (
@@ -1506,6 +1612,8 @@ function AddProviderDialog({
                           if (modelId.trim() === codePlanPreset.modelId) {
                             setModelId(typeInfo?.defaultModelId || '');
                           }
+                          setModelOptions([]);
+                          setModelFetchError(null);
                           setValidationError(null);
                         }}
                         className={cn("flex-1 py-1.5 px-3 rounded-lg border transition-colors", arkMode === 'apikey' ? "bg-surface-modal border-black/20 dark:border-white/20 shadow-sm font-medium" : "border-transparent bg-black/5 dark:bg-white/5 text-muted-foreground hover:bg-black/10 dark:hover:bg-white/10")}
@@ -1518,6 +1626,8 @@ function AddProviderDialog({
                           setArkMode('codeplan');
                           setBaseUrl(codePlanPreset.baseUrl);
                           setModelId(codePlanPreset.modelId);
+                          setModelOptions([]);
+                          setModelFetchError(null);
                           setValidationError(null);
                         }}
                         className={cn("flex-1 py-1.5 px-3 rounded-lg border transition-colors", arkMode === 'codeplan' ? "bg-surface-modal border-black/20 dark:border-white/20 shadow-sm font-medium" : "border-transparent bg-black/5 dark:bg-white/5 text-muted-foreground hover:bg-black/10 dark:hover:bg-white/10")}
@@ -1724,7 +1834,12 @@ function AddProviderDialog({
                   data-testid="add-provider-submit-button"
                   onClick={handleAdd}
                   className={cn("rounded-full px-8 h-[42px] text-meta font-semibold shadow-sm", useOAuthFlow && "hidden")}
-                  disabled={!selectedType || saving || (showModelIdField && modelId.trim().length === 0)}
+                  disabled={
+                    !selectedType
+                    || saving
+                    || (showModelIdField && modelId.trim().length === 0)
+                    || (requiresFetchedModel && !modelOptions.includes(modelId))
+                  }
                 >
                   {saving ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />

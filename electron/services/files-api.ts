@@ -74,6 +74,7 @@ const FILE_PREVIEW_DIR_BLACKLIST = new Set([
 
 type StagePathsPayload = {
   filePaths?: unknown;
+  allowedExtensions?: unknown;
 };
 
 type StageBufferPayload = {
@@ -214,6 +215,11 @@ export function createFilesApi(): CompleteHostServiceRegistry['files'] {
       const filePaths = Array.isArray(body.filePaths)
         ? body.filePaths.filter((value): value is string => typeof value === 'string')
         : [];
+      const allowedExtensions = Array.isArray(body.allowedExtensions)
+        ? new Set(body.allowedExtensions
+          .filter((value): value is string => typeof value === 'string')
+          .map((value) => `.${value.replace(/^\./, '').toLowerCase()}`))
+        : null;
       const fsP = await import('node:fs/promises');
       await fsP.mkdir(OUTBOUND_DIR, { recursive: true });
 
@@ -235,6 +241,9 @@ export function createFilesApi(): CompleteHostServiceRegistry['files'] {
         }
 
         const ext = extname(filePath);
+        if (allowedExtensions && !allowedExtensions.has(ext.toLowerCase())) {
+          throw new Error(`Unsupported file type: ${ext || fileName}`);
+        }
         const stagedPath = join(OUTBOUND_DIR, `${id}${ext}`);
         await fsP.copyFile(filePath, stagedPath);
         const s = await fsP.stat(stagedPath);
@@ -242,6 +251,10 @@ export function createFilesApi(): CompleteHostServiceRegistry['files'] {
         const preview = mimeType.startsWith('image/')
           ? await generateImagePreview(stagedPath, mimeType)
           : null;
+        if (allowedExtensions && (!mimeType.startsWith('image/') || !preview)) {
+          await fsP.unlink(stagedPath).catch(() => undefined);
+          throw new Error(`Invalid image file: ${fileName}`);
+        }
         results.push({ id, fileName, mimeType, fileSize: s.size, stagedPath, preview });
       }
       return results;

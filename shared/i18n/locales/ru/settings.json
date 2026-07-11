@@ -53,6 +53,10 @@
       "replaceApiKeyHelp": "Оставьте это поле пустым, чтобы сохранить текущий API-ключ.",
       "baseUrl": "Базовый URL",
       "modelId": "ID модели",
+      "fetchModels": "Получить модели",
+      "selectModel": "Выберите модель",
+      "modelsLoaded_one": "Загружена {{count}} модель",
+      "modelsLoaded_other": "Загружено {{count}} модели",
       "codePlanPreset": "Пресет Code Plan",
       "codePlanMode": "Code Plan",
       "useCodePlanPreset": "Использовать пресет Ark Code Plan",
@@ -75,6 +79,13 @@
       "customDoc": "Документация",
       "validate": "Проверить",
       "failed": "Ошибка"
+    },
+    "modelErrors": {
+      "invalid_base_url": "Неверный Base URL. Проверьте адрес и повторите попытку.",
+      "invalid_api_key": "Недействительный API-ключ.",
+      "network_error": "Ошибка сети. Проверьте подключение и повторите попытку.",
+      "no_models": "Нет доступных моделей.",
+      "unsupported_format": "Формат ответа со списком моделей не поддерживается."
     },
     "card": {
       "default": "По умолчанию",

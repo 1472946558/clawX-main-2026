@@ -56,4 +56,8 @@ Renderer code must not own transport selection, direct IPC channels, direct Gate
 
 Renderer code must not create direct Gateway WebSocket connections. Gateway frame diagnostics must be emitted by Main-process Gateway logging.
 
+Provider credential checks and model-list discovery are also Main-owned. Renderer provider forms
+must call the typed host-api provider service and must not send provider API keys through direct
+`fetch`, Gateway HTTP, or ad-hoc IPC calls.
+
 Channel/plugin migration behavior is also part of this scenario when canvasland rewrites OpenClaw config before Gateway launch. Upgrades must preserve single-owner channel registration for migrated plugin-backed channels such as Feishu/Lark.

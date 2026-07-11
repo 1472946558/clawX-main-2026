@@ -130,7 +130,10 @@ Skills 页面可展示来自多个 OpenClaw 来源的技能（托管目录、wor
 
 ### 🔐 安全的供应商集成
 连接多个 AI 供应商（OpenAI、Anthropic 等），凭证安全存储在系统原生密钥链中。OpenAI 同时支持 API Key 与浏览器 OAuth（Codex 订阅）登录。
+添加 New API、Feiniu 等 OpenAI-compatible API Key Provider 时，填写 Base URL 和 API Key，点击 **获取模型**，再从返回列表中选择模型后保存。模型获取由 Electron Main 通过类型化 host-api 完成，renderer 不会直接携带凭证请求 Provider。
 在开发者模式下，独立的“图像生成”页面支持配置 OpenAI 兼容生图端点（Base URL、API Key 和模型名，例如 `gpt-image-2`），生图请求会走专用的 `/v1/images/generations` 服务，聊天仍继续使用正常的 OpenAI Provider。
+
+AI 应用的详情图/海报工作台支持通过系统选择器上传 PNG、JPG、JPEG、WebP 参考图，完成 staging 后显示预览、文件名和大小，并可移除。无参考图时可直接文生图；模型支持图生图时请求会携带参考图，不支持时会明确提示，Provider 原始错误摘要也会显示在结果区。
 如果你通过 **自定义（Custom）Provider** 对接 OpenAI-compatible 网关，可以在 **设置 → AI Providers → 编辑 Provider** 中配置自定义 `User-Agent`，以提高兼容性。
 如果兼容网关的 `/models` 因非鉴权原因不可用，canvasland 会在校验 API Key 时自动降级为轻量的 `/chat/completions` 或 `/responses` 探测。
 

@@ -129,7 +129,10 @@ Skills ページでは OpenClaw の複数ソース（管理ディレクトリ、
 
 ### 🔐 セキュアなプロバイダー統合
 複数のAIプロバイダー（OpenAI、Anthropicなど）に接続でき、資格情報はシステムのネイティブキーチェーンに安全に保存されます。OpenAI は API キーとブラウザ OAuth（Codex サブスクリプション）の両方に対応しています。
+New API や Feiniu などの OpenAI-compatible API キープロバイダーを追加する場合は、Base URL と API キーを入力し、**モデルを取得**を選んで、返されたモデルを選択してから保存します。モデル取得は型付けされた host-api を通じて Electron Main で実行され、renderer が資格情報を使って Provider を直接呼び出すことはありません。
 開発者モードでは、専用の Image Generation ページで、独立した OpenAI 互換の画像生成エンドポイント（Base URL、API キー、`gpt-image-2` などのモデル名）を設定でき、画像生成だけ専用の `/v1/images/generations` サービスを使い、チャットは通常の OpenAI Provider のまま継続できます。
+
+AI Apps の詳細画像／ポスターワークベンチでは、システム選択画面から PNG、JPG、JPEG、WebP の参考画像をアップロードし、ステージ後のプレビュー、ファイル名、サイズ表示、削除ができます。参考画像なしのテキスト生成にも対応し、画像生成対応モデルには参考画像を渡し、非対応モデルや Provider エラーは結果欄に明示します。
 OpenAI-compatible ゲートウェイを **Custom プロバイダー** で使う場合、**設定 → AI Providers → Provider 編集** でカスタム `User-Agent` を設定でき、互換性が必要なエンドポイントで有効です。
 互換ゲートウェイで `/models` が認証以外の理由で使えない場合、canvasland は API キー検証時に軽量な `/chat/completions` または `/responses` プローブへ自動フォールバックします。
 

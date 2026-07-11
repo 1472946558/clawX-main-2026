@@ -53,6 +53,10 @@
       "replaceApiKeyHelp": "如果想保留当前已保存的 API key，这里留空即可。",
       "baseUrl": "基础 URL",
       "modelId": "模型 ID",
+      "fetchModels": "获取模型",
+      "selectModel": "请选择模型",
+      "modelsLoaded_one": "已获取 {{count}} 个模型",
+      "modelsLoaded_other": "已获取 {{count}} 个模型",
       "codePlanPreset": "Code Plan 预设",
       "codePlanMode": "Code Plan",
       "useCodePlanPreset": "使用 Ark Code Plan 预设",
@@ -75,6 +79,13 @@
       "customDoc": "查看文档",
       "validate": "验证",
       "failed": "失败"
+    },
+    "modelErrors": {
+      "invalid_base_url": "Base URL 错误，请检查后重试。",
+      "invalid_api_key": "API Key 无效。",
+      "network_error": "网络错误，请检查网络连接后重试。",
+      "no_models": "没有可用模型。",
+      "unsupported_format": "返回格式不支持。"
     },
     "card": {
       "default": "默认",

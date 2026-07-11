@@ -404,3 +404,88 @@ describe('validateApiKeyWithProvider', () => {
     );
   });
 });
+
+describe('fetchOpenAiCompatibleModels', () => {
+  beforeEach(() => {
+    proxyAwareFetch.mockReset();
+  });
+
+  it('tries /models before /v1/models and accepts the OpenAI data format', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    proxyAwareFetch
+      .mockResolvedValueOnce(new Response('{}', { status: 404 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: [{ id: 'model-b' }, { id: 'model-a' }, { id: 'model-b' }],
+      }), { status: 200 }));
+
+    const { fetchOpenAiCompatibleModels } = await import('@electron/services/providers/provider-validation');
+    const result = await fetchOpenAiCompatibleModels('https://new-api.example.com/', 'sk-secret-value');
+
+    expect(result).toEqual({ success: true, models: ['model-b', 'model-a'] });
+    expect(proxyAwareFetch).toHaveBeenNthCalledWith(
+      1,
+      'https://new-api.example.com/models',
+      { headers: { Authorization: 'Bearer sk-secret-value' } },
+    );
+    expect(proxyAwareFetch).toHaveBeenNthCalledWith(
+      2,
+      'https://new-api.example.com/v1/models',
+      { headers: { Authorization: 'Bearer sk-secret-value' } },
+    );
+    expect(logSpy.mock.calls.flat().join(' ')).not.toContain('sk-secret-value');
+    logSpy.mockRestore();
+  });
+
+  it('accepts a top-level model array', async () => {
+    proxyAwareFetch.mockResolvedValueOnce(new Response(JSON.stringify([
+      { id: 'array-model' },
+    ]), { status: 200 }));
+
+    const { fetchOpenAiCompatibleModels } = await import('@electron/services/providers/provider-validation');
+    await expect(fetchOpenAiCompatibleModels('https://feiniu.example.com', 'sk-test'))
+      .resolves.toEqual({ success: true, models: ['array-model'] });
+  });
+
+  it.each([
+    ['not a url', 'sk-test', 'invalid_base_url'],
+    ['https://new-api.example.com', '', 'invalid_api_key'],
+  ])('classifies local input errors', async (baseUrl, apiKey, errorCode) => {
+    const { fetchOpenAiCompatibleModels } = await import('@electron/services/providers/provider-validation');
+    await expect(fetchOpenAiCompatibleModels(baseUrl, apiKey)).resolves.toEqual({
+      success: false,
+      models: [],
+      errorCode,
+    });
+    expect(proxyAwareFetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [401, 'invalid_api_key'],
+    [404, 'invalid_base_url'],
+    [503, 'network_error'],
+  ])('classifies HTTP %s failures', async (status, errorCode) => {
+    proxyAwareFetch.mockResolvedValue(new Response('{}', { status }));
+    const { fetchOpenAiCompatibleModels } = await import('@electron/services/providers/provider-validation');
+    await expect(fetchOpenAiCompatibleModels('https://new-api.example.com', 'sk-test'))
+      .resolves.toMatchObject({ success: false, errorCode });
+  });
+
+  it('distinguishes empty and unsupported successful responses', async () => {
+    const { fetchOpenAiCompatibleModels } = await import('@electron/services/providers/provider-validation');
+
+    proxyAwareFetch.mockResolvedValue(new Response(JSON.stringify({ data: [] }), { status: 200 }));
+    await expect(fetchOpenAiCompatibleModels('https://new-api.example.com', 'sk-test'))
+      .resolves.toMatchObject({ success: false, errorCode: 'no_models' });
+
+    proxyAwareFetch.mockResolvedValue(new Response(JSON.stringify({ models: [] }), { status: 200 }));
+    await expect(fetchOpenAiCompatibleModels('https://new-api.example.com', 'sk-test'))
+      .resolves.toMatchObject({ success: false, errorCode: 'unsupported_format' });
+  });
+
+  it('classifies request failures as network errors', async () => {
+    proxyAwareFetch.mockRejectedValue(new Error('offline'));
+    const { fetchOpenAiCompatibleModels } = await import('@electron/services/providers/provider-validation');
+    await expect(fetchOpenAiCompatibleModels('https://new-api.example.com', 'sk-test'))
+      .resolves.toEqual({ success: false, models: [], errorCode: 'network_error' });
+  });
+});

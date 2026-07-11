@@ -53,6 +53,10 @@
       "replaceApiKeyHelp": "現在保存されている API キーをそのまま使う場合は、この欄を空のままにしてください。",
       "baseUrl": "ベース URL",
       "modelId": "モデル ID",
+      "fetchModels": "モデルを取得",
+      "selectModel": "モデルを選択",
+      "modelsLoaded_one": "{{count}} 件のモデルを取得しました",
+      "modelsLoaded_other": "{{count}} 件のモデルを取得しました",
       "codePlanPreset": "Code Plan プリセット",
       "codePlanMode": "Code Plan",
       "useCodePlanPreset": "Ark Code Plan プリセットを使用",
@@ -75,6 +79,13 @@
       "customDoc": "ドキュメント",
       "validate": "検証",
       "failed": "失敗"
+    },
+    "modelErrors": {
+      "invalid_base_url": "Base URL が正しくありません。確認して再試行してください。",
+      "invalid_api_key": "API キーが無効です。",
+      "network_error": "ネットワークエラーです。接続を確認して再試行してください。",
+      "no_models": "利用可能なモデルがありません。",
+      "unsupported_format": "返却されたモデル形式はサポートされていません。"
     },
     "card": {
       "default": "デフォルト",
