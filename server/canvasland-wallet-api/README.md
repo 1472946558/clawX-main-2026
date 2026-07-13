@@ -66,10 +66,13 @@ https://apitoken.unihuax.com/v1/models
 https://apitoken.unihuax.com/v1/chat/completions
 ```
 
-`/v1/chat/completions` is OpenAI-compatible for non-streaming requests. It
-selects the upstream key by model, ignores any client-supplied `pointsUsed`, and
-deducts points from the server ledger using the upstream `usage` payload.
-Send `x-request-id` or `idempotency-key` to prevent duplicate billing retries.
+`/v1/chat/completions` is OpenAI-compatible for streaming and non-streaming
+requests. It selects the upstream key by model, ignores any client-supplied
+`pointsUsed`, and deducts points from the server ledger using the upstream
+`usage` payload. Streaming requests are forwarded as SSE with
+`stream_options.include_usage=true`; when an upstream does not return usage, the
+proxy falls back to a conservative token estimate. Send `x-request-id` or
+`idempotency-key` to prevent duplicate billing retries.
 
 AI Apps billing endpoints:
 

@@ -266,6 +266,43 @@ function calculateModelPoints(plan, usage) {
   return Math.max(1, Math.ceil(rawPoints || totalTokens / 1000 || 1));
 }
 
+function estimateTokenCount(text) {
+  const normalized = String(text || '').trim();
+  if (!normalized) return 0;
+  return Math.max(1, Math.ceil(normalized.length / 4));
+}
+
+function stringifyMessageContent(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content.map((item) => {
+      if (typeof item === 'string') return item;
+      const source = normalizeObject(item);
+      return source.text || source.content || source.input_text || '';
+    }).filter(Boolean).join('\n');
+  }
+  return '';
+}
+
+function estimatePromptTokens(body) {
+  const messages = Array.isArray(body.messages) ? body.messages : [];
+  const text = messages.map((message) => {
+    const source = normalizeObject(message);
+    return `${source.role || ''}\n${stringifyMessageContent(source.content)}`;
+  }).join('\n');
+  return estimateTokenCount(text);
+}
+
+function estimateStreamUsage(body, outputText) {
+  const promptTokens = estimatePromptTokens(body);
+  const completionTokens = estimateTokenCount(outputText);
+  return {
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: promptTokens + completionTokens,
+  };
+}
+
 async function debitUsage({ requestId, plan, usage, upstreamId }) {
   return withWalletTransaction(async (wallet) => {
     if (requestId && wallet.usageRequests[requestId]?.debited) {
@@ -312,6 +349,109 @@ async function debitUsage({ requestId, plan, usage, upstreamId }) {
 function normalizeObject(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return value;
+}
+
+function parseSseDataLines(eventText) {
+  return eventText
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart());
+}
+
+function collectStreamChunkMetadata(data, state) {
+  const source = normalizeObject(data);
+  if (source.id && !state.upstreamId) state.upstreamId = source.id;
+  if (source.usage && typeof source.usage === 'object') state.usage = source.usage;
+  const choices = Array.isArray(source.choices) ? source.choices : [];
+  for (const choice of choices) {
+    const normalizedChoice = normalizeObject(choice);
+    const delta = normalizeObject(normalizedChoice.delta);
+    const message = normalizeObject(normalizedChoice.message);
+    if (typeof delta.content === 'string') state.outputText += delta.content;
+    if (typeof message.content === 'string') state.outputText += message.content;
+  }
+}
+
+function writeSseJson(res, payload) {
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+async function proxyStreamingChatCompletion({
+  res,
+  response,
+  body,
+  plan,
+  workflowPrice,
+  requestId,
+}) {
+  res.status(response.status);
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  const decoder = new TextDecoder();
+  const state = {
+    outputText: '',
+    upstreamId: '',
+    usage: null,
+  };
+  let buffer = '';
+
+  const flushEvent = (eventText) => {
+    const dataLines = parseSseDataLines(eventText);
+    const isDone = dataLines.some((line) => line.trim() === '[DONE]');
+    if (isDone) {
+      return;
+    }
+    for (const line of dataLines) {
+      try {
+        collectStreamChunkMetadata(JSON.parse(line), state);
+      } catch {
+        // Keep forwarding provider-specific text events even when they are not JSON.
+      }
+    }
+    res.write(`${eventText}\n\n`);
+  };
+
+  for await (const chunk of response.body) {
+    buffer += decoder.decode(chunk, { stream: true });
+    let separatorIndex = buffer.search(/\r?\n\r?\n/);
+    while (separatorIndex >= 0) {
+      const eventText = buffer.slice(0, separatorIndex);
+      const matched = buffer.slice(separatorIndex).match(/^\r?\n\r?\n/);
+      buffer = buffer.slice(separatorIndex + (matched?.[0].length || 2));
+      if (eventText.trim()) flushEvent(eventText);
+      separatorIndex = buffer.search(/\r?\n\r?\n/);
+    }
+  }
+  const rest = decoder.decode();
+  if (rest) buffer += rest;
+  if (buffer.trim()) flushEvent(buffer.trim());
+
+  try {
+    const usage = state.usage || estimateStreamUsage(body, state.outputText);
+    const debit = workflowPrice && requestId
+      ? await debitAiWorkflowUsage({ requestId, price: workflowPrice })
+      : await debitUsage({ requestId, plan, usage, upstreamId: state.upstreamId });
+    writeSseJson(res, {
+      object: 'canvasland.usage',
+      canvasland_usage: {
+        pointsUsed: debit.record.points,
+        modelPlanId: plan.id,
+        workflowId: workflowPrice?.workflowId,
+        billingTierId: workflowPrice?.billingTierId,
+        duplicate: debit.duplicate,
+      },
+    });
+  } catch (error) {
+    writeSseJson(res, {
+      error: { message: redactSecretText(error instanceof Error ? error.message : String(error)) },
+    });
+  }
+
+  res.write('data: [DONE]\n\n');
+  res.end();
 }
 
 function stripSignFields(value) {
@@ -645,10 +785,6 @@ app.post('/v1/chat/completions', async (req, res) => {
       res.status(400).json({ error: { message: 'Unsupported canvasland model' } });
       return;
     }
-    if (body.stream === true) {
-      res.status(400).json({ error: { message: 'Streaming is not enabled on the canvasland billing proxy yet' } });
-      return;
-    }
     const apiKey = process.env[plan.upstreamEnvVar];
     if (!apiKey) {
       res.status(503).json({ error: { message: 'Upstream model is not configured' } });
@@ -675,18 +811,35 @@ app.post('/v1/chat/completions', async (req, res) => {
       ...body,
       model: plan.runtimeModel,
     };
+    if (body.stream === true) {
+      upstreamBody.stream_options = {
+        ...normalizeObject(upstreamBody.stream_options),
+        include_usage: true,
+      };
+    }
     delete upstreamBody.pointsUsed;
     delete upstreamBody.points;
     if (workflowPrice) delete upstreamBody.metadata;
     const response = await fetch(`${newApiBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json',
+        Accept: body.stream === true ? 'text/event-stream' : 'application/json',
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(upstreamBody),
     });
+    if (body.stream === true && response.ok) {
+      await proxyStreamingChatCompletion({
+        res,
+        response,
+        body,
+        plan,
+        workflowPrice,
+        requestId,
+      });
+      return;
+    }
     const text = await response.text();
     let data = {};
     if (text) {
