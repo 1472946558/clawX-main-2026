@@ -31,6 +31,8 @@ const {
   resetSettingsMock,
   saveChannelConfigMock,
   setSettingMock,
+  syncAgentModelOverrideToRuntimeMock,
+  syncAllProviderAuthToRuntimeMock,
   syncDefaultProviderToRuntimeMock,
   syncSavedProviderToRuntimeMock,
   syncLaunchAtStartupSettingFromStoreMock,
@@ -99,6 +101,8 @@ const {
   resetSettingsMock: vi.fn(),
   saveChannelConfigMock: vi.fn(),
   setSettingMock: vi.fn(),
+  syncAgentModelOverrideToRuntimeMock: vi.fn(),
+  syncAllProviderAuthToRuntimeMock: vi.fn(),
   syncDefaultProviderToRuntimeMock: vi.fn(),
   syncSavedProviderToRuntimeMock: vi.fn(),
   syncLaunchAtStartupSettingFromStoreMock: vi.fn(),
@@ -187,12 +191,12 @@ vi.mock('@electron/utils/plugin-install', () => ({
 }));
 
 vi.mock('@electron/utils/openclaw-workspace', () => ({
-  ensurecanvaslandContext: vi.fn(),
+  ensurecanvaslandContext: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('@electron/services/providers/provider-runtime-sync', () => ({
-  syncAllProviderAuthToRuntime: vi.fn(),
-  syncAgentModelOverrideToRuntime: vi.fn(),
+  syncAllProviderAuthToRuntime: (...args: unknown[]) => syncAllProviderAuthToRuntimeMock(...args),
+  syncAgentModelOverrideToRuntime: (...args: unknown[]) => syncAgentModelOverrideToRuntimeMock(...args),
   syncDefaultProviderToRuntime: (...args: unknown[]) => syncDefaultProviderToRuntimeMock(...args),
   syncDeletedProviderApiKeyToRuntime: vi.fn(),
   syncDeletedProviderToRuntime: vi.fn(),
@@ -701,6 +705,49 @@ describe('host services', () => {
     expect(deleteAgentConfigMock).toHaveBeenCalledWith('code');
     expect(gatewayManager.restart).toHaveBeenCalledTimes(1);
     expect(removeAgentWorkspaceDirectoryMock).toHaveBeenCalledWith(removedEntry);
+  });
+
+  it('creates an agent with model plan and persona, then syncs the bound model to runtime', async () => {
+    const snapshotBefore = {
+      agents: [{ id: 'main', name: 'Main' }],
+      defaultAgentId: 'main',
+      defaultModelRef: null,
+      configuredChannelTypes: [],
+      channelOwners: {},
+      channelAccountOwners: {},
+    };
+    const snapshotAfter = {
+      ...snapshotBefore,
+      agents: [
+        { id: 'main', name: 'Main' },
+        { id: 'store-writer', name: 'Store Writer', modelPlanId: 'gpt-5.5' },
+      ],
+    };
+    listAgentsSnapshotMock.mockResolvedValue(snapshotBefore);
+    createAgentMock.mockResolvedValue(snapshotAfter);
+    syncAllProviderAuthToRuntimeMock.mockResolvedValue(undefined);
+    syncAgentModelOverrideToRuntimeMock.mockResolvedValue(undefined);
+    const gatewayManager = {
+      getStatus: vi.fn(() => ({ state: 'running' })),
+      debouncedReload: vi.fn(),
+    };
+    const { createAgentsApi } = await import('@electron/services/agents-api');
+
+    await expect(createAgentsApi({ gatewayManager: gatewayManager as never }).create({
+      name: 'Store Writer',
+      modelPlanId: 'gpt-5.5',
+      persona: 'Write concise ecommerce copy.',
+      inheritWorkspace: true,
+    })).resolves.toEqual({ success: true, ...snapshotAfter });
+
+    expect(createAgentMock).toHaveBeenCalledWith('Store Writer', {
+      inheritWorkspace: true,
+      modelPlanId: 'gpt-5.5',
+      persona: 'Write concise ecommerce copy.',
+    });
+    expect(syncAllProviderAuthToRuntimeMock).toHaveBeenCalledTimes(1);
+    expect(syncAgentModelOverrideToRuntimeMock).toHaveBeenCalledWith('store-writer');
+    expect(gatewayManager.debouncedReload).toHaveBeenCalledTimes(1);
   });
 
   it('updates the main agent profile and schedules gateway reload', async () => {

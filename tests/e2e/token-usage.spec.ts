@@ -150,8 +150,8 @@ test.describe('canvasland token usage history', () => {
     await completeSetup(page);
     await validateUsageHistory(page);
 
-    await page.getByTestId('sidebar-nav-models').click();
-    await expect(page.getByTestId('models-page')).toBeVisible();
+    await page.getByTestId('sidebar-nav-token-topup').click();
+    await expect(page.getByTestId('token-topup-usage-records')).toBeVisible();
 
     const usageEntryRows = page.getByTestId('token-usage-entry');
     await expect.poll(async () => await usageEntryRows.count()).toBe(2);

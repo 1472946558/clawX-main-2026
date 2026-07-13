@@ -9,16 +9,16 @@ test.describe('canvasland Electron smoke flows', () => {
     await expect(page.getByTestId('setup-skip-button')).toBeVisible();
   });
 
-  test('can skip setup and navigate to the models page', async ({ page }) => {
+  test('can skip setup and navigate to points usage records', async ({ page }) => {
     await expect(page.getByTestId('setup-page')).toBeVisible();
     await page.getByTestId('setup-skip-button').click();
 
     await expect(page.getByTestId('main-layout')).toBeVisible();
-    await page.getByTestId('sidebar-nav-models').click();
+    await expect(page.getByTestId('sidebar-nav-models')).toHaveCount(0);
+    await page.getByTestId('sidebar-nav-token-topup').click();
 
-    await expect(page.getByTestId('models-page')).toBeVisible();
-    await expect(page.getByTestId('models-page-title')).toBeVisible();
-    await expect(page.getByTestId('providers-settings')).toBeVisible();
+    await expect(page.getByTestId('token-topup-page')).toBeVisible();
+    await expect(page.getByTestId('token-topup-usage-records')).toBeVisible();
   });
 
   test('persists skipped setup across relaunch for the same isolated profile', async ({ electronApp, launchElectronApp }) => {

@@ -128,14 +128,15 @@ Environment variables for bundled search skills:
 - `TAVILY_API_KEY` for `tavily-search` (OAuth may also be supported by upstream skill runtime)
 - `find-skills` and `self-improving-agent` do not require API keys
 
-### 🔐 Secure Provider Integration
-Connect to multiple AI providers (OpenAI, Anthropic, and more) with credentials stored securely in your system's native keychain. OpenAI supports both API key and browser OAuth (Codex subscription) sign-in.
-When adding an OpenAI-compatible API-key provider such as a New API or Feiniu endpoint, enter its Base URL and API key, choose **Fetch models**, and select a returned model before saving. Model discovery runs in Electron Main through the typed host API; provider credentials are never requested directly from the renderer.
+### 🔐 Hidden Upstream Model Layer
+canvasland no longer exposes a standalone Models page to regular users. Users select GPT 5.4, GPT 5.5, Qwen 3.6 Plus, or Qwen 3.7 Max while creating an AI assistant, then review their balance and points usage records in Wallet without visiting New API, copying keys, or configuring a Provider/Base URL.
+The real New API keys live only in the server environment behind the canvasland wallet/model proxy. Advanced Provider configuration remains available from developer/admin settings.
 In developer mode, the dedicated Image Generation page supports an independent OpenAI-compatible image-generation endpoint (Base URL, API key, and model name such as `gpt-image-2`) so image generation can use a dedicated `/v1/images/generations` service while chat continues using the normal OpenAI provider.
 
 The AI Apps detail-image/poster workbench supports native PNG, JPG, JPEG, and WebP reference-image selection, staged previews, removable attachments, text-only generation, and reference-aware requests for image-to-image-capable models. Provider errors and unsupported-model messages are shown in the result panel.
 
 The product short-video workbench uses the current Provider, prefers video models returned by its model list, and supports product text, selling points, platform, and aspect ratio inputs. Asynchronous jobs expose the local job ID, Provider task ID, normalized status, redacted raw-response summary, manual status refresh, and a video player/result URL when complete.
+AI Apps use server-owned points tiers: copywriting costs 10-30 points, image generation costs 30 or 60 points, and video generation costs 300-600 points. The selected tier shows Pro, priority, watermark-free, quality, and duration benefits without a currency equivalent. Successful jobs debit once by request ID; failed jobs do not debit. Recharge packages include bonus points, including 5,000 base points plus a 1,000-point bonus.
 For **Custom** providers used with OpenAI-compatible gateways, you can set a custom `User-Agent` in **Settings → AI Providers → Edit Provider** for compatibility-sensitive endpoints.
 When a compatible gateway rejects `/models` for non-auth reasons, canvasland automatically falls back to a lightweight `/chat/completions` or `/responses` probe during API key validation.
 
@@ -406,7 +407,7 @@ from `dist/` and `dist-electron/`, so it does not require manually running
 The first two baseline specs cover:
 
 - first-launch setup wizard visibility on a fresh profile
-- skipping setup and navigating to the Models page inside the Electron app
+- skipping setup and navigating to Wallet points usage records inside the Electron app
 
 Add future Electron flows under `tests/e2e/` and reuse the shared fixture in
 `tests/e2e/fixtures/electron.ts`.

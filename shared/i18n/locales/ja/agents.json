@@ -14,9 +14,13 @@
     "creating": "作成中...",
     "createDialog": {
         "title": "Agent を追加",
-        "description": "名前だけで新しい Agent を作成できます。メイン Agent のワークスペース初期ファイルを引き継ぐかどうかも選択できます。",
+        "description": "新しい Agent を作成し、有効な canvasland モデルを選択します。メイン Agent のワークスペース初期ファイルを引き継ぐこともできます。",
         "nameLabel": "Agent 名",
         "namePlaceholder": "Coding Helper",
+        "modelLabel": "モデルを選択",
+        "personaLabel": "Agent の役割",
+        "personaPlaceholder": "あなたは商品タイトル、訴求ポイント、詳細ページ文案を作成するプロのECコピーライティングアシスタントです。",
+        "personaDescription": "この役割は Agent ワークスペースに保存され、以後のチャットの起動コンテキストとして使われます。",
         "inheritWorkspaceLabel": "メイン Agent のワークスペースを引き継ぐ",
         "inheritWorkspaceDescription": "SOUL.md、AGENTS.md などの初期ファイルをコピーします"
     },
@@ -39,7 +43,7 @@
         "modelIdPlaceholder": "model-id",
         "modelPreview": "プレビュー",
         "modelOverridePlaceholder": "provider/model（例: openrouter/openai/gpt-5.5）",
-        "modelOverrideDescription": "この Agent の Provider とモデル ID を選択します。",
+        "modelOverrideDescription": "この Agent で使う有効な canvasland モデルを選択します。Provider、API Key、Base URL の入力は不要です。",
         "unsavedChangesTitle": "未保存の変更",
         "unsavedChangesMessage": "未保存の変更があります。閉じると変更が破棄されます。",
         "closeWithoutSaving": "保存せずに閉じる",

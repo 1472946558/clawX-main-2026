@@ -5,6 +5,7 @@ import type {
   AiAppCreateJobPayload,
   AiAppJobPayload,
   AiAppListResultsPayload,
+  AiAppWorkflowListResult,
   BlueOceanPayConfigPayload,
   BlueOceanPayCreatePaymentPayload,
   BlueOceanPayQueryPayload,
@@ -40,11 +41,20 @@ import type {
   ShellPathPayload,
   SkillMarketplaceAdminListPayload,
   SkillMarketplaceInstallPayload,
+  SkillInstallFromGithubPayload,
+  SkillInstallFromLocalPayload,
+  SkillInstalledListResult,
+  SkillInstallResult,
+  SkillInstallStatusResult,
+  SkillInstallStatusPayload,
   SkillMarketplaceImportCatalogPayload,
   SkillMarketplaceImportCommitPayload,
   SkillMarketplaceImportPreviewPayload,
   SkillMarketplaceReviewPayload,
+  SkillScanDirPayload,
+  SkillScanResult,
   SkillMarketplaceUpdatePayload,
+  SkillUninstallPayload,
   SkillQuickAccessPayload,
   SkillUpdateConfigPayload,
   SkillUpdatePayload,
@@ -94,6 +104,10 @@ export type {
   SkillConfigsResult,
   SkillMarketplaceAdminListResult,
   SkillMarketplaceInstallResult,
+  SkillInstallResult,
+  SkillInstalledListResult,
+  SkillInstallStatusResult,
+  SkillScanResult,
   SkillMarketplaceExportResult,
   SkillMarketplaceImportCatalogResult,
   SkillMarketplaceImportCommitResult,
@@ -227,8 +241,8 @@ export const hostApi = {
         ...input,
       })
     ),
-    updateModel: (id: string, modelRef: string | null) => (
-      invokeHost('agents', 'updateModel', { id, modelRef })
+    updateModel: (id: string, modelRef: string | null, modelPlanId?: string | null) => (
+      invokeHost('agents', 'updateModel', { id, modelRef, modelPlanId })
     ),
     delete: (id: string) => invokeHost('agents', 'delete', { id }),
     assignChannel: (id: string, channelType: string) => (
@@ -412,6 +426,18 @@ export const hostApi = {
     marketplaceInstall: (input: SkillMarketplaceInstallPayload) => (
       invokeHost('skills', 'marketplaceInstall', input)
     ),
+    installFromGithub: (input: SkillInstallFromGithubPayload): Promise<SkillInstallResult> => (
+      invokeHost('skills', 'installFromGithub', input)
+    ),
+    installFromLocal: (input: SkillInstallFromLocalPayload): Promise<SkillInstallResult> => (
+      invokeHost('skills', 'installFromLocal', input)
+    ),
+    getInstalledSkills: (): Promise<SkillInstalledListResult> => invokeHost('skills', 'getInstalledSkills'),
+    getInstallStatus: (input: SkillInstallStatusPayload): Promise<SkillInstallStatusResult> => (
+      invokeHost('skills', 'getInstallStatus', input)
+    ),
+    uninstall: (input: SkillUninstallPayload) => invokeHost('skills', 'uninstall', input),
+    scanSkillDir: (input: SkillScanDirPayload): Promise<SkillScanResult> => invokeHost('skills', 'scanSkillDir', input),
     clawhubCapability: () => invokeHost('skills', 'clawhubCapability'),
     clawhubList: () => invokeHost('skills', 'clawhubList'),
     clawhubSearch: (input: ClawHubSearchPayload) => invokeHost('skills', 'clawhubSearch', input),
@@ -425,6 +451,7 @@ export const hostApi = {
     ),
   },
   aiApps: {
+    listWorkflows: () => invokeHost('aiApps', 'listWorkflows') as Promise<AiAppWorkflowListResult>,
     createJob: (input: AiAppCreateJobPayload) => invokeHost('aiApps', 'createJob', input),
     getJob: (id: string) => invokeHost('aiApps', 'getJob', { id } satisfies AiAppJobPayload),
     refreshJob: (id: string) => invokeHost('aiApps', 'refreshJob', { id } satisfies AiAppJobPayload),

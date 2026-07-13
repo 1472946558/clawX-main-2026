@@ -14,9 +14,13 @@
     "creating": "Создание...",
     "createDialog": {
         "title": "Добавить агента",
-        "description": "Создайте нового агента по имени. Вы можете опционально унаследовать файлы рабочей области основного агента.",
+        "description": "Создайте нового агента, выберите включённую модель canvasland и при необходимости унаследуйте файлы рабочей области основного агента.",
         "nameLabel": "Имя агента",
         "namePlaceholder": "Помощник по коду",
+        "modelLabel": "Выберите модель",
+        "personaLabel": "Роль агента",
+        "personaPlaceholder": "Вы профессиональный помощник по e-commerce копирайтингу: создаете названия товаров, преимущества и тексты страниц описания.",
+        "personaDescription": "Эта роль сохраняется в рабочей области агента и используется как стартовый контекст для будущих чатов.",
         "inheritWorkspaceLabel": "Наследовать рабочую область основного агента",
         "inheritWorkspaceDescription": "Копировать SOUL.md, AGENTS.md и т.д. из основного агента"
     },
@@ -39,7 +43,7 @@
         "modelIdPlaceholder": "model-id",
         "modelPreview": "Предпросмотр",
         "modelOverridePlaceholder": "провайдер/модель (например: openrouter/openai/gpt-5.5)",
-        "modelOverrideDescription": "Выберите провайдера и ID модели для этого агента.",
+        "modelOverrideDescription": "Выберите одну из включённых моделей canvasland для этого агента. Провайдер, API Key и Base URL не требуются.",
         "unsavedChangesTitle": "Несохранённые изменения",
         "unsavedChangesMessage": "У вас есть несохранённые изменения. Если закроете сейчас, изменения будут потеряны.",
         "closeWithoutSaving": "Закрыть без сохранения",

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-07-12T00:00:00.000Z",
+  "sources": [
+    {
+      "id": "open-picsetai",
+      "name": "open-picsetai",
+      "repositoryUrl": "https://github.com/ddlmanus/open-picsetai",
+      "license": "MIT",
+      "commercialUseAllowed": true,
+      "sourceType": "ai-app-reference",
+      "recommendedUse": [
+        "商品主图生成",
+        "商品详情图",
+        "商品精修",
+        "AI 抠图",
+        "OCR"
+      ],
+      "integrationDecision": "reference_only",
+      "reason": "MIT license allows commercial use, but the repository is a full Next.js/React application rather than a lightweight SKILL.md package. Use it as product and workflow reference for Canvasland-owned AI Apps."
+    },
+    {
+      "id": "ai-ecommerce-agent-skills",
+      "name": "AI Ecommerce Agent Skills",
+      "repositoryUrl": "https://github.com/BENZEMA216/ai-ecommerce-agent-skills",
+      "license": "CC-BY-NC-4.0",
+      "commercialUseAllowed": false,
+      "sourceType": "skill-reference",
+      "recommendedUse": [
+        "电商 Skill 结构参考"
+      ],
+      "integrationDecision": "blocked_for_commercial",
+      "reason": "Non-commercial license. Do not install or ship as a commercial Canvasland asset."
+    },
+    {
+      "id": "addyosmani-agent-skills",
+      "name": "agent-skills",
+      "repositoryUrl": "https://github.com/addyosmani/agent-skills",
+      "license": "MIT",
+      "commercialUseAllowed": true,
+      "sourceType": "skill-reference",
+      "recommendedUse": [
+        "轻量 Skill 结构",
+        "AI coding agent workflow",
+        "文档和提示词组织"
+      ],
+      "integrationDecision": "approved_reference_and_install_seed",
+      "reason": "MIT license and lightweight SKILL.md-oriented structure. Suitable as approved commercial Skill reference."
+    }
+  ]
+}

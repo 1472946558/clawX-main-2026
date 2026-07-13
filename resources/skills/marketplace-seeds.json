@@ -14,7 +14,7 @@
       "license": "MIT",
       "source": "addyosmani/agent-skills",
       "repositoryUrl": "https://github.com/addyosmani/agent-skills",
-      "installStatus": "installed",
+      "installStatus": "available",
       "reviewStatus": "approved",
       "commercialUseAllowed": true,
       "importSource": "github",
@@ -235,6 +235,26 @@
           "totalBytes": 12000
         }
       ]
+    },
+    {
+      "id": "ai-ecommerce-agent-skills",
+      "name": "AI Ecommerce Agent Skills",
+      "description": "Ecommerce agent skill collection covering product imagery, ecommerce design, competitor analysis, media upload, stock analysis, and review memory workflows.",
+      "category": "content",
+      "iconText": "E",
+      "tags": ["writing", "analysis"],
+      "rating": "暂无数据",
+      "downloads": "暂无数据",
+      "license": "CC-BY-NC-4.0",
+      "source": "BENZEMA216/ai-ecommerce-agent-skills",
+      "repositoryUrl": "https://github.com/BENZEMA216/ai-ecommerce-agent-skills",
+      "installStatus": "planned",
+      "reviewStatus": "rejected",
+      "commercialUseAllowed": false,
+      "importSource": "github",
+      "lastSyncedAt": "2026-07-11T00:00:00.000Z",
+      "selectedInstallTarget": "",
+      "installTargets": []
     }
   ]
 }

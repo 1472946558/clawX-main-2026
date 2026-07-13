@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Bot, Check, Plus, RefreshCw, Settings2, Trash2, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,19 +8,20 @@ import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useAgentsStore } from '@/stores/agents';
 import { useGatewayStore } from '@/stores/gateway';
-import { useProviderStore } from '@/stores/providers';
 import { hostApi, type ChannelGroupItem } from '@/lib/host-api';
 import { hostEvents } from '@/lib/host-events';
 import { CHANNEL_ICONS, CHANNEL_NAMES, type ChannelType } from '@/types/channel';
 import type { AgentSummary } from '@/types/agent';
 import {
-  buildRuntimeProviderOptions,
-  splitModelRef,
-  type RuntimeProviderOption,
-} from '@/lib/model-options';
+  buildCanvaslandModelRef,
+  CANVASLAND_MODEL_PLANS,
+  DEFAULT_CANVASLAND_MODEL_PLAN_ID,
+  type CanvaslandModelPlanId,
+} from '@shared/model-plans';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -37,7 +37,6 @@ import qqIcon from '@/assets/channels/qq.svg';
 export function Agents() {
   const { t } = useTranslation('agents');
   const gatewayStatus = useGatewayStore((state) => state.status);
-  const refreshProviderSnapshot = useProviderStore((state) => state.refreshProviderSnapshot);
   const lastGatewayStateRef = useRef(gatewayStatus.state);
   const {
     agents,
@@ -67,7 +66,7 @@ export function Agents() {
   useEffect(() => {
     let mounted = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void Promise.all([fetchAgents(), fetchChannelAccounts(), refreshProviderSnapshot()]).finally(() => {
+    void Promise.all([fetchAgents(), fetchChannelAccounts()]).finally(() => {
       if (mounted) {
         setHasCompletedInitialLoad(true);
       }
@@ -75,7 +74,7 @@ export function Agents() {
     return () => {
       mounted = false;
     };
-  }, [fetchAgents, fetchChannelAccounts, refreshProviderSnapshot]);
+  }, [fetchAgents, fetchChannelAccounts]);
 
   useEffect(() => {
     const unsubscribe = hostEvents.onGatewayChannelStatus(() => {
@@ -347,10 +346,12 @@ function AddAgentDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onCreate: (name: string, options: { inheritWorkspace: boolean }) => Promise<void>;
+  onCreate: (name: string, options: { inheritWorkspace: boolean; modelPlanId: string; persona: string }) => Promise<void>;
 }) {
   const { t } = useTranslation('agents');
   const [name, setName] = useState('');
+  const [modelPlanId, setModelPlanId] = useState(DEFAULT_CANVASLAND_MODEL_PLAN_ID);
+  const [persona, setPersona] = useState('');
   const [inheritWorkspace, setInheritWorkspace] = useState(false);
   const [saving, setSaving] = useState(false);
   const [prevOpen, setPrevOpen] = useState(open);
@@ -359,6 +360,8 @@ function AddAgentDialog({
     setPrevOpen(open);
     if (open) {
       setName('');
+      setModelPlanId(DEFAULT_CANVASLAND_MODEL_PLAN_ID);
+      setPersona('');
       setInheritWorkspace(false);
       setSaving(false);
     }
@@ -368,7 +371,7 @@ function AddAgentDialog({
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await onCreate(name.trim(), { inheritWorkspace });
+      await onCreate(name.trim(), { inheritWorkspace, modelPlanId, persona: persona.trim() });
     } catch (error) {
       toast.error(t('toast.agentCreateFailed', { error: String(error) }));
       setSaving(false);
@@ -403,6 +406,34 @@ function AddAgentDialog({
               placeholder={t('createDialog.namePlaceholder')}
               className={inputClasses}
             />
+          </div>
+          <div className="space-y-2.5">
+            <Label htmlFor="agent-model-plan" className={labelClasses}>{t('createDialog.modelLabel')}</Label>
+            <select
+              id="agent-model-plan"
+              data-testid="agent-model-plan-select"
+              value={modelPlanId}
+              onChange={(event) => setModelPlanId(event.target.value as CanvaslandModelPlanId)}
+              className={selectClasses}
+            >
+              {CANVASLAND_MODEL_PLANS.map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2.5">
+            <Label htmlFor="agent-persona" className={labelClasses}>{t('createDialog.personaLabel')}</Label>
+            <Textarea
+              id="agent-persona"
+              data-testid="agent-persona-textarea"
+              value={persona}
+              onChange={(event) => setPersona(event.target.value)}
+              placeholder={t('createDialog.personaPlaceholder')}
+              className="min-h-[96px] rounded-xl text-sm bg-transparent border-black/10 dark:border-white/10 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:border-blue-500 shadow-sm text-foreground placeholder:text-foreground/40 resize-none"
+            />
+            <p className="text-meta text-foreground/60">{t('createDialog.personaDescription')}</p>
           </div>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
@@ -673,46 +704,15 @@ function AgentModelModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation('agents');
-  const navigate = useNavigate();
-  const providerAccounts = useProviderStore((state) => state.accounts);
-  const providerStatuses = useProviderStore((state) => state.statuses);
-  const providerVendors = useProviderStore((state) => state.vendors);
-  const providerDefaultAccountId = useProviderStore((state) => state.defaultAccountId);
-  const { updateAgentModel, defaultModelRef } = useAgentsStore();
-  const [selectedRuntimeProviderKey, setSelectedRuntimeProviderKey] = useState('');
-  const [modelIdInput, setModelIdInput] = useState('');
+  const { updateAgentModel } = useAgentsStore();
+  const [selectedModelPlanId, setSelectedModelPlanId] = useState(agent.modelPlanId || DEFAULT_CANVASLAND_MODEL_PLAN_ID);
   const [savingModel, setSavingModel] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [prevOpen, setPrevOpen] = useState(open);
 
-  const runtimeProviderOptions = useMemo<RuntimeProviderOption[]>(
-    () => buildRuntimeProviderOptions(
-      providerAccounts,
-      providerStatuses,
-      providerVendors,
-      providerDefaultAccountId,
-    ),
-    [providerAccounts, providerDefaultAccountId, providerStatuses, providerVendors],
-  );
-
   useEffect(() => {
-    const override = splitModelRef(agent.overrideModelRef);
-    if (override) {
-      setSelectedRuntimeProviderKey(override.providerKey);
-      setModelIdInput(override.modelId);
-      return;
-    }
-
-    const effective = splitModelRef(agent.modelRef || defaultModelRef);
-    if (effective) {
-      setSelectedRuntimeProviderKey(effective.providerKey);
-      setModelIdInput(effective.modelId);
-      return;
-    }
-
-    setSelectedRuntimeProviderKey(runtimeProviderOptions[0]?.runtimeProviderKey || '');
-    setModelIdInput('');
-  }, [agent.modelRef, agent.overrideModelRef, defaultModelRef, runtimeProviderOptions]);
+    setSelectedModelPlanId(agent.modelPlanId || DEFAULT_CANVASLAND_MODEL_PLAN_ID);
+  }, [agent.modelPlanId]);
 
   if (prevOpen !== open) {
     setPrevOpen(open);
@@ -722,18 +722,9 @@ function AgentModelModal({
     }
   }
 
-  const selectedProvider = runtimeProviderOptions.find((option) => option.runtimeProviderKey === selectedRuntimeProviderKey) || null;
-  const trimmedModelId = modelIdInput.trim();
-  const nextModelRef = selectedRuntimeProviderKey && trimmedModelId
-    ? `${selectedRuntimeProviderKey}/${trimmedModelId}`
-    : '';
-  const normalizedDefaultModelRef = (defaultModelRef || '').trim();
-  const isUsingDefaultModelInForm = Boolean(normalizedDefaultModelRef) && nextModelRef === normalizedDefaultModelRef;
-  const currentOverrideModelRef = (agent.overrideModelRef || '').trim();
-  const desiredOverrideModelRef = nextModelRef && nextModelRef !== normalizedDefaultModelRef
-    ? nextModelRef
-    : null;
-  const modelChanged = (desiredOverrideModelRef || '') !== currentOverrideModelRef;
+  const nextModelRef = buildCanvaslandModelRef(selectedModelPlanId);
+  const currentPlanId = agent.modelPlanId || DEFAULT_CANVASLAND_MODEL_PLAN_ID;
+  const modelChanged = selectedModelPlanId !== currentPlanId;
 
   const handleRequestClose = () => {
     if (savingModel || modelChanged) {
@@ -744,46 +735,18 @@ function AgentModelModal({
   };
 
   const handleSaveModel = async () => {
-    if (!selectedRuntimeProviderKey) {
-      toast.error(t('toast.agentModelProviderRequired'));
-      return;
-    }
-    if (!trimmedModelId) {
-      toast.error(t('toast.agentModelIdRequired'));
-      return;
-    }
     if (!modelChanged) return;
-    if (!nextModelRef.includes('/')) {
-      toast.error(t('toast.agentModelInvalid'));
-      return;
-    }
 
     setSavingModel(true);
     try {
-      await updateAgentModel(agent.id, desiredOverrideModelRef);
-      toast.success(desiredOverrideModelRef ? t('toast.agentModelUpdated') : t('toast.agentModelReset'));
+      await updateAgentModel(agent.id, nextModelRef, selectedModelPlanId);
+      toast.success(t('toast.agentModelUpdated'));
       onClose();
     } catch (error) {
       toast.error(t('toast.agentModelUpdateFailed', { error: String(error) }));
     } finally {
       setSavingModel(false);
     }
-  };
-
-  const handleUseDefaultModel = () => {
-    const parsedDefault = splitModelRef(normalizedDefaultModelRef);
-    if (!parsedDefault) {
-      setSelectedRuntimeProviderKey('');
-      setModelIdInput('');
-      return;
-    }
-    setSelectedRuntimeProviderKey(parsedDefault.providerKey);
-    setModelIdInput(parsedDefault.modelId);
-  };
-
-  const handleOpenProviderSettings = () => {
-    onClose();
-    navigate('/settings#ai-providers');
   };
 
   return (
@@ -799,7 +762,7 @@ function AgentModelModal({
             </DialogTitle>
             <DialogDescription asChild>
               <CardDescription className="text-sm mt-1 text-foreground/70">
-                {t('settingsDialog.modelOverrideDescription', { defaultModel: defaultModelRef || '-' })}
+                {t('settingsDialog.modelOverrideDescription')}
               </CardDescription>
             </DialogDescription>
           </div>
@@ -814,68 +777,27 @@ function AgentModelModal({
         </CardHeader>
         <CardContent className="space-y-4 p-6 pt-4">
           <div className="space-y-2">
-            <Label htmlFor="agent-model-provider" className="text-xs text-foreground/70">{t('settingsDialog.modelProviderLabel')}</Label>
+            <Label htmlFor="agent-model-plan-update" className="text-xs text-foreground/70">{t('settingsDialog.modelLabel')}</Label>
             <select
-              id="agent-model-provider"
-              value={selectedRuntimeProviderKey}
-              onChange={(event) => {
-                const nextProvider = event.target.value;
-                setSelectedRuntimeProviderKey(nextProvider);
-                if (!modelIdInput.trim()) {
-                  const option = runtimeProviderOptions.find((candidate) => candidate.runtimeProviderKey === nextProvider);
-                  setModelIdInput(option?.configuredModelId || '');
-                }
-              }}
+              id="agent-model-plan-update"
+              data-testid="agent-model-plan-update-select"
+              value={selectedModelPlanId}
+              onChange={(event) => setSelectedModelPlanId(event.target.value as CanvaslandModelPlanId)}
               className={selectClasses}
             >
-              <option value="">{t('settingsDialog.modelProviderPlaceholder')}</option>
-              {runtimeProviderOptions.map((option) => (
-                <option key={option.runtimeProviderKey} value={option.runtimeProviderKey}>
-                  {option.label}
+              {CANVASLAND_MODEL_PLANS.map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.label}
                 </option>
               ))}
             </select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="agent-model-id" className="text-xs text-foreground/70">{t('settingsDialog.modelIdLabel')}</Label>
-            <Input
-              id="agent-model-id"
-              value={modelIdInput}
-              onChange={(event) => setModelIdInput(event.target.value)}
-              placeholder={selectedProvider?.modelIdPlaceholder || selectedProvider?.configuredModelId || t('settingsDialog.modelIdPlaceholder')}
-              className={inputClasses}
-            />
           </div>
           {!!nextModelRef && (
             <p className="text-xs font-mono text-foreground/70 break-all">
               {t('settingsDialog.modelPreview')}: {nextModelRef}
             </p>
           )}
-          {runtimeProviderOptions.length === 0 && (
-            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-              <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                {t('settingsDialog.modelProviderEmpty')}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleOpenProviderSettings}
-                className="mt-3 h-9 rounded-full border-amber-500/30 bg-transparent px-4 text-meta font-medium text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
-              >
-                <Settings2 className="mr-2 h-3.5 w-3.5" />
-                {t('settingsDialog.addProviderAction')}
-              </Button>
-            </div>
-          )}
           <div className="flex items-center justify-end gap-2 pt-2">
-            <Button
-              variant="outline"
-              onClick={handleUseDefaultModel}
-              disabled={savingModel || !normalizedDefaultModelRef || isUsingDefaultModelInForm}
-              className="h-9 text-meta font-medium rounded-full px-4 border-black/10 dark:border-white/10 bg-transparent hover:bg-black/5 dark:hover:bg-white/5 shadow-none text-foreground/80 hover:text-foreground"
-            >
-              {t('settingsDialog.useDefaultModel')}
-            </Button>
             <Button
               variant="outline"
               onClick={handleRequestClose}
@@ -885,7 +807,7 @@ function AgentModelModal({
             </Button>
             <Button
               onClick={() => void handleSaveModel()}
-              disabled={savingModel || !selectedRuntimeProviderKey || !trimmedModelId || !modelChanged}
+              disabled={savingModel || !modelChanged}
               className="h-9 text-meta font-medium rounded-full px-4 shadow-none"
             >
               {savingModel ? (

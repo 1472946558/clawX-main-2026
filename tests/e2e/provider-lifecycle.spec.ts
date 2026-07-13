@@ -24,7 +24,7 @@ test.describe('canvasland provider lifecycle', () => {
     await completeSetup(page);
     await seedTestProvider(page);
 
-    await page.getByTestId('sidebar-nav-models').click();
+    await page.getByTestId('sidebar-nav-settings').click();
     await expect(page.getByTestId('providers-settings')).toBeVisible();
     await expect(page.getByTestId(`provider-card-${TEST_PROVIDER_ID}`)).toContainText(TEST_PROVIDER_LABEL);
 
@@ -39,7 +39,7 @@ test.describe('canvasland provider lifecycle', () => {
     await completeSetup(page);
     await seedTestProvider(page);
 
-    await page.getByTestId('sidebar-nav-models').click();
+    await page.getByTestId('sidebar-nav-settings').click();
     await expect(page.getByTestId(`provider-card-${TEST_PROVIDER_ID}`)).toContainText(TEST_PROVIDER_LABEL);
 
     await page.getByTestId(`provider-card-${TEST_PROVIDER_ID}`).hover();
@@ -54,7 +54,7 @@ test.describe('canvasland provider lifecycle', () => {
       await relaunchedPage.waitForLoadState('domcontentloaded');
       await expect(relaunchedPage.getByTestId('main-layout')).toBeVisible();
 
-      await relaunchedPage.getByTestId('sidebar-nav-models').click();
+      await relaunchedPage.getByTestId('sidebar-nav-settings').click();
       await expect(relaunchedPage.getByTestId('providers-settings')).toBeVisible();
       await expect(relaunchedPage.getByTestId(`provider-card-${TEST_PROVIDER_ID}`)).toHaveCount(0);
       await expect(relaunchedPage.getByText(TEST_PROVIDER_LABEL)).toHaveCount(0);
@@ -74,7 +74,7 @@ test.describe('canvasland provider lifecycle', () => {
       const relaunchedPage = await relaunchedApp.firstWindow();
       await relaunchedPage.waitForLoadState('domcontentloaded');
       await expect(relaunchedPage.getByTestId('main-layout')).toBeVisible();
-      await relaunchedPage.getByTestId('sidebar-nav-models').click();
+      await relaunchedPage.getByTestId('sidebar-nav-settings').click();
 
       const providerCard = relaunchedPage.getByTestId(`provider-card-${TEST_PROVIDER_ID}`);
       await expect(providerCard).toContainText(TEST_PROVIDER_LABEL);
@@ -87,7 +87,7 @@ test.describe('canvasland provider lifecycle', () => {
   test('shows OpenAI OAuth and API key auth mode toggle in add-provider dialog', async ({ page }) => {
     await completeSetup(page);
 
-    await page.getByTestId('sidebar-nav-models').click();
+    await page.getByTestId('sidebar-nav-settings').click();
     await expect(page.getByTestId('providers-settings')).toBeVisible();
 
     await page.getByTestId('providers-add-button').click();
@@ -185,7 +185,7 @@ test.describe('canvasland provider lifecycle', () => {
       });
     });
 
-    await page.getByTestId('sidebar-nav-models').click();
+    await page.getByTestId('sidebar-nav-settings').click();
     await expect(page.getByTestId('providers-settings')).toBeVisible();
 
     await page.getByTestId('providers-add-button').click();
@@ -280,7 +280,7 @@ test.describe('canvasland provider lifecycle', () => {
       });
     });
 
-    await page.getByTestId('sidebar-nav-models').click();
+    await page.getByTestId('sidebar-nav-settings').click();
     await expect(page.getByTestId('providers-settings')).toBeVisible();
     await expect(page.getByTestId('provider-card-moonshot-edit')).toBeVisible();
 

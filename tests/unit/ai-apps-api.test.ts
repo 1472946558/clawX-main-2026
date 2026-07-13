@@ -51,12 +51,39 @@ describe('ai apps host api service', () => {
     });
   });
 
+  it('lists the three customer-confirmed workflow definitions', async () => {
+    const api = createAiAppsApi();
+
+    const result = await api.listWorkflows();
+
+    expect(result.success).toBe(true);
+    expect(result.workflows?.map((workflow) => workflow.id)).toEqual([
+      'ecommerce-copywriting',
+      'detail-poster-generator',
+      'product-short-video',
+    ]);
+    expect(result.workflows?.[0]).toMatchObject({
+      outputType: 'text',
+      providerCapability: 'chat',
+      asyncTask: false,
+    });
+    expect(result.workflows?.[2]).toMatchObject({
+      outputType: 'video',
+      providerCapability: 'video',
+      asyncTask: true,
+    });
+  });
+
   it('returns validation errors for invalid jobs', async () => {
     const api = createAiAppsApi();
 
     await expect(api.createJob({ appId: '', mode: 'live' })).resolves.toMatchObject({
       success: false,
       error: 'appId is required',
+    });
+    await expect(api.createJob({ appId: 'ocr', mode: 'live' })).resolves.toMatchObject({
+      success: false,
+      error: 'Unknown AI workflow: ocr',
     });
     await expect(api.getJob({ id: 'missing' })).resolves.toMatchObject({
       success: false,
@@ -84,6 +111,65 @@ describe('ai apps host api service', () => {
       inputs,
     }));
     expect(created.job?.inputs).toEqual(inputs);
+  });
+
+  it('charges the server-owned tier only after a successful job', async () => {
+    const run = vi.fn().mockResolvedValue({ assetCount: 1, assets: [] });
+    const billingClient = {
+      quote: vi.fn().mockResolvedValue({ points: 60, affordable: true, availablePoints: 500 }),
+      debit: vi.fn().mockResolvedValue(60),
+    };
+    const api = createAiAppsApi({ runner: { run }, billingClient });
+
+    const created = await api.createJob({
+      appId: 'detail-poster-generator',
+      inputs: { prompt: 'premium poster', billingTierId: 'pro' },
+    });
+
+    await vi.waitFor(async () => {
+      const result = await api.getJob({ id: created.job?.id || '' });
+      expect(result.job).toMatchObject({ status: 'completed', billingTierId: 'pro', pointsUsed: 60 });
+    });
+    expect(billingClient.quote).toHaveBeenCalledWith('detail-poster-generator', 'pro');
+    expect(billingClient.debit).toHaveBeenCalledWith('detail-poster-generator', 'pro', created.job?.id);
+  });
+
+  it('does not dispatch or debit when the wallet cannot afford the selected tier', async () => {
+    const run = vi.fn().mockResolvedValue({ assetCount: 1, assets: [] });
+    const billingClient = {
+      quote: vi.fn().mockResolvedValue({ points: 600, affordable: false, availablePoints: 120 }),
+      debit: vi.fn().mockResolvedValue(600),
+    };
+    const api = createAiAppsApi({ runner: { run }, billingClient });
+
+    const created = await api.createJob({
+      appId: 'detail-poster-generator',
+      inputs: { prompt: 'premium poster', billingTierId: 'pro' },
+    });
+
+    expect(created).toMatchObject({ success: false, error: expect.stringContaining('积分不足') });
+    expect(run).not.toHaveBeenCalled();
+    expect(billingClient.debit).not.toHaveBeenCalled();
+  });
+
+  it('does not debit a failed provider job', async () => {
+    const billingClient = {
+      quote: vi.fn().mockResolvedValue({ points: 30, affordable: true, availablePoints: 500 }),
+      debit: vi.fn().mockResolvedValue(30),
+    };
+    const api = createAiAppsApi({
+      runner: { run: vi.fn().mockRejectedValue(new Error('provider failed')) },
+      billingClient,
+    });
+
+    const created = await api.createJob({
+      appId: 'detail-poster-generator',
+      inputs: { prompt: 'poster', billingTierId: 'standard' },
+    });
+    await vi.waitFor(async () => {
+      await expect(jobsStatus(api, created.job?.id || '')).resolves.toBe('failed');
+    });
+    expect(billingClient.debit).not.toHaveBeenCalled();
   });
 
   it('preserves staged reference metadata for the backend runner', async () => {

@@ -524,6 +524,29 @@ describe('agent config lifecycle', () => {
     await expect(readFile(join(testHome, '.openclaw', 'workspace-research', 'IDENTITY.md'), 'utf8')).resolves.toContain('canvasland');
   });
 
+  it('writes the initial agent persona into new agent bootstrap files', async () => {
+    await writeOpenClawJson({
+      agents: {
+        list: [{ id: 'main', name: 'Main', default: true }],
+      },
+    });
+
+    const { createAgent } = await import('@electron/utils/agent-config');
+
+    await createAgent('Store Writer', {
+      modelPlanId: 'gpt-5.5',
+      persona: 'Write concise ecommerce copy.',
+    });
+
+    const workspaceDir = join(testHome, '.openclaw', 'workspace-store-writer');
+    const soul = await readFile(join(workspaceDir, 'SOUL.md'), 'utf8');
+    const identity = await readFile(join(workspaceDir, 'IDENTITY.md'), 'utf8');
+    expect(soul).toContain('- **Name:** Store Writer');
+    expect(soul).toContain('Write concise ecommerce copy.');
+    expect(identity).toContain('- **Name:** Store Writer');
+    expect(identity).toContain('Write concise ecommerce copy.');
+  });
+
   it('updates the main agent profile and writes persona bootstrap files', async () => {
     const workspaceDir = join(testHome, '.openclaw', 'workspace');
     await writeOpenClawJson({

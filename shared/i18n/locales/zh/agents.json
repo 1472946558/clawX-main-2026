@@ -1,8 +1,8 @@
 {
-    "title": "Agents",
-    "subtitle": "创建新的 Agent，可以将特定频道路由到不同的人格配置或工作区。",
+    "title": "AI 助手",
+    "subtitle": "创建新的 AI 助手，选择内置模型并配置专属角色。",
     "refresh": "刷新",
-    "addAgent": "添加 Agent",
+    "addAgent": "创建助手",
     "gatewayWarning": "Gateway 服务未运行。Agent 或频道变更可能需要一点时间生效。",
     "defaultBadge": "默认",
     "inherited": "继承",
@@ -13,12 +13,16 @@
     "settings": "设置",
     "creating": "创建中...",
     "createDialog": {
-        "title": "添加 Agent",
-        "description": "输入名称即可创建新 Agent，可选择是否继承主 Agent 的工作区引导文件。",
-        "nameLabel": "Agent 名称",
-        "namePlaceholder": "Coding Helper",
-        "inheritWorkspaceLabel": "继承主 Agent 工作区",
-        "inheritWorkspaceDescription": "从主 Agent 复制 SOUL.md、AGENTS.md 等引导文件"
+        "title": "创建助手",
+        "description": "创建新的 AI 助手，选择一个已启用模型，并设置它的专属角色。",
+        "nameLabel": "助手名称",
+        "namePlaceholder": "电商文案助手",
+        "modelLabel": "选择模型",
+        "personaLabel": "助手角色",
+        "personaPlaceholder": "你是一名专业电商文案助手，负责生成商品标题、卖点和详情页文案。",
+        "personaDescription": "这段角色说明会保存到助手工作区，后续聊天会作为该助手的启动上下文。",
+        "inheritWorkspaceLabel": "继承主助手配置",
+        "inheritWorkspaceDescription": "从主助手复制 SOUL.md、AGENTS.md 等引导文件"
     },
     "deleteDialog": {
         "title": "删除 Agent",
@@ -39,7 +43,7 @@
         "modelIdPlaceholder": "model-id",
         "modelPreview": "预览",
         "modelOverridePlaceholder": "provider/model（例如：openrouter/openai/gpt-5.5）",
-        "modelOverrideDescription": "为该 Agent 选择 Provider 和模型 ID。",
+        "modelOverrideDescription": "为该 Agent 选择一个已启用的 canvasland 模型，无需填写 Provider、API Key 或 Base URL。",
         "unsavedChangesTitle": "未保存的修改",
         "unsavedChangesMessage": "你有未保存的修改。关闭后这些修改将被丢弃。",
         "closeWithoutSaving": "不保存并关闭",

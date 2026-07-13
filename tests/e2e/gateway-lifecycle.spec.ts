@@ -22,8 +22,8 @@ test.describe('canvasland gateway lifecycle resilience', () => {
 
     // Navigate through all major pages to verify nothing crashes
     // when the gateway is not running.
-    await page.getByTestId('sidebar-nav-models').click();
-    await expect(page.getByTestId('models-page')).toBeVisible();
+    await page.getByTestId('sidebar-nav-token-topup').click();
+    await expect(page.getByTestId('token-topup-page')).toBeVisible();
 
     await page.getByTestId('sidebar-nav-agents').click();
     await expect(page.getByTestId('agents-page')).toBeVisible();
@@ -75,8 +75,8 @@ test.describe('canvasland gateway lifecycle resilience', () => {
     await page.waitForTimeout(500);
 
     // Verify navigation still works after status transitions
-    await page.getByTestId('sidebar-nav-models').click();
-    await expect(page.getByTestId('models-page')).toBeVisible();
+    await page.getByTestId('sidebar-nav-token-topup').click();
+    await expect(page.getByTestId('token-topup-page')).toBeVisible();
 
     // Transition 3: running → error (simulates the bug scenario where
     // gateway becomes unreachable after in-process restart)

@@ -15,7 +15,6 @@ import {
   getClawHubSlugForMarketplaceSkill,
   getMarketplaceSkill,
   importMarketplaceCatalog,
-  installGitHubMarketplaceSkill,
   listMarketplaceSkills,
   listApprovedMarketplaceSkills,
   normalizeClawHubMarketplaceSkill,
@@ -24,6 +23,14 @@ import {
   reviewMarketplaceSkill,
   updateMarketplaceSkill,
 } from './skills/marketplace-skill-service';
+import {
+  getInstalledSkills,
+  getInstallStatus,
+  installFromGithub,
+  installFromLocal,
+  scanSkillDir,
+  uninstall,
+} from './skills/skill-install-service';
 import { isRecord } from './payload-utils';
 import { join } from 'node:path';
 import type {
@@ -93,6 +100,30 @@ type MarketplaceUpdateInput = {
 
 type MarketplaceInstallInput = {
   id?: unknown;
+};
+
+type InstallFromGithubInput = {
+  skillId?: unknown;
+  repositoryUrl?: unknown;
+  selectedInstallTarget?: unknown;
+};
+
+type InstallFromLocalInput = {
+  skillId?: unknown;
+  localDir?: unknown;
+};
+
+type InstallStatusInput = {
+  skillId?: unknown;
+};
+
+type UninstallInput = {
+  skillId?: unknown;
+};
+
+type ScanSkillDirInput = {
+  skillId?: unknown;
+  dir?: unknown;
 };
 
 function errorMessage(error: unknown): string {
@@ -171,6 +202,13 @@ function getMarketplaceReviewStatus(value: unknown): SkillMarketplaceReviewStatu
 function getMarketplaceId(value: unknown): string {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error('id is required');
+  }
+  return value.trim();
+}
+
+function requireString(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${field} is required`);
   }
   return value.trim();
 }
@@ -317,7 +355,11 @@ export function createSkillsApi({
           throw new Error('Only approved commercial-use skills can be installed');
         }
         let installPath = skill.importSource === 'github'
-          ? await installGitHubMarketplaceSkill(skill)
+          ? (await installFromGithub({
+            skillId: skill.id,
+            repositoryUrl: skill.repositoryUrl,
+            selectedInstallTarget: skill.selectedInstallTarget,
+          })).installDir
           : undefined;
         let runtimeSkillKey = skill.id;
         if (skill.importSource === 'clawhub') {
@@ -350,6 +392,70 @@ export function createSkillsApi({
         if (id) {
           await updateMarketplaceSkill(id, { installError: errorMessage(error) }).catch(() => undefined);
         }
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    installFromGithub: async (payload) => {
+      try {
+        const body = isRecord(payload) ? payload as InstallFromGithubInput : {};
+        return {
+          success: true,
+          record: await installFromGithub({
+            skillId: requireString(body.skillId, 'skillId'),
+            repositoryUrl: requireString(body.repositoryUrl, 'repositoryUrl'),
+            selectedInstallTarget: typeof body.selectedInstallTarget === 'string' ? body.selectedInstallTarget : undefined,
+          }),
+        };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    installFromLocal: async (payload) => {
+      try {
+        const body = isRecord(payload) ? payload as InstallFromLocalInput : {};
+        return {
+          success: true,
+          record: await installFromLocal({
+            skillId: requireString(body.skillId, 'skillId'),
+            localDir: requireString(body.localDir, 'localDir'),
+          }),
+        };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    getInstalledSkills: async () => {
+      try {
+        return { success: true, skills: await getInstalledSkills() };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    getInstallStatus: async (payload) => {
+      try {
+        const body = isRecord(payload) ? payload as InstallStatusInput : {};
+        return await getInstallStatus(requireString(body.skillId, 'skillId'));
+      } catch (error) {
+        return { success: false, error: errorMessage(error), status: 'failed' };
+      }
+    },
+    uninstall: async (payload) => {
+      try {
+        const body = isRecord(payload) ? payload as UninstallInput : {};
+        await uninstall(requireString(body.skillId, 'skillId'));
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+    scanSkillDir: async (payload) => {
+      try {
+        const body = isRecord(payload) ? payload as ScanSkillDirInput : {};
+        return await scanSkillDir({
+          skillId: typeof body.skillId === 'string' ? body.skillId : undefined,
+          dir: requireString(body.dir, 'dir'),
+        });
+      } catch (error) {
         return { success: false, error: errorMessage(error) };
       }
     },

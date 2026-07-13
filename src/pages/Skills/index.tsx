@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ComponentType } from 'react';
 import type {
+  InstalledSkillRecord,
+  SkillInstallStatus,
   SkillMarketplaceItem,
   SkillMarketplaceReviewStatus,
 } from '@shared/host-api/contract';
@@ -74,6 +76,8 @@ type MarketplaceAdminDraft = {
   selectedInstallTarget: string;
 };
 
+type MarketplaceUiStatus = SkillInstallStatus | SkillStatus;
+
 function getPublicSourceKey(skill: MarketplaceSkillCard): 'verified' | 'clawhub' | 'local' {
   if (skill.importSource === 'clawhub') return 'clawhub';
   if (skill.importSource === 'manual') return 'local';
@@ -106,7 +110,7 @@ const FALLBACK_MARKETPLACE_SKILLS: MarketplaceSkillCard[] = [
     license: 'MIT',
     source: 'addyosmani/agent-skills',
     repositoryUrl: 'https://github.com/addyosmani/agent-skills',
-    installStatus: 'installed',
+    installStatus: 'available',
     reviewStatus: 'approved',
     commercialUseAllowed: true,
     importSource: 'github',
@@ -285,6 +289,15 @@ const STATUS_COLORS: Record<SkillStatus, string> = {
   planned: 'border-slate-200 bg-slate-50 text-slate-600',
 };
 
+const INSTALL_STATUS_COLORS: Record<MarketplaceUiStatus, string> = {
+  ...STATUS_COLORS,
+  not_installed: 'border-slate-200 bg-slate-50 text-slate-600',
+  downloading: 'border-blue-100 bg-blue-50 text-blue-700',
+  downloaded: 'border-blue-100 bg-blue-50 text-blue-700',
+  installed_metadata_only: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+  failed: 'border-red-100 bg-red-50 text-red-700',
+};
+
 const MARKETPLACE_ADMIN_CATEGORIES: MarketplaceSkillCard['category'][] = [
   'hot',
   'safe',
@@ -330,12 +343,21 @@ export function Skills() {
   const [marketplaceMessage, setMarketplaceMessage] = useState('');
   const [adminBusy, setAdminBusy] = useState(false);
   const [installingSkillId, setInstallingSkillId] = useState<string>('');
+  const [uninstallingSkillId, setUninstallingSkillId] = useState<string>('');
+  const [installedSkills, setInstalledSkills] = useState<InstalledSkillRecord[]>([]);
   const [selectedMarketplaceSkillId, setSelectedMarketplaceSkillId] = useState<string>('');
 
   const refreshMarketplaceSkills = useCallback(async () => {
     const result = await hostApi.skills.marketplaceList();
     if (result.success && Array.isArray(result.skills) && result.skills.length > 0) {
       setMarketplaceSkills(result.skills as MarketplaceSkillCard[]);
+    }
+  }, []);
+
+  const refreshInstalledSkills = useCallback(async () => {
+    const result = await hostApi.skills.getInstalledSkills();
+    if (result.success && Array.isArray(result.skills)) {
+      setInstalledSkills(result.skills);
     }
   }, []);
 
@@ -354,14 +376,35 @@ export function Skills() {
     void refreshMarketplaceSkills().catch(() => {
       // Keep the local fallback so the marketplace remains browsable offline.
     });
-  }, [refreshMarketplaceSkills]);
+    void refreshInstalledSkills().catch(() => undefined);
+  }, [refreshInstalledSkills, refreshMarketplaceSkills]);
 
   useEffect(() => {
     if (!adminOpen) return;
     void refreshAdminSkills();
   }, [adminOpen, refreshAdminSkills]);
 
-  const installedCount = marketplaceSkills.filter((skill) => skill.installStatus === 'installed').length;
+  const installedSkillById = useMemo(
+    () => new Map(installedSkills.map((skill) => [skill.skillId, skill])),
+    [installedSkills],
+  );
+
+  const getInstallRecord = useCallback(
+    (skill: MarketplaceSkillCard) => installedSkillById.get(skill.id),
+    [installedSkillById],
+  );
+
+  const getUiStatus = useCallback((skill: MarketplaceSkillCard): MarketplaceUiStatus => {
+    if (installingSkillId === skill.id) return 'downloading';
+    const record = getInstallRecord(skill);
+    return record?.status || skill.installStatus;
+  }, [getInstallRecord, installingSkillId]);
+
+  const isSkillInstalled = useCallback((skill: MarketplaceSkillCard): boolean => (
+    getUiStatus(skill) === 'installed_metadata_only'
+  ), [getUiStatus]);
+
+  const installedCount = marketplaceSkills.filter((skill) => isSkillInstalled(skill)).length;
 
   const selectedAdminSkill = useMemo(
     () => adminSkills.find((skill) => skill.id === selectedAdminSkillId) || null,
@@ -372,6 +415,9 @@ export function Skills() {
     () => marketplaceSkills.find((skill) => skill.id === selectedMarketplaceSkillId) || null,
     [marketplaceSkills, selectedMarketplaceSkillId],
   );
+
+  const selectedInstallRecord = selectedMarketplaceSkill ? getInstallRecord(selectedMarketplaceSkill) : undefined;
+  const selectedUiStatus = selectedMarketplaceSkill ? getUiStatus(selectedMarketplaceSkill) : 'not_installed';
 
   useEffect(() => {
     if (!selectedAdminSkill) {
@@ -394,7 +440,7 @@ export function Skills() {
     return marketplaceSkills.filter((skill) => {
       const matchesCategory =
         categoryFilter === 'all'
-        || (categoryFilter === 'installed' ? skill.installStatus === 'installed' : skill.category === categoryFilter);
+        || (categoryFilter === 'installed' ? isSkillInstalled(skill) : skill.category === categoryFilter);
       if (!matchesCategory) return false;
       if (!query) return true;
       const haystack = [
@@ -406,7 +452,7 @@ export function Skills() {
       ].join(' ').toLowerCase();
       return haystack.includes(query);
     });
-  }, [categoryFilter, marketplaceSkills, searchQuery, t]);
+  }, [categoryFilter, isSkillInstalled, marketplaceSkills, searchQuery, t]);
 
   const handlePreviewImport = async () => {
     setAdminBusy(true);
@@ -510,14 +556,23 @@ export function Skills() {
     setMarketplaceMessage('');
     setInstallingSkillId(skill.id);
     try {
-      const result = await hostApi.skills.marketplaceInstall({ id: skill.id });
+      if (skill.importSource !== 'github') {
+        setMarketplaceMessage(t('marketplace.action.githubOnly'));
+        return;
+      }
+      const result = await hostApi.skills.installFromGithub({
+        skillId: skill.id,
+        repositoryUrl: skill.repositoryUrl,
+        selectedInstallTarget: skill.selectedInstallTarget,
+      });
       if (!result.success) {
         setMarketplaceMessage(result.error || t('marketplace.action.installFailed'));
         return;
       }
-      setMarketplaceMessage(result.installPath
-        ? t('marketplace.action.installReadyWithPath', { path: result.installPath })
+      setMarketplaceMessage(result.record?.installDir
+        ? t('marketplace.action.installReadyWithPath', { path: result.record.installDir })
         : t('marketplace.action.installReady'));
+      await refreshInstalledSkills();
       await refreshMarketplaceSkills();
       if (adminOpen) {
         await refreshAdminSkills(adminReviewFilter);
@@ -529,13 +584,30 @@ export function Skills() {
     }
   };
 
+  const handleMarketplaceUninstall = async (skill: MarketplaceSkillCard) => {
+    setMarketplaceMessage('');
+    setUninstallingSkillId(skill.id);
+    try {
+      const result = await hostApi.skills.uninstall({ skillId: skill.id });
+      setMarketplaceMessage(result.success
+        ? t('marketplace.action.uninstallReady')
+        : result.error || t('marketplace.action.uninstallFailed'));
+      await refreshInstalledSkills();
+    } catch (error) {
+      setMarketplaceMessage(error instanceof Error ? error.message : t('marketplace.action.uninstallFailed'));
+    } finally {
+      setUninstallingSkillId('');
+    }
+  };
+
   const handleMarketplaceUse = async (skill: MarketplaceSkillCard) => {
     setMarketplaceMessage('');
     try {
+      const installRecord = getInstallRecord(skill);
       const result = await hostApi.skills.clawhubOpenSkillReadme({
         skillKey: skill.id,
         slug: skill.id,
-        baseDir: skill.installPath,
+        baseDir: installRecord?.installDir || skill.installPath,
       });
       setMarketplaceMessage(result.success
         ? t('marketplace.action.useReady')
@@ -546,7 +618,7 @@ export function Skills() {
   };
 
   const handleDetailAction = (skill: MarketplaceSkillCard) => {
-    if (skill.installStatus === 'installed') {
+    if (isSkillInstalled(skill)) {
       void handleMarketplaceUse(skill);
       return;
     }
@@ -649,7 +721,11 @@ export function Skills() {
             </div>
           ) : (
             <div data-testid="skills-marketplace-grid" className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {filteredSkills.map((skill) => (
+              {filteredSkills.map((skill) => {
+                const uiStatus = getUiStatus(skill);
+                const installRecord = getInstallRecord(skill);
+                const installed = isSkillInstalled(skill);
+                return (
                 <article
                   key={skill.id}
                   data-testid={`skill-marketplace-card-${skill.id}`}
@@ -677,10 +753,10 @@ export function Skills() {
                           data-testid={`skill-marketplace-status-${skill.id}`}
                           className={cn(
                             'shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-4',
-                            STATUS_COLORS[skill.installStatus],
+                            INSTALL_STATUS_COLORS[uiStatus],
                           )}
                         >
-                          {t(`marketplace.installStatus.${skill.installStatus}`)}
+                          {t(`marketplace.installStatus.${uiStatus}`)}
                         </span>
                       </div>
                       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
@@ -700,11 +776,17 @@ export function Skills() {
                   </p>
 
                   <div className="mt-auto flex items-center justify-between gap-3 pt-3">
-                    <span className="truncate text-[11px] font-medium text-slate-500">
-                      {t(`marketplace.publicSource.${getPublicSourceKey(skill)}`)}
+                    <span className={cn(
+                      'truncate text-[11px] font-medium',
+                      uiStatus === 'failed' ? 'text-red-600' : 'text-slate-500',
+                    )}>
+                      {uiStatus === 'failed'
+                        ? installRecord?.lastError || t('marketplace.action.installFailed')
+                        : t(`marketplace.publicSource.${getPublicSourceKey(skill)}`)}
                     </span>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      {skill.installStatus === 'installed' ? (
+                      {installed ? (
+                        <>
                         <Button
                           type="button"
                           variant="ghost"
@@ -720,13 +802,32 @@ export function Skills() {
                           <PackageCheck className="mr-1 h-3.5 w-3.5" />
                           {t('marketplace.action.use')}
                         </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          data-testid={`skill-marketplace-uninstall-${skill.id}`}
+                          disabled={uninstallingSkillId === skill.id}
+                          className="h-7 rounded-lg px-2 text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
+                          title={t('marketplace.action.uninstall')}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleMarketplaceUninstall(skill);
+                          }}
+                        >
+                          {uninstallingSkillId === skill.id
+                            ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                            : <XCircle className="mr-1 h-3.5 w-3.5" />}
+                          {t('marketplace.action.uninstall')}
+                        </Button>
+                        </>
                       ) : (
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           data-testid={`skill-marketplace-action-${skill.id}`}
-                          disabled={installingSkillId === skill.id}
+                          disabled={installingSkillId === skill.id || uiStatus === 'downloading' || uiStatus === 'downloaded'}
                           className="h-7 rounded-lg px-2 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                           title={t('marketplace.action.install')}
                           onClick={(event) => {
@@ -734,16 +835,17 @@ export function Skills() {
                             void handleMarketplaceAction(skill);
                           }}
                         >
-                          {installingSkillId === skill.id
+                          {installingSkillId === skill.id || uiStatus === 'downloading' || uiStatus === 'downloaded'
                             ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                             : <PackagePlus className="mr-1 h-3.5 w-3.5" />}
-                          {t('marketplace.action.install')}
+                          {uiStatus === 'failed' ? t('marketplace.action.retry') : t('marketplace.action.install')}
                         </Button>
                       )}
                     </div>
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -790,7 +892,7 @@ export function Skills() {
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                     <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5" />{selectedMarketplaceSkill.rating}</span>
                     <span className="inline-flex items-center gap-1"><Download className="h-3.5 w-3.5" />{selectedMarketplaceSkill.downloads}</span>
-                    <span>{t(`marketplace.installStatus.${selectedMarketplaceSkill.installStatus}`)}</span>
+                    <span>{t(`marketplace.installStatus.${selectedUiStatus}`)}</span>
                   </div>
                 </div>
               </div>
@@ -803,10 +905,46 @@ export function Skills() {
                 <dt className="text-slate-500">{t('marketplace.detail.category')}</dt>
                 <dd className="text-slate-800 dark:text-foreground">{t(`marketplace.categories.${selectedMarketplaceSkill.category}`)}</dd>
                 <dt className="text-slate-500">{t('marketplace.detail.version')}</dt>
-                <dd className="font-mono text-slate-800 dark:text-foreground">{getSkillVersion(selectedMarketplaceSkill)}</dd>
+                <dd className="font-mono text-slate-800 dark:text-foreground">{selectedInstallRecord?.version || getSkillVersion(selectedMarketplaceSkill)}</dd>
               </dl>
 
               <div className="space-y-5 text-sm text-slate-700 dark:text-muted-foreground">
+                <section className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/5">
+                  <h4 className="mb-2 font-semibold text-slate-900 dark:text-foreground">{t('marketplace.detail.installInfo')}</h4>
+                  <dl className="grid grid-cols-[72px_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+                    <dt className="text-slate-500">{t('marketplace.detail.installStatus')}</dt>
+                    <dd className="text-slate-800 dark:text-foreground">{t(`marketplace.installStatus.${selectedUiStatus}`)}</dd>
+                    <dt className="text-slate-500">{t('marketplace.detail.installSource')}</dt>
+                    <dd className="text-slate-800 dark:text-foreground">{selectedInstallRecord?.source || t(`marketplace.publicSource.${getPublicSourceKey(selectedMarketplaceSkill)}`)}</dd>
+                    <dt className="text-slate-500">{t('marketplace.detail.installDir')}</dt>
+                    <dd data-testid="skills-marketplace-detail-install-dir" className="break-all font-mono text-slate-800 dark:text-foreground">
+                      {selectedInstallRecord?.installDir || t('marketplace.detail.notInstalled')}
+                    </dd>
+                    {selectedInstallRecord?.lastError && (
+                      <>
+                        <dt className="text-slate-500">{t('marketplace.detail.lastError')}</dt>
+                        <dd className="break-words text-red-600">{selectedInstallRecord.lastError}</dd>
+                      </>
+                    )}
+                  </dl>
+                </section>
+
+                {selectedInstallRecord?.detectedCommands && selectedInstallRecord.detectedCommands.length > 0 && (
+                  <section data-testid="skills-marketplace-detail-risk" className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-amber-800">
+                    <h4 className="mb-2 font-semibold">{t('marketplace.detail.riskTitle')}</h4>
+                    <p className="mb-2 leading-6">{t('marketplace.detail.riskCommandWarning')}</p>
+                    <ul className="max-h-32 list-disc space-y-1 overflow-y-auto pl-5 text-xs">
+                      {selectedInstallRecord.detectedCommands.map((command, index) => (
+                        <li key={`${command.file}-${index}`}>
+                          <code>{command.kind}</code>
+                          {' '}
+                          <span>{command.file}: {command.line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
                 <section>
                   <h4 className="mb-2 font-semibold text-slate-900 dark:text-foreground">{t('marketplace.detail.intro')}</h4>
                   <p className="leading-7">{selectedMarketplaceSkill.description}</p>
@@ -870,14 +1008,16 @@ export function Skills() {
               <Button
                 type="button"
                 data-testid="skills-marketplace-detail-action"
-                disabled={installingSkillId === selectedMarketplaceSkill.id}
+                disabled={installingSkillId === selectedMarketplaceSkill.id || selectedUiStatus === 'downloading' || selectedUiStatus === 'downloaded'}
                 onClick={() => handleDetailAction(selectedMarketplaceSkill)}
                 className="h-10 w-full rounded-md bg-blue-600 text-white hover:bg-blue-700"
               >
                 {installingSkillId === selectedMarketplaceSkill.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {selectedMarketplaceSkill.installStatus === 'installed'
+                {isSkillInstalled(selectedMarketplaceSkill)
                   ? t('marketplace.action.use')
-                  : t('marketplace.action.install')}
+                  : selectedUiStatus === 'failed'
+                    ? t('marketplace.action.retry')
+                    : t('marketplace.action.install')}
               </Button>
             </div>
           </section>

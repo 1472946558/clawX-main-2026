@@ -9,7 +9,6 @@ import { Toaster } from 'sonner';
 import i18n from './i18n';
 import { MainLayout } from './components/layout/MainLayout';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Models } from './pages/Models';
 import { Chat } from './pages/Chat';
 import { Agents } from './pages/Agents';
 import { Channels } from './pages/Channels';
@@ -207,7 +206,7 @@ function App() {
           {/* Main application routes */}
           <Route element={<MainLayout />}>
             <Route path="/" element={<Chat />} />
-            <Route path="/models" element={<Models />} />
+            <Route path="/models" element={<Navigate to="/token-topup" replace />} />
             <Route path="/agents" element={<Agents />} />
             <Route path="/channels" element={<Channels />} />
             <Route path="/token-topup" element={<TokenTopUp />} />

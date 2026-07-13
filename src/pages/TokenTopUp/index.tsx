@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { hostApi } from '@/lib/host-api';
 import { toUserMessage } from '@/lib/error-message';
+import { cn } from '@/lib/utils';
 
 const POINTS_PER_CNY = 100;
 const MIN_PAYMENT_AMOUNT = 0.1;
@@ -26,14 +27,14 @@ const DEFAULT_CREEM_RATES: Record<CreemCurrency, number> = {
   USD: 6.8,
   HKD: 0.87,
 };
-const DEFAULT_RECHARGE_TIERS = [
-  { amount: 5, points: 5 * POINTS_PER_CNY },
-  { amount: 10, points: 10 * POINTS_PER_CNY },
-  { amount: 20, points: 20 * POINTS_PER_CNY },
-  { amount: 50, points: 50 * POINTS_PER_CNY },
-  { amount: 100, points: 100 * POINTS_PER_CNY },
-  { amount: 200, points: 200 * POINTS_PER_CNY },
-  { amount: 500, points: 500 * POINTS_PER_CNY },
+const DEFAULT_RECHARGE_TIERS: RechargeTier[] = [
+  { amount: 5, points: 500 },
+  { amount: 10, points: 1_000 },
+  { amount: 20, points: 2_100 },
+  { amount: 50, points: 6_000, featured: true },
+  { amount: 100, points: 13_000 },
+  { amount: 200, points: 28_000 },
+  { amount: 500, points: 75_000 },
 ];
 
 type PaymentProvider = 'blueocean' | 'epay' | 'creem';
@@ -41,6 +42,7 @@ type PaymentKind = 'wechat' | 'alipay' | 'creem';
 type RechargeTier = {
   amount: number;
   points: number;
+  featured?: boolean;
 };
 type QrPaymentState = {
   success: boolean;
@@ -63,7 +65,8 @@ type QrPaymentState = {
 };
 
 function pointsForAmount(amount: number): number {
-  return Math.round(amount * POINTS_PER_CNY);
+  return DEFAULT_RECHARGE_TIERS.find((tier) => tier.amount === amount)?.points
+    ?? Math.round(amount * POINTS_PER_CNY);
 }
 
 function currencySymbol(currency: CreemCurrency): string {
@@ -71,7 +74,7 @@ function currencySymbol(currency: CreemCurrency): string {
 }
 
 function pointsForCreemAmount(amount: number, currency: CreemCurrency, rates: Record<CreemCurrency, number>): number {
-  return Math.round(amount * (rates[currency] || DEFAULT_CREEM_RATES[currency]) * POINTS_PER_CNY);
+  return pointsForAmount(Number((amount * (rates[currency] || DEFAULT_CREEM_RATES[currency])).toFixed(2)));
 }
 
 export function TokenTopUp() {
@@ -111,7 +114,10 @@ export function TokenTopUp() {
     if (selectedRechargeKey === 'custom') return customTier;
     const amount = Number(selectedRechargeKey.replace('fixed-', ''));
     const tier = rechargeTiers.find((item) => item.amount === amount) || rechargeTiers[0] || null;
-    return tier ? { ...tier, points: pointsForSelectedAmount(tier.amount) } : null;
+    return tier ? {
+      ...tier,
+      points: selectedPaymentKind === 'creem' ? pointsForSelectedAmount(tier.amount) : tier.points,
+    } : null;
   }, [customTier, pointsForSelectedAmount, rechargeTiers, selectedRechargeKey]);
   const selectedPaymentConfigured = selectedPaymentKind === 'creem'
     ? true
@@ -381,23 +387,46 @@ export function TokenTopUp() {
                   {rechargeTiers.map((tier) => {
                     const key = `fixed-${tier.amount}`;
                     const selected = selectedRechargeKey === key;
+                    const points = selectedPaymentKind === 'creem' ? pointsForSelectedAmount(tier.amount) : tier.points;
+                    const cnyAmount = selectedPaymentKind === 'creem'
+                      ? tier.amount * (creemRates[selectedCreemCurrency] || DEFAULT_CREEM_RATES[selectedCreemCurrency])
+                      : tier.amount;
+                    const bonusPoints = Math.max(0, points - Math.round(cnyAmount * POINTS_PER_CNY));
                     return (
                       <button
                         key={tier.amount}
                         type="button"
                         data-testid={`token-topup-tier-${tier.amount}`}
                         onClick={() => setSelectedRechargeKey(key)}
-                        className={`rounded-lg border px-3 py-3 text-left transition ${
+                        className={`relative min-h-[118px] rounded-lg border px-3 py-3 text-left transition ${
                           selected
                             ? 'border-blue-500 bg-blue-500/10'
                             : 'border-black/5 bg-surface-input hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10'
                         }`}
                       >
+                        {tier.featured && selectedPaymentKind !== 'creem' && (
+                          <Badge className="absolute right-2 top-2">{t('tokenTopUp.recommended')}</Badge>
+                        )}
                         <p className="text-sm font-semibold text-foreground">
-                          {selectedPaymentKind === 'creem' ? `${currencySymbol(selectedCreemCurrency)}${tier.amount}` : `¥${tier.amount}`}
+                          {t('tokenTopUp.rechargeAmount', {
+                            amount: selectedPaymentKind === 'creem'
+                              ? `${currencySymbol(selectedCreemCurrency)}${tier.amount}`
+                              : `¥${tier.amount}`,
+                          })}
                         </p>
-                        <p data-testid={`token-topup-tier-points-${tier.amount}`} className="text-xs text-muted-foreground">
-                          {pointsForSelectedAmount(tier.amount).toLocaleString()} {t('tokenTopUp.points')}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t('tokenTopUp.basePoints', { points: Math.round(cnyAmount * POINTS_PER_CNY).toLocaleString() })}
+                        </p>
+                        <p className={cn(
+                          'mt-1 text-xs font-semibold',
+                          bonusPoints > 0
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : 'text-muted-foreground',
+                        )}>
+                          {t('tokenTopUp.packageBonus', { points: bonusPoints.toLocaleString() })}
+                        </p>
+                        <p data-testid={`token-topup-tier-points-${tier.amount}`} className="mt-1 text-xs font-bold text-foreground">
+                          {t('tokenTopUp.totalPoints', { points: points.toLocaleString() })}
                         </p>
                       </button>
                     );

@@ -220,7 +220,7 @@
             "waitingDescription": "Fill in the left-side parameters and submit to preview copy, detail images, or video storyboard results here.",
             "submitGenerate": "Submit generation",
             "requiredFieldsError": "Enter the product name, core selling points, and target platform first.",
-            "estimatedCost": "Estimated cost: about ¥0.2 / run",
+            "estimatedCost": "Points are charged by the selected tier",
             "productName": "Product name",
             "productNamePlaceholder": "Example: women's joggers",
             "coreSellingPoints": "Core selling points",
@@ -264,12 +264,48 @@
             "aspectRatio": "Aspect ratio",
             "model": "Generation model",
             "generateCount": "Generate count",
-            "imagePrice": "Estimated cost: ¥0.5",
-            "videoPrice": "Estimated cost: ¥1.2",
+            "imagePrice": "Points are charged by the selected tier",
+            "videoPrice": "Points are charged by the selected tier",
             "modelDescriptions": {
                 "0": "Production image generation for main and detail images",
                 "1": "Live image generation for quick previews and style iteration",
                 "2": "720P product short-video generation for ecommerce scenes"
+            }
+        },
+        "billing": {
+            "title": "Generation tier",
+            "subtitle": "Only points are shown and charged after successful generation",
+            "points": "{{points}} points",
+            "willUse": "This run will use {{points}} points",
+            "used": "{{points}} points charged",
+            "copy": {
+                "short": { "name": "Short copy", "description": "Titles, taglines, or one short social post" },
+                "social": { "name": "Social Plus", "description": "Multiple social variants and title combinations" },
+                "long": { "name": "Long-form", "description": "Detail pages, brand stories, or long sales copy" },
+                "deep": { "name": "Deep strategy", "description": "Strategic insight, structure, and premium copy" }
+            },
+            "image": {
+                "standard": { "name": "Standard", "description": "Commercial quality for everyday product and detail images" },
+                "pro": { "name": "Pro Master", "description": "Premium quality with finer visual detail" }
+            },
+            "video": {
+                "basic": { "name": "Basic short video", "description": "3-5 second commercial short video" },
+                "pro": { "name": "HD Pro", "description": "5-10 second HD video with priority generation" },
+                "master": { "name": "Master", "description": "5-10 second highest-quality video on the fastest lane" }
+            },
+            "benefits": {
+                "fast": "Fast",
+                "multiVersion": "Multi-version",
+                "longForm": "Long-form",
+                "commercial": "Commercial",
+                "deepStrategy": "Deep strategy",
+                "priority": "Priority",
+                "noWatermark": "No watermark",
+                "proQuality": "Pro quality",
+                "shortVideo": "3-5 sec",
+                "hd": "HD",
+                "masterQuality": "Master quality",
+                "fastest": "Fastest lane"
             }
         },
         "apps": {
@@ -384,9 +420,14 @@
             "openedSource": "Opened the source repository.",
             "install": "Install",
             "installed": "Installed",
+            "retry": "Retry",
+            "uninstall": "Uninstall",
             "use": "Use",
             "useReady": "Opened the installed skill.",
             "useFailed": "Failed to open installed skill.",
+            "githubOnly": "Only GitHub skills can be installed in this MVP.",
+            "uninstallReady": "Skill uninstalled.",
+            "uninstallFailed": "Failed to uninstall skill.",
             "installReady": "Skill installed successfully.",
             "installReadyWithPath": "Skill installed successfully: {{path}}",
             "installFailed": "Failed to install skill."
@@ -415,6 +456,14 @@
             "entryRuntime": "Runtime:",
             "tags": "Tags",
             "homepage": "Homepage",
+            "installInfo": "Install information",
+            "installStatus": "Status",
+            "installSource": "Source",
+            "installDir": "Install directory",
+            "notInstalled": "Not installed",
+            "lastError": "Last error",
+            "riskTitle": "Risk notice",
+            "riskCommandWarning": "This skill contains commands that may require installation steps. This version only downloads the skill and never executes them automatically.",
             "commands": {
                 "install": "canvasland skill install {{id}}",
                 "use": "canvasland skill use {{id}}"
@@ -492,6 +541,11 @@
             "available": "Install planned",
             "installed": "Installed",
             "planned": "Planned",
+            "not_installed": "Not installed",
+            "downloading": "Installing...",
+            "downloaded": "Downloaded",
+            "installed_metadata_only": "Installed",
+            "failed": "Failed",
             "enabled": "Installed · enabled",
             "disabled": "Installed · disabled"
         },

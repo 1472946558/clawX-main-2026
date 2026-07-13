@@ -13,12 +13,14 @@ import type {
   JsonRecord,
 } from '../../shared/host-api/contract';
 import { buildPlatformRulePrompt, resolveEcommercePlatformRule } from '../../shared/ecommerce/platform-rules';
+import { getAiWorkflowDefinition, listAiWorkflowDefinitions } from '../../shared/ai-workflows';
 import type { ProviderAccount } from '../shared/providers/types';
 import { getProviderService } from './providers/provider-service';
 import { getProviderApiKeyFromOpenClaw } from '../utils/openclaw-auth';
 import { resolveOpenClawProviderKey } from '../utils/provider-keys';
 import { getProviderConfig } from '../utils/provider-registry';
 import { fetchOpenAiCompatibleModels } from './providers/provider-validation';
+import { proxyAwareFetch } from '../utils/proxy-fetch';
 
 type AiAppRunnerInput = {
   jobId: string;
@@ -28,6 +30,17 @@ type AiAppRunnerInput = {
 
 export type AiAppRunner = {
   run: (input: AiAppRunnerInput) => Promise<AiAppJobOutputs>;
+};
+
+type AiAppBillingQuote = {
+  points: number;
+  affordable: boolean;
+  availablePoints: number;
+};
+
+export type AiAppBillingClient = {
+  quote: (workflowId: string, billingTierId: string) => Promise<AiAppBillingQuote>;
+  debit: (workflowId: string, billingTierId: string, requestId: string) => Promise<number>;
 };
 
 const jobs = new Map<string, AiAppJob>();
@@ -41,6 +54,7 @@ const REFERENCE_IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/we
 const REFERENCE_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 const MAX_REFERENCE_IMAGE_BYTES = 10 * 1024 * 1024;
 const STAGED_FILES_DIR = join(homedir(), '.openclaw', 'media', 'outbound');
+const CANVASLAND_WALLET_API_BASE_URL = 'https://apitoken.unihuax.com';
 
 type StagedReferenceImage = {
   id: string;
@@ -94,7 +108,11 @@ function normalizeAppId(value: unknown): string {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error('appId is required');
   }
-  return value.trim();
+  const appId = value.trim();
+  if (!getAiWorkflowDefinition(appId)) {
+    throw new Error(`Unknown AI workflow: ${appId}`);
+  }
+  return appId;
 }
 
 function normalizeJobId(value: unknown): string {
@@ -115,6 +133,73 @@ function createJobId(appId: string): string {
 function stringInput(inputs: JsonRecord, key: string, fallback = ''): string {
   const value = inputs[key];
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function billingTierForWorkflow(appId: string, inputs: JsonRecord): string {
+  const workflow = getAiWorkflowDefinition(appId);
+  if (!workflow) throw new Error(`Unknown AI workflow: ${appId}`);
+  const billingTierId = stringInput(inputs, 'billingTierId', workflow.defaultBillingTierId);
+  if (!workflow.billingTiers.some((tier) => tier.id === billingTierId)) {
+    throw new Error('Unsupported AI workflow billing tier');
+  }
+  return billingTierId;
+}
+
+async function walletBillingRequest(path: string, payload: JsonRecord): Promise<JsonRecord> {
+  const response = await proxyAwareFetch(`${CANVASLAND_WALLET_API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const text = await response.text();
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
+  const record = isRecord(data) ? data : {};
+  if (!response.ok || record.success !== true) {
+    const message = typeof record.error === 'string' ? record.error : `Wallet billing failed (${response.status})`;
+    throw new Error(safeApiMessage(message));
+  }
+  return record;
+}
+
+class ServerAiAppBillingClient implements AiAppBillingClient {
+  async quote(workflowId: string, billingTierId: string): Promise<AiAppBillingQuote> {
+    const result = await walletBillingRequest('/api/usage/quote', { workflowId, billingTierId });
+    return {
+      points: Number(result.points) || 0,
+      affordable: result.affordable === true,
+      availablePoints: Number(result.availablePoints) || 0,
+    };
+  }
+
+  async debit(workflowId: string, billingTierId: string, requestId: string): Promise<number> {
+    const result = await walletBillingRequest('/api/usage/debit', { workflowId, billingTierId, requestId });
+    return Number(result.pointsUsed) || 0;
+  }
+}
+
+class AcceptanceAiAppBillingClient implements AiAppBillingClient {
+  async quote(workflowId: string, billingTierId: string): Promise<AiAppBillingQuote> {
+    const workflow = getAiWorkflowDefinition(workflowId);
+    const tier = workflow?.billingTiers.find((candidate) => candidate.id === billingTierId);
+    if (!tier) throw new Error('Unsupported AI workflow billing tier');
+    return { points: tier.points, affordable: true, availablePoints: 100_000 };
+  }
+
+  async debit(workflowId: string, billingTierId: string): Promise<number> {
+    return (await this.quote(workflowId, billingTierId)).points;
+  }
+}
+
+async function assertAffordable(billing: AiAppBillingClient, workflowId: string, billingTierId: string): Promise<void> {
+  const quote = await billing.quote(workflowId, billingTierId);
+  if (!quote.affordable) {
+    throw new Error(`积分不足：本次需要 ${quote.points} 积分，当前可用 ${quote.availablePoints} 积分。`);
+  }
 }
 
 function referenceImagesInput(inputs: JsonRecord): StagedReferenceImage[] {
@@ -515,20 +600,27 @@ async function createProviderVideoTask(context: VideoProviderContext, inputs: Js
     throw new Error(`Video model “${model}” is not available on current Provider “${context.account.label}”.`);
   }
   const platformRule = resolveEcommercePlatformRule(inputs.platform);
+  const billingTierId = stringInput(inputs, 'billingTierId', 'basic');
+  const videoProfile = billingTierId === 'master'
+    ? { duration: 10, resolution: '1080p', instruction: '大师级画质、精细光影、最高细节、无水印成片。' }
+    : billingTierId === 'pro'
+      ? { duration: 10, resolution: '1080p', instruction: '高清商用画质、稳定镜头、无水印成片。' }
+      : { duration: 5, resolution: '720p', instruction: '清晰直接的基础商用短视频。' };
   const prompt = [
     `商品文本：${productText}`,
     `核心卖点：${stringInput(inputs, 'sellingPoints', '未提供')}`,
     buildPlatformRulePrompt(platformRule),
     `画面比例：${stringInput(inputs, 'ratio', '9:16')}`,
+    `档位要求：${videoProfile.instruction}`,
     '生成可直接用于电商投放的商品短视频，突出真实商品卖点，并遵守目标平台合规规则。',
   ].join('\n');
   const payload: JsonRecord = {
     model,
     prompt,
-    duration: 6,
+    duration: videoProfile.duration,
     size: sizeForRatio(stringInput(inputs, 'ratio', '9:16')),
     ratio: stringInput(inputs, 'ratio', '9:16'),
-    resolution: '720p',
+    resolution: videoProfile.resolution,
   };
 
   let lastError: Error | null = null;
@@ -609,6 +701,7 @@ async function createNewApiImage(
   ratio: string,
   outputPath: string,
   model: string,
+  billingTierId: string,
   referenceImage?: string,
 ): Promise<JsonRecord> {
   const response = await fetchNewApiJson('/images/generations', {
@@ -616,6 +709,7 @@ async function createNewApiImage(
     prompt,
     size: sizeForRatio(ratio),
     aspect_ratio: ratio,
+    quality: billingTierId === 'pro' ? 'high' : 'standard',
     n: 1,
     ...(referenceImage ? {
       subject_reference: [{ type: 'character', image_file: referenceImage }],
@@ -641,7 +735,7 @@ function extractChatCompletionText(response: JsonRecord): string {
   throw new Error('Provider 返回成功，但响应中没有可显示的文案。');
 }
 
-async function createProviderText(prompt: string): Promise<string> {
+async function createProviderText(prompt: string, jobId: string, billingTierId: string): Promise<string> {
   const provider = await resolveCurrentTextProvider();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 180_000);
@@ -666,6 +760,11 @@ async function createProviderText(prompt: string): Promise<string> {
           { role: 'user', content: prompt },
         ],
         stream: false,
+        metadata: {
+          workflowId: 'ecommerce-copywriting',
+          billingTierId,
+          requestId: jobId,
+        },
       }),
       signal: controller.signal,
     });
@@ -700,6 +799,8 @@ async function createProviderText(prompt: string): Promise<string> {
 }
 
 function buildCommercialPrompt(appId: string, inputs: JsonRecord): string {
+  const workflow = getAiWorkflowDefinition(appId);
+  if (!workflow) throw new Error(`Unknown AI workflow: ${appId}`);
   const platformRule = resolveEcommercePlatformRule(inputs.platform);
   const ratio = stringInput(inputs, 'ratio', '1:1');
   const appTitle = stringInput(inputs, 'appTitle', appId);
@@ -716,12 +817,19 @@ function buildCommercialPrompt(appId: string, inputs: JsonRecord): string {
     if (!productName || !sellingPoints) {
       throw new Error('产品名称和核心卖点为必填项。');
     }
+    const tierInstruction = {
+      short: '档位：短文案。控制在 150 字以内，输出精炼标题和短句，避免冗余。',
+      social: '档位：社媒增强。输出多版本标题、社媒正文和行动号召，控制在 300-500 字。',
+      long: '档位：长篇商用。输出结构完整的详情页长文案，控制在 800-1200 字。',
+      deep: '档位：深度策略。先给受众洞察与内容策略，再输出 1500-2500 字高完成度商用文案。',
+    }[stringInput(inputs, 'billingTierId', 'social')] || '';
     return `${common}
 产品名称：${productName}
 核心卖点：${sellingPoints}
 品牌语气：${brandTone}
 目标人群：${targetAudience}
 使用场景：${useScene}
+${tierInstruction}
 任务：生成 3 个商品标题、5 条卖点文案、1 段详情页文案和 1 条短视频脚本钩子。按“商品标题 / 核心卖点 / 详情页文案 / 视频钩子 / 合规检查”分段输出。`;
   }
   if (appId === 'detail-poster-generator') {
@@ -798,7 +906,7 @@ class FeiniuAiAppRunner implements AiAppRunner {
     if (input.appId === 'ecommerce-copywriting') {
       // Copy generation is intentionally independent from an optional skill manifest.
       // Missing ecommerce-copywriting skill files must never block the configured Provider call.
-      const result = await createProviderText(prompt);
+      const result = await createProviderText(prompt, input.jobId, stringInput(input.inputs, 'billingTierId', 'social'));
       const outputPath = join(outputDir, 'copywriting-output.txt');
       await writeFile(outputPath, result, 'utf-8');
       return createAcceptedOutputs(input.appId, input.jobId, 'provider', result, outputPath);
@@ -818,6 +926,7 @@ class FeiniuAiAppRunner implements AiAppRunner {
       stringInput(input.inputs, 'ratio', '1:1'),
       outputPath,
       model,
+      stringInput(input.inputs, 'billingTierId', 'standard'),
       referenceImage,
     );
     return createAcceptedOutputs(input.appId, input.jobId, 'feiniu', JSON.stringify(response, null, 2), outputPath);
@@ -918,6 +1027,12 @@ function resolveDefaultVideoTaskClient(): AiAppVideoTaskClient {
     : new ProviderVideoTaskClient();
 }
 
+function resolveDefaultBillingClient(): AiAppBillingClient {
+  return process.env.CLAWX_E2E === '1' || process.env.NODE_ENV === 'test'
+    ? new AcceptanceAiAppBillingClient()
+    : new ServerAiAppBillingClient();
+}
+
 function videoOutputs(job: AiAppJob, resultUrl: string): AiAppJobOutputs {
   return {
     assetCount: 1,
@@ -940,21 +1055,29 @@ function updateJob(id: string, patch: Partial<AiAppJob>): AiAppJob | null {
   return next;
 }
 
-function startJob(job: AiAppJob, runner: AiAppRunner): void {
+function startJob(job: AiAppJob, runner: AiAppRunner, billing: AiAppBillingClient): void {
   updateJob(job.id, { status: 'running' });
   void runner.run({ jobId: job.id, appId: job.appId, inputs: job.inputs })
-    .then((outputs) => {
-      updateJob(job.id, { status: 'completed', outputs });
+    .then(async (outputs) => {
+      const pointsUsed = await billing.debit(job.appId, job.billingTierId || '', job.id);
+      updateJob(job.id, { status: 'completed', outputs, pointsUsed });
     })
     .catch((error) => {
       updateJob(job.id, { status: 'failed', error: errorMessage(error) });
     });
 }
 
-function createLiveJob(payload: unknown, runner: AiAppRunner): AiAppJob {
+async function createLiveJob(payload: unknown, runner: AiAppRunner, billing: AiAppBillingClient): Promise<AiAppJob> {
   const body = (isRecord(payload) ? payload : {}) as Partial<AiAppCreateJobPayload>;
   const appId = normalizeAppId(body.appId);
+  const workflow = getAiWorkflowDefinition(appId);
+  if (!workflow) throw new Error(`Unknown AI workflow: ${appId}`);
+  if (workflow.providerCapability === 'video') {
+    throw new Error('Video workflows must use the asynchronous video task API.');
+  }
   const inputs = normalizeInputs(body.inputs);
+  const billingTierId = billingTierForWorkflow(appId, inputs);
+  await assertAffordable(billing, appId, billingTierId);
   if (
     appId === 'detail-poster-generator'
     && referenceImagesInput(inputs).length > 0
@@ -972,19 +1095,24 @@ function createLiveJob(payload: unknown, runner: AiAppRunner): AiAppJob {
     createdAt: now,
     updatedAt: now,
     inputs,
+    billingTierId,
   };
   job.localJobId = job.id;
   jobs.set(job.id, job);
-  startJob(job, runner);
+  startJob(job, runner, billing);
   return jobs.get(job.id) || job;
 }
 
-async function createVideoLiveJob(payload: unknown, client: AiAppVideoTaskClient): Promise<AiAppJob> {
+async function createVideoLiveJob(payload: unknown, client: AiAppVideoTaskClient, billing: AiAppBillingClient): Promise<AiAppJob> {
   const body = (isRecord(payload) ? payload : {}) as Partial<AiAppCreateJobPayload>;
   const appId = normalizeAppId(body.appId);
-  if (appId !== 'product-short-video') throw new Error('Video task client only supports product-short-video.');
+  const workflow = getAiWorkflowDefinition(appId);
+  if (workflow?.providerCapability !== 'video') throw new Error('Video task client only supports video workflows.');
   const now = new Date().toISOString();
   const id = createJobId(appId);
+  const inputs = normalizeInputs(body.inputs);
+  const billingTierId = billingTierForWorkflow(appId, inputs);
+  await assertAffordable(billing, appId, billingTierId);
   const job: AiAppJob = {
     id,
     localJobId: id,
@@ -993,11 +1121,15 @@ async function createVideoLiveJob(payload: unknown, client: AiAppVideoTaskClient
     status: 'running',
     createdAt: now,
     updatedAt: now,
-    inputs: normalizeInputs(body.inputs),
+    inputs,
+    billingTierId,
   };
   jobs.set(id, job);
   try {
     const created = await client.create(job.inputs);
+    const pointsUsed = created.status === 'completed' && created.resultUrl
+      ? await billing.debit(job.appId, billingTierId, job.id)
+      : undefined;
     const result = updateJob(id, {
       status: created.status,
       providerId: created.providerId,
@@ -1005,6 +1137,7 @@ async function createVideoLiveJob(payload: unknown, client: AiAppVideoTaskClient
       providerTaskId: created.providerTaskId,
       rawResponseSummary: created.rawResponseSummary,
       resultUrl: created.resultUrl,
+      pointsUsed,
       inputs: { ...job.inputs, ...(created.endpoint ? { providerEndpoint: created.endpoint } : {}) },
       ...(created.resultUrl ? { outputs: videoOutputs({ ...job, providerTaskId: created.providerTaskId }, created.resultUrl) } : {}),
     });
@@ -1014,11 +1147,14 @@ async function createVideoLiveJob(payload: unknown, client: AiAppVideoTaskClient
   }
 }
 
-async function refreshVideoJob(job: AiAppJob, client: AiAppVideoTaskClient): Promise<AiAppJob> {
+async function refreshVideoJob(job: AiAppJob, client: AiAppVideoTaskClient, billing: AiAppBillingClient): Promise<AiAppJob> {
   if (job.appId !== 'product-short-video') return job;
   if (job.status === 'completed' || job.status === 'failed') return job;
   try {
     const refreshed = await client.refresh(job);
+    const pointsUsed = refreshed.status === 'completed' && refreshed.resultUrl
+      ? await billing.debit(job.appId, job.billingTierId || '', job.id)
+      : job.pointsUsed;
     const next = updateJob(job.id, {
       status: refreshed.status,
       providerId: refreshed.providerId,
@@ -1026,6 +1162,7 @@ async function refreshVideoJob(job: AiAppJob, client: AiAppVideoTaskClient): Pro
       providerTaskId: refreshed.providerTaskId || job.providerTaskId,
       rawResponseSummary: refreshed.rawResponseSummary,
       resultUrl: refreshed.resultUrl,
+      pointsUsed,
       error: undefined,
       ...(refreshed.resultUrl ? { outputs: videoOutputs(job, refreshed.resultUrl) } : {}),
     });
@@ -1035,16 +1172,23 @@ async function refreshVideoJob(job: AiAppJob, client: AiAppVideoTaskClient): Pro
   }
 }
 
-export function createAiAppsApi(options: { runner?: AiAppRunner; videoTaskClient?: AiAppVideoTaskClient } = {}): CompleteHostServiceRegistry['aiApps'] {
+export function createAiAppsApi(options: { runner?: AiAppRunner; videoTaskClient?: AiAppVideoTaskClient; billingClient?: AiAppBillingClient } = {}): CompleteHostServiceRegistry['aiApps'] {
   const runner = options.runner || resolveDefaultRunner();
   const videoTaskClient = options.videoTaskClient || resolveDefaultVideoTaskClient();
+  const billingClient = options.billingClient || resolveDefaultBillingClient();
   return {
+    listWorkflows: async () => ({
+      success: true,
+      workflows: listAiWorkflowDefinitions(),
+    }),
     createJob: async (payload) => {
       try {
-        if (isRecord(payload) && payload.appId === 'product-short-video') {
-          return { success: true, job: await createVideoLiveJob(payload, videoTaskClient) };
+        const appId = isRecord(payload) && typeof payload.appId === 'string' ? payload.appId : '';
+        const workflow = getAiWorkflowDefinition(appId.trim());
+        if (workflow?.providerCapability === 'video') {
+          return { success: true, job: await createVideoLiveJob(payload, videoTaskClient, billingClient) };
         }
-        return { success: true, job: createLiveJob(payload, runner) };
+        return { success: true, job: await createLiveJob(payload, runner, billingClient) };
       } catch (error) {
         return { success: false, error: errorMessage(error) };
       }
@@ -1066,7 +1210,7 @@ export function createAiAppsApi(options: { runner?: AiAppRunner; videoTaskClient
         const id = normalizeJobId(body.id);
         const job = jobs.get(id);
         if (!job) return { success: false, error: 'job not found' };
-        return { success: true, job: await refreshVideoJob(job, videoTaskClient) };
+        return { success: true, job: await refreshVideoJob(job, videoTaskClient, billingClient) };
       } catch (error) {
         return { success: false, error: errorMessage(error) };
       }

@@ -118,7 +118,7 @@ test.describe('dialog transitions', () => {
 
     await completeSetup(page);
 
-    await page.getByTestId('sidebar-nav-models').click();
+    await page.getByTestId('sidebar-nav-settings').click();
     await page.getByTestId('providers-add-button').click();
     const providerDialog = page.getByTestId('add-provider-dialog');
     await expectSubtleDialogAnimation(providerDialog);

@@ -334,6 +334,15 @@ describe('hostApi facade', () => {
     await hostApi.skills.marketplaceReview({ id: 'demo-skill', reviewStatus: 'approved' });
     await hostApi.skills.marketplaceUpdate({ id: 'demo-skill', patch: { category: 'developer' } });
     await hostApi.skills.marketplaceInstall({ id: 'demo-skill' });
+    await hostApi.skills.installFromGithub({
+      skillId: 'demo-skill',
+      repositoryUrl: 'https://github.com/demo/skills',
+      selectedInstallTarget: 'skills/demo',
+    });
+    await hostApi.skills.getInstalledSkills();
+    await hostApi.skills.getInstallStatus({ skillId: 'demo-skill' });
+    await hostApi.skills.scanSkillDir({ skillId: 'demo-skill', dir: '/tmp/demo-skill' });
+    await hostApi.skills.uninstall({ skillId: 'demo-skill' });
 
     expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
       module: 'skills',
@@ -376,6 +385,34 @@ describe('hostApi facade', () => {
       action: 'marketplaceInstall',
       payload: { id: 'demo-skill' },
     }));
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'installFromGithub',
+      payload: {
+        skillId: 'demo-skill',
+        repositoryUrl: 'https://github.com/demo/skills',
+        selectedInstallTarget: 'skills/demo',
+      },
+    }));
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'getInstalledSkills',
+    }));
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'getInstallStatus',
+      payload: { skillId: 'demo-skill' },
+    }));
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'scanSkillDir',
+      payload: { skillId: 'demo-skill', dir: '/tmp/demo-skill' },
+    }));
+    expect(hostInvoke).toHaveBeenCalledWith(expect.objectContaining({
+      module: 'skills',
+      action: 'uninstall',
+      payload: { skillId: 'demo-skill' },
+    }));
   });
 
   it('calls aiApps job APIs through hostInvoke', async () => {
@@ -389,11 +426,13 @@ describe('hostApi facade', () => {
       inputs: {},
     };
     hostInvoke
-      .mockResolvedValueOnce({ id: 'req-1', ok: true, data: { success: true, job } })
+      .mockResolvedValueOnce({ id: 'req-1', ok: true, data: { success: true, workflows: [] } })
       .mockResolvedValueOnce({ id: 'req-2', ok: true, data: { success: true, job } })
-      .mockResolvedValueOnce({ id: 'req-3', ok: true, data: { success: true, jobs: [job] } });
+      .mockResolvedValueOnce({ id: 'req-3', ok: true, data: { success: true, job } })
+      .mockResolvedValueOnce({ id: 'req-4', ok: true, data: { success: true, jobs: [job] } });
     const { hostApi } = await import('@/lib/host-api');
 
+    await hostApi.aiApps.listWorkflows();
     await hostApi.aiApps.createJob({
       appId: 'detail-poster-generator',
       mode: 'live',
@@ -404,6 +443,10 @@ describe('hostApi facade', () => {
 
     expect(hostInvoke).toHaveBeenNthCalledWith(1, expect.objectContaining({
       module: 'aiApps',
+      action: 'listWorkflows',
+    }));
+    expect(hostInvoke).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      module: 'aiApps',
       action: 'createJob',
       payload: {
         appId: 'detail-poster-generator',
@@ -411,12 +454,12 @@ describe('hostApi facade', () => {
         inputs: { prompt: 'product' },
       },
     }));
-    expect(hostInvoke).toHaveBeenNthCalledWith(2, expect.objectContaining({
+    expect(hostInvoke).toHaveBeenNthCalledWith(3, expect.objectContaining({
       module: 'aiApps',
       action: 'getJob',
       payload: { id: job.id },
     }));
-    expect(hostInvoke).toHaveBeenNthCalledWith(3, expect.objectContaining({
+    expect(hostInvoke).toHaveBeenNthCalledWith(4, expect.objectContaining({
       module: 'aiApps',
       action: 'listResults',
       payload: { appId: 'detail-poster-generator' },

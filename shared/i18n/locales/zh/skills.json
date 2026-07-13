@@ -220,7 +220,7 @@
             "waitingDescription": "填写左侧参数并提交后，将在这里显示文案、详情图或视频分镜结果。",
             "submitGenerate": "提交生成",
             "requiredFieldsError": "请先填写产品名称、核心卖点并选择目标平台。",
-            "estimatedCost": "预计金额：约 0.2 元/次",
+            "estimatedCost": "按所选档位扣除积分",
             "productName": "产品名称",
             "productNamePlaceholder": "例如：女士运动裤",
             "coreSellingPoints": "核心卖点",
@@ -264,12 +264,48 @@
             "aspectRatio": "画面比例",
             "model": "生成模型",
             "generateCount": "生成张数",
-            "imagePrice": "预计金额：￥0.5",
-            "videoPrice": "预计金额：￥1.2",
+            "imagePrice": "按所选档位扣除积分",
+            "videoPrice": "按所选档位扣除积分",
             "modelDescriptions": {
                 "0": "正式商用图片生成，适合主图和详情图",
                 "1": "实时图片生成，适合快速预览和风格迭代",
                 "2": "720P 商品短视频生成，适合电商场景展示"
+            }
+        },
+        "billing": {
+            "title": "生成档位",
+            "subtitle": "只显示积分消耗，生成成功后自动扣除",
+            "points": "{{points}} 积分",
+            "willUse": "本次将消耗 {{points}} 积分",
+            "used": "已扣除 {{points}} 积分",
+            "copy": {
+                "short": { "name": "短文案", "description": "标题、短句或单条社媒文案" },
+                "social": { "name": "社媒增强", "description": "多版本社媒文案与标题组合" },
+                "long": { "name": "长篇商用", "description": "详情页、品牌介绍或长篇销售文案" },
+                "deep": { "name": "深度策略", "description": "深度洞察、结构策划与高完成度文案" }
+            },
+            "image": {
+                "standard": { "name": "标准画质", "description": "正式商用画质，适合日常主图与详情图" },
+                "pro": { "name": "Pro 大师级", "description": "高端画质与更精细的视觉完成度" }
+            },
+            "video": {
+                "basic": { "name": "基础短视频", "description": "3-5 秒商用短视频" },
+                "pro": { "name": "高清 Pro", "description": "5-10 秒高清成片与优先生成" },
+                "master": { "name": "大师级", "description": "5-10 秒最高画质与极速通道" }
+            },
+            "benefits": {
+                "fast": "快速生成",
+                "multiVersion": "多版本",
+                "longForm": "长篇输出",
+                "commercial": "商用级",
+                "deepStrategy": "深度策略",
+                "priority": "优先生成",
+                "noWatermark": "无水印",
+                "proQuality": "Pro 画质",
+                "shortVideo": "3-5 秒",
+                "hd": "高清",
+                "masterQuality": "大师画质",
+                "fastest": "极速通道"
             }
         },
         "apps": {
@@ -384,9 +420,14 @@
             "openedSource": "已打开来源仓库。",
             "install": "安装",
             "installed": "已安装",
+            "retry": "重试",
+            "uninstall": "卸载",
             "use": "使用",
             "useReady": "已打开已安装技能。",
             "useFailed": "打开已安装技能失败。",
+            "githubOnly": "当前 MVP 仅支持安装 GitHub Skill。",
+            "uninstallReady": "技能已卸载。",
+            "uninstallFailed": "技能卸载失败。",
             "installReady": "技能已成功安装。",
             "installReadyWithPath": "技能已成功安装：{{path}}",
             "installFailed": "技能安装失败。"
@@ -415,6 +456,14 @@
             "entryRuntime": "Runtime:",
             "tags": "Tags",
             "homepage": "主页",
+            "installInfo": "安装信息",
+            "installStatus": "状态",
+            "installSource": "来源",
+            "installDir": "安装目录",
+            "notInstalled": "未安装",
+            "lastError": "最近错误",
+            "riskTitle": "风险提示",
+            "riskCommandWarning": "该 Skill 包含可能需要执行的安装命令，当前版本仅下载，不会自动执行。",
             "commands": {
                 "install": "canvasland skill install {{id}}",
                 "use": "canvasland skill use {{id}}"
@@ -492,6 +541,11 @@
             "available": "计划接入安装",
             "installed": "已安装",
             "planned": "规划中",
+            "not_installed": "未安装",
+            "downloading": "安装中...",
+            "downloaded": "已下载",
+            "installed_metadata_only": "已安装",
+            "failed": "安装失败",
             "enabled": "已安装 · 已启用",
             "disabled": "已安装 · 已禁用"
         },

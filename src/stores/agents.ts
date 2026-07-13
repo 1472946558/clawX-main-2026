@@ -13,9 +13,9 @@ interface AgentsState {
   loading: boolean;
   error: string | null;
   fetchAgents: () => Promise<void>;
-  createAgent: (name: string, options?: { inheritWorkspace?: boolean }) => Promise<void>;
+  createAgent: (name: string, options?: { inheritWorkspace?: boolean; modelPlanId?: string | null; persona?: string | null }) => Promise<void>;
   updateAgent: (agentId: string, name: string) => Promise<void>;
-  updateAgentModel: (agentId: string, modelRef: string | null) => Promise<void>;
+  updateAgentModel: (agentId: string, modelRef: string | null, modelPlanId?: string | null) => Promise<void>;
   deleteAgent: (agentId: string) => Promise<void>;
   assignChannel: (agentId: string, channelType: ChannelType) => Promise<void>;
   removeChannel: (agentId: string, channelType: ChannelType) => Promise<void>;
@@ -56,12 +56,14 @@ export const useAgentsStore = create<AgentsState>((set) => ({
     }
   },
 
-  createAgent: async (name: string, options?: { inheritWorkspace?: boolean }) => {
+  createAgent: async (name: string, options?: { inheritWorkspace?: boolean; modelPlanId?: string | null; persona?: string | null }) => {
     set({ error: null });
     try {
       const snapshot = await hostApi.agents.create({
         name,
         inheritWorkspace: options?.inheritWorkspace,
+        modelPlanId: options?.modelPlanId,
+        persona: options?.persona,
       });
       set(applySnapshot(snapshot));
     } catch (error) {
@@ -81,10 +83,10 @@ export const useAgentsStore = create<AgentsState>((set) => ({
     }
   },
 
-  updateAgentModel: async (agentId: string, modelRef: string | null) => {
+  updateAgentModel: async (agentId: string, modelRef: string | null, modelPlanId?: string | null) => {
     set({ error: null });
     try {
-      const snapshot = await hostApi.agents.updateModel(agentId, modelRef);
+      const snapshot = await hostApi.agents.updateModel(agentId, modelRef, modelPlanId);
       set(applySnapshot(snapshot));
     } catch (error) {
       set({ error: String(error) });

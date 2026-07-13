@@ -14,9 +14,13 @@
     "creating": "Creating...",
     "createDialog": {
         "title": "Add Agent",
-        "description": "Create a new agent by name. You can optionally inherit the main agent's workspace bootstrap files.",
+        "description": "Create a new agent, choose an enabled canvasland model, and optionally inherit the main agent's workspace bootstrap files.",
         "nameLabel": "Agent Name",
         "namePlaceholder": "Coding Helper",
+        "modelLabel": "Select model",
+        "personaLabel": "Agent role",
+        "personaPlaceholder": "You are a professional ecommerce copywriting assistant responsible for product titles, selling points, and detail-page copy.",
+        "personaDescription": "This role is saved to the agent workspace and used as bootstrap context for future chats.",
         "inheritWorkspaceLabel": "Inherit main agent workspace",
         "inheritWorkspaceDescription": "Copy SOUL.md, AGENTS.md, etc. from the main agent"
     },
@@ -39,7 +43,7 @@
         "modelIdPlaceholder": "model-id",
         "modelPreview": "Preview",
         "modelOverridePlaceholder": "provider/model (for example: openrouter/openai/gpt-5.5)",
-        "modelOverrideDescription": "Select provider and model ID for this agent.",
+        "modelOverrideDescription": "Choose one of the enabled canvasland models for this agent. No Provider, API Key, or Base URL is required.",
         "unsavedChangesTitle": "Unsaved changes",
         "unsavedChangesMessage": "You have unsaved changes. If you close now, your changes will be discarded.",
         "closeWithoutSaving": "Close without saving",

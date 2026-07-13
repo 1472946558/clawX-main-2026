@@ -1,45 +1,103 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { InstalledSkillRecord, SkillMarketplaceItem } from '../../shared/host-api/contract';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Skills } from '@/pages/Skills';
 
-const fetchSkillsMock = vi.fn();
-const enableSkillMock = vi.fn();
-const disableSkillMock = vi.fn();
-const setSkillsEnabledMock = vi.fn();
-const searchSkillsMock = vi.fn();
-const installSkillMock = vi.fn();
-const uninstallSkillMock = vi.fn();
-const clawhubCapabilityMock = vi.fn();
-const clawhubOpenSkillPathMock = vi.fn();
-const openclawGetSkillsDirMock = vi.fn();
-const shellOpenExternalMock = vi.fn();
+const marketplaceListMock = vi.fn();
+const getInstalledSkillsMock = vi.fn();
+const installFromGithubMock = vi.fn();
+const uninstallMock = vi.fn();
+const clawhubOpenSkillReadmeMock = vi.fn();
 
-const { gatewayState, skillsState } = vi.hoisted(() => ({
-  gatewayState: {
-    status: { state: 'running', port: 18789, gatewayReady: true } as {
-      state: string;
-      port: number;
-      gatewayReady?: boolean;
-    },
+const marketplaceSkills: SkillMarketplaceItem[] = [
+  {
+    id: 'security-and-hardening',
+    name: 'Security and Hardening',
+    description: 'Threat modeling and dependency checks for coding agents.',
+    category: 'security',
+    iconText: 'S',
+    tags: ['security'],
+    rating: '4.8',
+    downloads: '12.4万',
+    license: 'MIT',
+    source: 'Canvasland verified',
+    repositoryUrl: 'https://github.com/addyosmani/agent-skills',
+    installStatus: 'available',
+    reviewStatus: 'approved',
+    commercialUseAllowed: true,
+    importSource: 'github',
+    lastSyncedAt: '2026-07-10T00:00:00.000Z',
+    selectedInstallTarget: 'skills/security-and-hardening',
   },
-  skillsState: {
-    skills: [] as Array<Record<string, unknown>>,
+  {
+    id: 'documentation-and-adrs',
+    name: 'Documentation and ADRs',
+    description: 'Write project documentation and architecture decision records.',
+    category: 'content',
+    iconText: 'D',
+    tags: ['docs'],
+    rating: '4.6',
+    downloads: '8.2万',
+    license: 'MIT',
+    source: 'Canvasland verified',
+    repositoryUrl: 'https://github.com/addyosmani/agent-skills',
+    installStatus: 'available',
+    reviewStatus: 'approved',
+    commercialUseAllowed: true,
+    importSource: 'github',
+    lastSyncedAt: '2026-07-10T00:00:00.000Z',
+    selectedInstallTarget: 'skills/documentation-and-adrs',
+  },
+];
+
+const installedSecurity: InstalledSkillRecord = {
+  skillId: 'security-and-hardening',
+  source: 'github',
+  sourceUrl: 'https://github.com/addyosmani/agent-skills',
+  installDir: '/tmp/.openclaw/skills/security-and-hardening',
+  status: 'installed_metadata_only',
+  version: '1.0.0',
+  installedAt: '2026-07-11T00:00:00.000Z',
+  updatedAt: '2026-07-11T00:00:00.000Z',
+  lastError: '',
+  detectedCommands: [{ kind: 'npm', file: 'SKILL.md', line: 'npm audit' }],
+  hasSkillMd: true,
+  hasManifest: false,
+  checksum: '',
+};
+
+vi.mock('@/lib/host-api', () => ({
+  hostApi: {
+    openclaw: {
+      getSkillsDir: vi.fn().mockResolvedValue('/tmp/.openclaw/skills'),
+    },
+    shell: {
+      openExternal: vi.fn(),
+    },
+    skills: {
+      marketplaceList: () => marketplaceListMock(),
+      getInstalledSkills: () => getInstalledSkillsMock(),
+      installFromGithub: (...args: unknown[]) => installFromGithubMock(...args),
+      uninstall: (...args: unknown[]) => uninstallMock(...args),
+      clawhubOpenSkillReadme: (...args: unknown[]) => clawhubOpenSkillReadmeMock(...args),
+      marketplaceAdminList: vi.fn().mockResolvedValue({ success: true, skills: [] }),
+    },
   },
 }));
 
 vi.mock('@/stores/skills', () => ({
   useSkillsStore: () => ({
-    skills: skillsState.skills,
+    skills: [],
     loading: false,
     error: null,
-    fetchSkills: fetchSkillsMock,
-    enableSkill: enableSkillMock,
-    disableSkill: disableSkillMock,
-    setSkillsEnabled: setSkillsEnabledMock,
+    fetchSkills: vi.fn(),
+    enableSkill: vi.fn(),
+    disableSkill: vi.fn(),
+    setSkillsEnabled: vi.fn(),
     searchResults: [],
-    searchSkills: searchSkillsMock,
-    installSkill: installSkillMock,
-    uninstallSkill: uninstallSkillMock,
+    searchSkills: vi.fn(),
+    installSkill: vi.fn(),
+    uninstallSkill: vi.fn(),
     searching: false,
     searchError: null,
     installing: {},
@@ -47,22 +105,7 @@ vi.mock('@/stores/skills', () => ({
 }));
 
 vi.mock('@/stores/gateway', () => ({
-  useGatewayStore: (selector: (state: typeof gatewayState) => unknown) => selector(gatewayState),
-}));
-
-vi.mock('@/lib/host-api', () => ({
-  hostApi: {
-    openclaw: {
-      getSkillsDir: () => openclawGetSkillsDirMock(),
-    },
-    shell: {
-      openExternal: (...args: unknown[]) => shellOpenExternalMock(...args),
-    },
-    skills: {
-      clawhubCapability: () => clawhubCapabilityMock(),
-      clawhubOpenSkillPath: (...args: unknown[]) => clawhubOpenSkillPathMock(...args),
-    },
-  },
+  useGatewayStore: () => ({ status: { state: 'stopped', port: 18789 } }),
 }));
 
 vi.mock('@/lib/telemetry', () => ({
@@ -77,7 +120,7 @@ vi.mock('@/extensions/registry', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, options?: { defaultValue?: string; path?: string }) => options?.defaultValue ?? options?.path ?? key,
   }),
 }));
 
@@ -90,162 +133,50 @@ vi.mock('sonner', () => ({
   },
 }));
 
-describe('Skills page gateway readiness', () => {
+describe('Skills marketplace page', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
     vi.clearAllMocks();
-    gatewayState.status = { state: 'running', port: 18789, gatewayReady: true };
-    skillsState.skills = [];
-    openclawGetSkillsDirMock.mockResolvedValue('/tmp/.openclaw/skills');
-    shellOpenExternalMock.mockResolvedValue(undefined);
-    clawhubCapabilityMock.mockResolvedValue({ success: true, capability: { canSearch: false, canInstall: false } });
-    clawhubOpenSkillPathMock.mockResolvedValue({ success: true });
-    fetchSkillsMock.mockResolvedValue(true);
+    marketplaceListMock.mockResolvedValue({ success: true, skills: marketplaceSkills });
+    getInstalledSkillsMock.mockResolvedValue({ success: true, skills: [] });
+    installFromGithubMock.mockResolvedValue({ success: true, record: installedSecurity });
+    uninstallMock.mockResolvedValue({ success: true });
+    clawhubOpenSkillReadmeMock.mockResolvedValue({ success: true });
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('keeps loading skills while gatewayReady is false and hides the banner once local skills fetch succeeds', async () => {
-    gatewayState.status = { state: 'running', port: 18789, gatewayReady: false };
+  it('renders marketplace cards without depending on gateway readiness', async () => {
     render(<Skills />);
 
-    await act(async () => {
-      await Promise.resolve();
-      await vi.advanceTimersByTimeAsync(1_600);
-    });
+    await waitFor(() => expect(marketplaceListMock).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('skill-marketplace-card-security-and-hardening')).toBeInTheDocument());
 
-    expect(fetchSkillsMock).toHaveBeenCalledTimes(1);
-    expect(screen.queryByTestId('skills-gateway-banner')).not.toBeInTheDocument();
+    expect(screen.getByTestId('skills-marketplace-title')).toHaveTextContent('title');
+    expect(screen.getByTestId('skills-marketplace-category-tabs')).toBeInTheDocument();
+    expect(screen.getByTestId('skill-marketplace-action-security-and-hardening')).toHaveTextContent('marketplace.action.install');
   });
 
-  it('keeps startup readiness feedback out of the Skills page banner', async () => {
-    fetchSkillsMock.mockResolvedValue(false);
-    gatewayState.status = { state: 'running', port: 18789, gatewayReady: false };
-    render(<Skills />);
-
-    await act(async () => {
-      await Promise.resolve();
-      await vi.advanceTimersByTimeAsync(1_600);
-    });
-
-    expect(fetchSkillsMock).toHaveBeenCalledTimes(1);
-    expect(screen.queryByTestId('skills-gateway-banner')).not.toBeInTheDocument();
-  });
-
-  it('still fetches local skills when the gateway is stopped', async () => {
-    gatewayState.status = { state: 'stopped', port: 18789 };
-    render(<Skills />);
-
-    await act(async () => {
-      await Promise.resolve();
-      await vi.advanceTimersByTimeAsync(1_600);
-    });
-
-    expect(fetchSkillsMock).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText('actions.installSkill')).not.toBeInTheDocument();
-  });
-
-  it('filters the list via enabled and disabled buttons', async () => {
-    gatewayState.status = { state: 'stopped', port: 18789 };
-    skillsState.skills = [
-      { id: 'pdf', name: 'PDF', description: 'enabled skill', enabled: true, source: 'openclaw-managed' },
-      { id: 'xlsx', name: 'XLSX', description: 'disabled skill', enabled: false, source: 'openclaw-managed' },
-    ];
+  it('filters installed skills from local installation records', async () => {
+    getInstalledSkillsMock.mockResolvedValue({ success: true, skills: [installedSecurity] });
 
     render(<Skills />);
 
-    await act(async () => {
-      await Promise.resolve();
-      await vi.advanceTimersByTimeAsync(1_600);
-    });
+    await waitFor(() => expect(screen.getByTestId('skill-marketplace-card-security-and-hardening')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('skills-marketplace-category-installed'));
 
-    expect(screen.getByText('PDF')).toBeInTheDocument();
-    expect(screen.getByText('XLSX')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId('skills-filter-enabled'));
-    expect(screen.getByText('PDF')).toBeInTheDocument();
-    expect(screen.queryByText('XLSX')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId('skills-filter-disabled'));
-    expect(screen.queryByText('PDF')).not.toBeInTheDocument();
-    expect(screen.getByText('XLSX')).toBeInTheDocument();
+    expect(screen.getByTestId('skill-marketplace-card-security-and-hardening')).toBeInTheDocument();
+    expect(screen.queryByTestId('skill-marketplace-card-documentation-and-adrs')).not.toBeInTheDocument();
+    expect(screen.getByTestId('skill-marketplace-action-security-and-hardening')).toHaveTextContent('marketplace.action.use');
   });
 
-  it('shows manifest versions but still hides slug badges and hash-only preinstalled versions', async () => {
-    gatewayState.status = { state: 'stopped', port: 18789 };
-    skillsState.skills = [
-      {
-        id: 'self-improvement-agent',
-        slug: 'self-improvement-agent',
-        name: 'self-improvement',
-        description: 'versionless local skill',
-        enabled: true,
-        source: 'openclaw-managed',
-        baseDir: '/tmp/self-improvement',
-      },
-      {
-        id: 'pdf',
-        slug: 'pdf',
-        name: 'pdf',
-        description: 'placeholder version skill',
-        enabled: true,
-        version: '1.0.0',
-        source: 'openclaw-managed',
-        baseDir: '/tmp/pdf',
-      },
-      {
-        id: 'docx',
-        slug: 'docx',
-        name: 'docx',
-        description: 'hash version skill',
-        enabled: true,
-        source: 'openclaw-managed',
-        baseDir: '/tmp/docx',
-      },
-      {
-        id: 'custom-skill',
-        slug: 'custom-skill',
-        name: 'custom-skill',
-        description: 'real version skill',
-        enabled: true,
-        version: '0.1.3',
-        source: 'openclaw-managed',
-        baseDir: '/tmp/custom-skill',
-      },
-    ];
-
+  it('installs through host API and shows detected command risk in details', async () => {
     render(<Skills />);
 
-    await act(async () => {
-      await Promise.resolve();
-      await vi.advanceTimersByTimeAsync(1_600);
-    });
+    await waitFor(() => expect(screen.getByTestId('skill-marketplace-card-security-and-hardening')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('skill-marketplace-action-security-and-hardening'));
 
-    expect(screen.queryByText('self-improvement-agent')).not.toBeInTheDocument();
-    expect(screen.getByText('v1.0.0')).toBeInTheDocument();
-    expect(screen.getByText('v0.1.3')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('docx'));
-    expect(screen.queryByText(/^v[a-f0-9]{40}$/i)).not.toBeInTheDocument();
-  });
-
-  it('does not show uninstall for plugin-provided skills', async () => {
-    gatewayState.status = { state: 'stopped', port: 18789 };
-    skillsState.skills = [
-      { id: 'browser-automation', slug: 'browser-automation', name: 'Browser Automation', description: 'plugin skill', enabled: true, source: 'openclaw-plugin', baseDir: '/tmp/plugin-skill' },
-    ];
-
-    render(<Skills />);
-
-    await act(async () => {
-      await Promise.resolve();
-      await vi.advanceTimersByTimeAsync(1_600);
-    });
-
-    fireEvent.click(screen.getByText('Browser Automation'));
-    expect(screen.queryByText('detail.uninstall')).not.toBeInTheDocument();
-    expect(screen.getByText('detail.disable')).toBeInTheDocument();
+    await waitFor(() => expect(installFromGithubMock).toHaveBeenCalledWith({
+      skillId: 'security-and-hardening',
+      repositoryUrl: 'https://github.com/addyosmani/agent-skills',
+      selectedInstallTarget: 'skills/security-and-hardening',
+    }));
   });
 });

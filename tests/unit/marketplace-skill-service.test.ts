@@ -58,12 +58,18 @@ describe('marketplace skill service', () => {
   it('loads the maintained marketplace seed catalog from resources', () => {
     const seeds = loadMarketplaceSeedSkills(join(process.cwd(), 'resources', 'skills', 'marketplace-seeds.json'));
 
-    expect(seeds).toHaveLength(9);
-    expect(seeds.every((skill) => skill.reviewStatus === 'approved')).toBe(true);
-    expect(seeds.every((skill) => skill.commercialUseAllowed)).toBe(true);
-    expect(seeds.every((skill) => isCommercialLicense(skill.license))).toBe(true);
-    expect(seeds.every((skill) => skill.selectedInstallTarget?.startsWith('skills/'))).toBe(true);
+    expect(seeds).toHaveLength(10);
+    const approved = seeds.filter((skill) => skill.reviewStatus === 'approved');
+    expect(approved).toHaveLength(9);
+    expect(approved.every((skill) => skill.commercialUseAllowed)).toBe(true);
+    expect(approved.every((skill) => isCommercialLicense(skill.license))).toBe(true);
+    expect(approved.every((skill) => skill.selectedInstallTarget?.startsWith('skills/'))).toBe(true);
     expect(seeds.map((skill) => skill.id)).toContain('security-and-hardening');
+    expect(seeds.find((skill) => skill.id === 'ai-ecommerce-agent-skills')).toMatchObject({
+      license: 'CC-BY-NC-4.0',
+      reviewStatus: 'rejected',
+      commercialUseAllowed: false,
+    });
     expect(seeds.map((skill) => skill.repositoryUrl)).toContain('https://github.com/addyosmani/agent-skills');
   });
 

@@ -51,10 +51,25 @@ export function createAgentsApi(ctx: AgentsApiContext): CompleteHostServiceRegis
     create: async (payload) => {
       const name = requireString(payload, 'name');
       const inheritWorkspace = isRecord(payload) ? payload.inheritWorkspace === true : undefined;
-      const snapshot = await createAgent(name, { inheritWorkspace });
-      syncAllProviderAuthToRuntime().catch((err) => {
-        console.warn('[agents] Failed to sync provider auth after agent creation:', err);
-      });
+      const modelPlanId = isRecord(payload) && typeof payload.modelPlanId === 'string'
+        ? payload.modelPlanId
+        : null;
+      const persona = isRecord(payload) && typeof payload.persona === 'string'
+        ? payload.persona
+        : null;
+      const snapshotBefore = await listAgentsSnapshot();
+      const snapshot = await createAgent(name, { inheritWorkspace, modelPlanId, persona });
+      const createdAgent = snapshot.agents.find((agent) => (
+        !snapshotBefore.agents.some((existing) => existing.id === agent.id)
+      ));
+      try {
+        await syncAllProviderAuthToRuntime();
+        if (createdAgent) {
+          await syncAgentModelOverrideToRuntime(createdAgent.id);
+        }
+      } catch (err) {
+        console.warn('[agents] Failed to sync runtime after agent creation:', err);
+      }
       scheduleGatewayReload(ctx, 'create-agent');
       void ensurecanvaslandContext({ waitForAllConfiguredWorkspaces: true }).catch((err) => {
         console.warn('[agents] Failed to ensure canvasland context after agent creation:', err);
@@ -79,7 +94,10 @@ export function createAgentsApi(ctx: AgentsApiContext): CompleteHostServiceRegis
     updateModel: async (payload) => {
       const agentId = requireString(payload, 'id');
       const modelRef = isRecord(payload) && typeof payload.modelRef === 'string' ? payload.modelRef : null;
-      const snapshot = await updateAgentModel(agentId, modelRef);
+      const modelPlanId = isRecord(payload) && typeof payload.modelPlanId === 'string'
+        ? payload.modelPlanId
+        : null;
+      const snapshot = await updateAgentModel(agentId, modelRef, modelPlanId);
       try {
         await syncAllProviderAuthToRuntime();
         await syncAgentModelOverrideToRuntime(agentId);

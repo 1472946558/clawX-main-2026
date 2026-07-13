@@ -13,9 +13,9 @@ test.describe('Image generation settings page', () => {
     await page.getByTestId('setup-skip-button').click();
 
     await expect(page.getByTestId('main-layout')).toBeVisible();
-    await page.getByTestId('sidebar-nav-models').click();
+    await page.getByTestId('sidebar-nav-settings').click();
 
-    await expect(page.getByTestId('models-page')).toBeVisible();
+    await expect(page.getByTestId('settings-page')).toBeVisible();
     await expect(page.getByTestId('providers-settings')).toBeVisible();
     await expect(page.getByTestId('image-generation-settings')).toHaveCount(0);
     await expect(page.getByTestId('sidebar-nav-image-generation')).toHaveCount(0);

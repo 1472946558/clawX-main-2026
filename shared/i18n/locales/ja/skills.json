@@ -234,7 +234,7 @@
             "waitingDescription": "左側の項目を入力して送信すると、文案、詳細画像、動画分鏡の結果がここに表示されます。",
             "submitGenerate": "生成を送信",
             "requiredFieldsError": "商品名、主要訴求、対象プラットフォームを先に入力してください。",
-            "estimatedCost": "予測金額：約0.2元/回",
+            "estimatedCost": "選択したプランに応じてポイントを消費します",
             "productName": "商品名",
             "productNamePlaceholder": "例：女性用ジョガーパンツ",
             "coreSellingPoints": "主要訴求",
@@ -278,12 +278,48 @@
             "aspectRatio": "画面比率",
             "model": "生成モデル",
             "generateCount": "生成数",
-            "imagePrice": "予測金額：￥0.5",
-            "videoPrice": "予測金額：￥1.2",
+            "imagePrice": "選択したプランに応じてポイントを消費します",
+            "videoPrice": "選択したプランに応じてポイントを消費します",
             "modelDescriptions": {
                 "0": "メイン画像と詳細画像向けの商用画像生成",
                 "1": "素早いプレビューとスタイル調整向けのライブ画像生成",
                 "2": "EC シーン展示向けの 720P 商品ショート動画生成"
+            }
+        },
+        "billing": {
+            "title": "生成プラン",
+            "subtitle": "ポイントのみ表示し、生成成功後に自動で消費します",
+            "points": "{{points}} ポイント",
+            "willUse": "今回は {{points}} ポイントを消費します",
+            "used": "{{points}} ポイントを消費しました",
+            "copy": {
+                "short": { "name": "ショートコピー", "description": "タイトル、短文、単発SNS投稿" },
+                "social": { "name": "SNS強化", "description": "複数のSNS文案とタイトル案" },
+                "long": { "name": "長文商用", "description": "詳細ページ、ブランド紹介、長文セールスコピー" },
+                "deep": { "name": "戦略設計", "description": "深い洞察、構成設計、高品質コピー" }
+            },
+            "image": {
+                "standard": { "name": "標準画質", "description": "日常の商品画像や詳細画像向けの商用品質" },
+                "pro": { "name": "Pro マスター", "description": "より精細で上質なプレミアム画質" }
+            },
+            "video": {
+                "basic": { "name": "基本ショート動画", "description": "3〜5秒の商用ショート動画" },
+                "pro": { "name": "HD Pro", "description": "5〜10秒のHD動画と優先生成" },
+                "master": { "name": "マスター", "description": "5〜10秒の最高画質と最速生成" }
+            },
+            "benefits": {
+                "fast": "高速生成",
+                "multiVersion": "複数案",
+                "longForm": "長文出力",
+                "commercial": "商用品質",
+                "deepStrategy": "戦略設計",
+                "priority": "優先生成",
+                "noWatermark": "透かしなし",
+                "proQuality": "Pro画質",
+                "shortVideo": "3〜5秒",
+                "hd": "HD",
+                "masterQuality": "マスター画質",
+                "fastest": "最速レーン"
             }
         }
     },
@@ -384,9 +420,14 @@
             "openedSource": "ソースリポジトリを開きました。",
             "install": "インストール",
             "installed": "インストール済み",
+            "retry": "再試行",
+            "uninstall": "アンインストール",
             "use": "使用",
             "useReady": "インストール済みスキルを開きました。",
             "useFailed": "インストール済みスキルを開けませんでした。",
+            "githubOnly": "この MVP では GitHub スキルのみインストールできます。",
+            "uninstallReady": "スキルをアンインストールしました。",
+            "uninstallFailed": "スキルのアンインストールに失敗しました。",
             "installReady": "スキルをインストールしました。",
             "installReadyWithPath": "スキルをインストールしました: {{path}}",
             "installFailed": "スキルのインストールに失敗しました。"
@@ -415,6 +456,14 @@
             "entryRuntime": "Runtime:",
             "tags": "Tags",
             "homepage": "ホームページ",
+            "installInfo": "インストール情報",
+            "installStatus": "状態",
+            "installSource": "ソース",
+            "installDir": "インストール先",
+            "notInstalled": "未インストール",
+            "lastError": "直近のエラー",
+            "riskTitle": "リスク通知",
+            "riskCommandWarning": "このスキルにはインストール手順で必要になる可能性のあるコマンドが含まれます。このバージョンはダウンロードのみ行い、自動実行はしません。",
             "commands": {
                 "install": "canvasland skill install {{id}}",
                 "use": "canvasland skill use {{id}}"
@@ -492,6 +541,11 @@
             "available": "インストール連携予定",
             "installed": "インストール済み",
             "planned": "計画中",
+            "not_installed": "未インストール",
+            "downloading": "インストール中...",
+            "downloaded": "ダウンロード済み",
+            "installed_metadata_only": "インストール済み",
+            "failed": "失敗",
             "enabled": "インストール済み · 有効",
             "disabled": "インストール済み · 無効"
         },

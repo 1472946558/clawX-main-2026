@@ -6,10 +6,10 @@ test.describe('hover-only scrollbar visibility', () => {
 
     try {
       const page = await getStableWindow(app);
-      await page.getByTestId('sidebar-nav-models').click();
-      await expect(page.getByTestId('models-page')).toBeVisible();
+      await page.getByTestId('sidebar-nav-token-topup').click();
+      await expect(page.getByTestId('token-topup-page')).toBeVisible();
 
-      const scrollContainer = page.locator('[data-testid="models-page"] .overflow-y-auto').first();
+      const scrollContainer = page.locator('[data-testid="token-topup-page"] .overflow-y-auto').first();
       await expect(scrollContainer).toBeVisible();
 
       const beforeHover = await scrollContainer.evaluate((element) => {

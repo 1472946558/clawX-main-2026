@@ -29,12 +29,74 @@ const creemProductIds = {
 const creemSuccessUrl = process.env.CREEM_SUCCESS_URL || 'https://feiniu-ai.cn';
 const creemApiBaseUrl = process.env.CREEM_API_BASE_URL
   || (creemApiKey.startsWith('creem_test_') ? 'https://test-api.creem.io/v1' : 'https://api.creem.io/v1');
+const newApiBaseUrl = (process.env.CANVASLAND_NEWAPI_BASE_URL || 'https://feiniu.space/v1').replace(/\/+$/, '');
+const modelPlans = [
+  {
+    id: 'gpt-5.4',
+    label: 'GPT 5.4',
+    runtimeModel: 'gpt-5.4',
+    upstreamEnvVar: 'CANVASLAND_MODEL_GPT54_API_KEY',
+    pointsPer1kInputTokens: 1,
+    pointsPer1kOutputTokens: 4,
+  },
+  {
+    id: 'gpt-5.5',
+    label: 'GPT 5.5',
+    runtimeModel: 'gpt-5.5',
+    upstreamEnvVar: 'CANVASLAND_MODEL_GPT55_API_KEY',
+    pointsPer1kInputTokens: 1,
+    pointsPer1kOutputTokens: 5,
+  },
+  {
+    id: 'qwen3.6-plus',
+    label: 'Qwen 3.6 Plus',
+    runtimeModel: 'qwen3.6-plus',
+    upstreamEnvVar: 'CANVASLAND_MODEL_QWEN36PLUS_API_KEY',
+    pointsPer1kInputTokens: 2,
+    pointsPer1kOutputTokens: 8,
+  },
+  {
+    id: 'qwen3.7-max',
+    label: 'Qwen 3.7 Max',
+    runtimeModel: 'qwen3.7-max',
+    upstreamEnvVar: 'CANVASLAND_MODEL_QWEN37MAX_API_KEY',
+    pointsPer1kInputTokens: 2,
+    pointsPer1kOutputTokens: 10,
+  },
+];
+const aiWorkflowPrices = {
+  'ecommerce-copywriting': {
+    short: 10,
+    social: 15,
+    long: 20,
+    deep: 30,
+  },
+  'detail-poster-generator': {
+    standard: 30,
+    pro: 60,
+  },
+  'product-short-video': {
+    basic: 300,
+    pro: 500,
+    master: 600,
+  },
+};
+const rechargePackagePoints = new Map([
+  [5, 500],
+  [10, 1000],
+  [20, 2100],
+  [50, 6000],
+  [100, 13000],
+  [200, 28000],
+  [500, 75000],
+]);
 const defaultCnyRates = {
   USD: Number(process.env.CREEM_USD_CNY || 6.8),
   HKD: Number(process.env.CREEM_HKD_CNY || 0.87),
 };
 const rateCacheTtlMs = 30 * 60 * 1000;
 let rateCache = null;
+let walletWriteQueue = Promise.resolve();
 
 app.use(cors());
 app.use(express.json({
@@ -56,6 +118,7 @@ function emptyWallet() {
     totalAvailable: 0,
     records: [],
     orders: {},
+    usageRequests: {},
   };
 }
 
@@ -68,10 +131,20 @@ async function readWallet() {
       ...parsed,
       records: Array.isArray(parsed.records) ? parsed.records : [],
       orders: parsed.orders && typeof parsed.orders === 'object' ? parsed.orders : {},
+      usageRequests: parsed.usageRequests && typeof parsed.usageRequests === 'object' ? parsed.usageRequests : {},
     };
   } catch {
     return emptyWallet();
   }
+}
+
+async function withWalletTransaction(operation) {
+  const run = walletWriteQueue.then(async () => {
+    const wallet = await readWallet();
+    return operation(wallet);
+  });
+  walletWriteQueue = run.catch(() => {});
+  return run;
 }
 
 async function writeWallet(wallet) {
@@ -94,6 +167,146 @@ async function writeWallet(wallet) {
 function safeNumber(value) {
   const number = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function findAiWorkflowPrice(workflowId, billingTierId) {
+  const workflow = aiWorkflowPrices[String(workflowId || '').trim()];
+  const points = workflow?.[String(billingTierId || '').trim()];
+  if (!Number.isFinite(points) || points <= 0) return null;
+  return {
+    workflowId: String(workflowId).trim(),
+    billingTierId: String(billingTierId).trim(),
+    points,
+  };
+}
+
+async function debitAiWorkflowUsage({ requestId, price }) {
+  return withWalletTransaction(async (wallet) => {
+    if (wallet.usageRequests[requestId]?.debited) {
+      return { duplicate: true, record: wallet.usageRequests[requestId].record, wallet };
+    }
+    const current = await writeWallet(wallet);
+    if (current.totalAvailable < price.points) {
+      const error = new Error('Insufficient canvasland points');
+      error.code = 'INSUFFICIENT_POINTS';
+      throw error;
+    }
+    const record = {
+      id: requestId,
+      kind: 'usage',
+      provider: 'newapi',
+      paymentKind: 'ai-app',
+      workflowId: price.workflowId,
+      billingTierId: price.billingTierId,
+      points: price.points,
+      status: 'used',
+      createdAt: now(),
+      description: `${price.workflowId} ${price.billingTierId}`,
+    };
+    wallet.records = [record, ...wallet.records.filter((item) => item.id !== requestId)];
+    wallet.usageRequests[requestId] = {
+      debited: true,
+      record,
+      updatedAt: now(),
+    };
+    const saved = await writeWallet(wallet);
+    return { duplicate: false, record, wallet: saved };
+  });
+}
+
+function publicModelPlan(plan) {
+  return {
+    id: plan.id,
+    label: plan.label,
+    runtimeModel: plan.runtimeModel,
+    pointsPer1kInputTokens: plan.pointsPer1kInputTokens,
+    pointsPer1kOutputTokens: plan.pointsPer1kOutputTokens,
+    configured: Boolean(process.env[plan.upstreamEnvVar]),
+  };
+}
+
+function findModelPlan(model) {
+  const normalized = String(model || '').trim();
+  return modelPlans.find((plan) => (
+    plan.id === normalized
+    || plan.runtimeModel === normalized
+    || `canvasland-newapi/${plan.runtimeModel}` === normalized
+  )) || null;
+}
+
+function getRequestId(req, body) {
+  const headerValue = req.get('x-request-id') || req.get('idempotency-key');
+  const value = headerValue || body.requestId || body.request_id || body.metadata?.requestId;
+  return String(value || '').trim();
+}
+
+function redactSecretText(value) {
+  return String(value || '')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+/gi, 'Bearer [redacted]')
+    .replace(/sk-[A-Za-z0-9_-]{12,}/g, '[redacted-key]')
+    .slice(0, 500);
+}
+
+function usageNumber(usage, keys) {
+  const source = normalizeObject(usage);
+  for (const key of keys) {
+    const number = safeNumber(source[key]);
+    if (Number.isFinite(number) && number > 0) return number;
+  }
+  return 0;
+}
+
+function calculateModelPoints(plan, usage) {
+  const inputTokens = usageNumber(usage, ['prompt_tokens', 'input_tokens', 'inputTokenCount']);
+  const outputTokens = usageNumber(usage, ['completion_tokens', 'output_tokens', 'outputTokenCount']);
+  const totalTokens = usageNumber(usage, ['total_tokens', 'totalTokens']);
+  const inferredInputTokens = inputTokens || Math.max(0, totalTokens - outputTokens);
+  const rawPoints = (inferredInputTokens / 1000) * plan.pointsPer1kInputTokens
+    + (outputTokens / 1000) * plan.pointsPer1kOutputTokens;
+  return Math.max(1, Math.ceil(rawPoints || totalTokens / 1000 || 1));
+}
+
+async function debitUsage({ requestId, plan, usage, upstreamId }) {
+  return withWalletTransaction(async (wallet) => {
+    if (requestId && wallet.usageRequests[requestId]?.debited) {
+      return { duplicate: true, record: wallet.usageRequests[requestId].record, wallet };
+    }
+    const points = calculateModelPoints(plan, usage);
+    const current = await writeWallet(wallet);
+    if (current.totalAvailable < points) {
+      throw new Error('Insufficient canvasland points');
+    }
+    const recordId = requestId || upstreamId || `usage-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+    const record = {
+      id: recordId,
+      kind: 'usage',
+      provider: 'newapi',
+      paymentKind: 'model',
+      model: plan.label,
+      modelPlanId: plan.id,
+      tokenUsed: usageNumber(usage, ['total_tokens', 'totalTokens'])
+        || usageNumber(usage, ['prompt_tokens', 'input_tokens'])
+        + usageNumber(usage, ['completion_tokens', 'output_tokens']),
+      points,
+      status: 'used',
+      createdAt: now(),
+      description: `${plan.label} usage`,
+    };
+    wallet.records = [
+      record,
+      ...wallet.records.filter((item) => item.id !== recordId),
+    ];
+    if (requestId) {
+      wallet.usageRequests[requestId] = {
+        debited: true,
+        record,
+        upstreamId,
+        updatedAt: now(),
+      };
+    }
+    const saved = await writeWallet(wallet);
+    return { duplicate: false, record, wallet: saved };
+  });
 }
 
 function normalizeObject(value) {
@@ -181,6 +394,11 @@ function pointsFromAmount(amount) {
   return Math.max(0, Math.round(safeNumber(amount) * pointsPerCny));
 }
 
+function pointsFromRechargeAmount(amount) {
+  const normalized = Number(safeNumber(amount).toFixed(2));
+  return rechargePackagePoints.get(normalized) ?? pointsFromAmount(normalized);
+}
+
 function normalizePaymentAmount(value) {
   const amount = safeNumber(value);
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -192,20 +410,21 @@ function normalizePaymentAmount(value) {
 async function savePendingOrder({ provider, paymentKind, outTradeNo, tradeNo, amount, points, raw }) {
   const orderNo = String(outTradeNo || tradeNo || '').trim();
   if (!orderNo) return;
-  const wallet = await readWallet();
-  wallet.orders[orderNo] = {
-    ...(wallet.orders[orderNo] || {}),
-    credited: Boolean(wallet.orders[orderNo]?.credited),
-    provider,
-    paymentKind,
-    amount,
-    points,
-    tradeNo,
-    raw,
-    createdAt: wallet.orders[orderNo]?.createdAt || now(),
-    updatedAt: now(),
-  };
-  await writeWallet(wallet);
+  await withWalletTransaction(async (wallet) => {
+    wallet.orders[orderNo] = {
+      ...(wallet.orders[orderNo] || {}),
+      credited: Boolean(wallet.orders[orderNo]?.credited),
+      provider,
+      paymentKind,
+      amount,
+      points,
+      tradeNo,
+      raw,
+      createdAt: wallet.orders[orderNo]?.createdAt || now(),
+      updatedAt: now(),
+    };
+    await writeWallet(wallet);
+  });
 }
 
 function normalizeCurrency(value) {
@@ -244,17 +463,12 @@ async function cnyRateForCurrency(currency) {
 }
 
 function pointsFromBlueOcean(payload) {
-  const attach = typeof payload.attach === 'string' ? payload.attach : '';
-  const match = attach.match(/(?:^|[;&,\s])points=(\d+)/i);
-  if (match) return Number(match[1]);
   const fee = safeNumber(payload.total_fee ?? payload.totalFee ?? payload.pay_amount ?? payload.payAmount);
-  return pointsFromAmount(fee / 100);
+  return pointsFromRechargeAmount(fee / 100);
 }
 
 function pointsFromEpay(payload) {
-  const extendFields = normalizeObject(payload.extendFields);
-  if (extendFields.points) return Math.max(0, Math.round(safeNumber(extendFields.points)));
-  return pointsFromAmount(payload.amount ?? payload.payAmount ?? payload.money ?? payload.totalAmount);
+  return pointsFromRechargeAmount(payload.amount ?? payload.payAmount ?? payload.money ?? payload.totalAmount);
 }
 
 function creemSignature(rawBody) {
@@ -286,7 +500,7 @@ async function pointsFromCreemOrder(order, fallbackCurrency) {
     currency,
     cnyRate,
     cnyAmount,
-    points: pointsFromAmount(cnyAmount),
+    points: pointsFromRechargeAmount(cnyAmount),
   };
 }
 
@@ -295,44 +509,47 @@ async function creditWallet({ provider, paymentKind, outTradeNo, tradeNo, amount
   if (!orderNo) {
     return { credited: false, reason: 'missing-order-number' };
   }
-  const wallet = await readWallet();
-  const existing = wallet.orders[orderNo];
-  if (existing?.credited) {
-    return { credited: false, duplicate: true, record: existing.record };
-  }
-  const record = {
-    id: orderNo,
-    kind: 'topup',
-    outTradeNo: orderNo,
-    provider,
-    paymentKind,
-    amount: Number(safeNumber(amount).toFixed(2)),
-    currency: raw?.currency,
-    cnyRate: raw?.cnyRate,
-    cnyAmount: raw?.cnyAmount,
-    points: Math.max(0, Math.round(points)),
-    status: 'paid',
-    createdAt: existing?.createdAt || now(),
-    paidAt: now(),
-    description: `${provider} ${paymentKind} callback`,
-  };
-  wallet.orders[orderNo] = {
-    credited: true,
-    provider,
-    paymentKind,
-    amount: record.amount,
-    points: record.points,
-    tradeNo,
-    record,
-    raw,
-    updatedAt: now(),
-  };
-  wallet.records = [
-    record,
-    ...wallet.records.filter((item) => item.outTradeNo !== orderNo && item.id !== orderNo),
-  ];
-  const next = await writeWallet(wallet);
-  return { credited: true, record, wallet: next };
+  return withWalletTransaction(async (wallet) => {
+    const existing = wallet.orders[orderNo];
+    if (existing?.credited) {
+      return { credited: false, duplicate: true, record: existing.record };
+    }
+    const authoritativePoints = existing?.points
+      ?? pointsFromRechargeAmount(raw?.cnyAmount ?? amount);
+    const record = {
+      id: orderNo,
+      kind: 'topup',
+      outTradeNo: orderNo,
+      provider,
+      paymentKind,
+      amount: Number(safeNumber(amount).toFixed(2)),
+      currency: raw?.currency,
+      cnyRate: raw?.cnyRate,
+      cnyAmount: raw?.cnyAmount,
+      points: Math.max(0, Math.round(authoritativePoints)),
+      status: 'paid',
+      createdAt: existing?.createdAt || now(),
+      paidAt: now(),
+      description: `${provider} ${paymentKind} callback`,
+    };
+    wallet.orders[orderNo] = {
+      credited: true,
+      provider,
+      paymentKind,
+      amount: record.amount,
+      points: record.points,
+      tradeNo,
+      record,
+      raw,
+      updatedAt: now(),
+    };
+    wallet.records = [
+      record,
+      ...wallet.records.filter((item) => item.outTradeNo !== orderNo && item.id !== orderNo),
+    ];
+    const next = await writeWallet(wallet);
+    return { credited: true, record, wallet: next };
+  });
 }
 
 app.get('/health', (_req, res) => {
@@ -357,6 +574,154 @@ app.get('/api/wallet/records', async (_req, res) => {
   res.json({ success: true, records: wallet.records });
 });
 
+app.get('/api/model-plans', (_req, res) => {
+  res.json({ success: true, models: modelPlans.map(publicModelPlan) });
+});
+
+app.post('/api/usage/quote', async (req, res) => {
+  const body = normalizeObject(req.body);
+  const price = findAiWorkflowPrice(body.workflowId, body.billingTierId);
+  if (!price) {
+    res.status(400).json({ success: false, error: 'Unsupported AI workflow billing tier' });
+    return;
+  }
+  const wallet = await readWallet();
+  const saved = await writeWallet(wallet);
+  res.json({
+    success: true,
+    ...price,
+    availablePoints: saved.totalAvailable,
+    affordable: saved.totalAvailable >= price.points,
+  });
+});
+
+app.post('/api/usage/debit', async (req, res) => {
+  try {
+    const body = normalizeObject(req.body);
+    const requestId = getRequestId(req, body);
+    if (!requestId) {
+      res.status(400).json({ success: false, error: 'requestId is required' });
+      return;
+    }
+    const price = findAiWorkflowPrice(body.workflowId, body.billingTierId);
+    if (!price) {
+      res.status(400).json({ success: false, error: 'Unsupported AI workflow billing tier' });
+      return;
+    }
+    const debit = await debitAiWorkflowUsage({ requestId, price });
+    res.json({
+      success: true,
+      duplicate: debit.duplicate,
+      pointsUsed: debit.record.points,
+      usageRecord: debit.record,
+      availablePoints: debit.wallet.totalAvailable,
+    });
+  } catch (error) {
+    const status = error?.code === 'INSUFFICIENT_POINTS' ? 402 : 500;
+    res.status(status).json({
+      success: false,
+      error: redactSecretText(error instanceof Error ? error.message : String(error)),
+    });
+  }
+});
+
+app.get('/v1/models', (_req, res) => {
+  res.json({
+    object: 'list',
+    data: modelPlans.map((plan) => ({
+      id: plan.runtimeModel,
+      object: 'model',
+      owned_by: 'canvasland',
+    })),
+  });
+});
+
+app.post('/v1/chat/completions', async (req, res) => {
+  try {
+    const body = normalizeObject(req.body);
+    const plan = findModelPlan(body.model);
+    const workflowPrice = findAiWorkflowPrice(body.metadata?.workflowId, body.metadata?.billingTierId);
+    if (!plan) {
+      res.status(400).json({ error: { message: 'Unsupported canvasland model' } });
+      return;
+    }
+    if (body.stream === true) {
+      res.status(400).json({ error: { message: 'Streaming is not enabled on the canvasland billing proxy yet' } });
+      return;
+    }
+    const apiKey = process.env[plan.upstreamEnvVar];
+    if (!apiKey) {
+      res.status(503).json({ error: { message: 'Upstream model is not configured' } });
+      return;
+    }
+    const requestId = getRequestId(req, body);
+    if (requestId) {
+      const wallet = await readWallet();
+      if (wallet.usageRequests[requestId]?.debited) {
+        res.status(409).json({
+          error: { message: 'Duplicate requestId; usage was already billed' },
+          usageRecord: wallet.usageRequests[requestId].record,
+        });
+        return;
+      }
+    }
+    const wallet = await readWallet();
+    const minimumRequiredPoints = workflowPrice?.points || 1;
+    if (safeNumber(wallet.totalAvailable) < minimumRequiredPoints) {
+      res.status(402).json({ error: { message: 'Insufficient canvasland points' } });
+      return;
+    }
+    const upstreamBody = {
+      ...body,
+      model: plan.runtimeModel,
+    };
+    delete upstreamBody.pointsUsed;
+    delete upstreamBody.points;
+    if (workflowPrice) delete upstreamBody.metadata;
+    const response = await fetch(`${newApiBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(upstreamBody),
+    });
+    const text = await response.text();
+    let data = {};
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { message: text };
+      }
+    }
+    if (!response.ok) {
+      const message = redactSecretText(data.message || data.error?.message || `Upstream HTTP ${response.status}`);
+      res.status(response.status).json({ error: { message } });
+      return;
+    }
+    const usage = normalizeObject(data.usage);
+    const debit = workflowPrice && requestId
+      ? await debitAiWorkflowUsage({ requestId, price: workflowPrice })
+      : await debitUsage({ requestId, plan, usage, upstreamId: data.id });
+    res.json({
+      ...data,
+      canvasland_usage: {
+        pointsUsed: debit.record.points,
+        modelPlanId: plan.id,
+        workflowId: workflowPrice?.workflowId,
+        billingTierId: workflowPrice?.billingTierId,
+        duplicate: debit.duplicate,
+      },
+    });
+  } catch (error) {
+    res.status(error?.code === 'INSUFFICIENT_POINTS' ? 402 : 500).json({
+      error: { message: redactSecretText(error instanceof Error ? error.message : String(error)) },
+    });
+  }
+});
+
 app.get('/payments/creem/rates', async (_req, res) => {
   const rates = await getCnyRates();
   res.json({ success: true, rates, checkedAt: now() });
@@ -367,7 +732,7 @@ app.post('/payments/blueocean/checkout', async (req, res) => {
     if (!blueOceanAppid || !blueOceanKey) throw new Error('BlueOceanPay is not configured');
     const body = normalizeObject(req.body);
     const amount = normalizePaymentAmount(body.amount);
-    const points = Math.max(1, Math.round(safeNumber(body.points) || pointsFromAmount(amount)));
+    const points = Math.max(1, pointsFromRechargeAmount(amount));
     const paymentMethod = String(body.paymentMethod || 'wechat.qrcode');
     const allowedMethods = new Set(['wechat.qrcode', 'alipay.qrcode']);
     if (!allowedMethods.has(paymentMethod)) throw new Error('Unsupported BlueOceanPay payment method');
@@ -440,7 +805,7 @@ app.post('/payments/epay/checkout', async (req, res) => {
     if (!epayAccount || !epayApiKey) throw new Error('EPAY is not configured');
     const body = normalizeObject(req.body);
     const amount = normalizePaymentAmount(body.amount);
-    const points = Math.max(1, Math.round(safeNumber(body.points) || pointsFromAmount(amount)));
+    const points = Math.max(1, pointsFromRechargeAmount(amount));
     const outTradeNo = generateOutTradeNo();
     const name = String(body.name || `canvasland ${points.toLocaleString()} points`).trim();
     const officialPayload = {
@@ -563,7 +928,7 @@ app.post('/payments/creem/checkout', async (req, res) => {
     const outTradeNo = `CL${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const cnyRate = await cnyRateForCurrency(currency);
     const cnyAmount = Number((amount * cnyRate).toFixed(2));
-    const points = pointsFromAmount(cnyAmount);
+    const points = pointsFromRechargeAmount(cnyAmount);
     const response = await fetch(`${creemApiBaseUrl.replace(/\/+$/, '')}/checkouts`, {
       method: 'POST',
       headers: {

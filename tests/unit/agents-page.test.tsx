@@ -7,6 +7,7 @@ import { Agents } from '../../src/pages/Agents/index';
 const channelsAccountsMock = vi.fn();
 const subscribeHostEventMock = vi.fn();
 const fetchAgentsMock = vi.fn();
+const createAgentMock = vi.fn();
 const updateAgentMock = vi.fn();
 const updateAgentModelMock = vi.fn();
 const refreshProviderSnapshotMock = vi.fn();
@@ -38,7 +39,7 @@ vi.mock('@/stores/agents', () => ({
     fetchAgents: typeof fetchAgentsMock;
     updateAgent: typeof updateAgentMock;
     updateAgentModel: typeof updateAgentModelMock;
-    createAgent: ReturnType<typeof vi.fn>;
+    createAgent: typeof createAgentMock;
     deleteAgent: ReturnType<typeof vi.fn>;
   }) => unknown) => {
     const state = {
@@ -46,7 +47,7 @@ vi.mock('@/stores/agents', () => ({
       fetchAgents: fetchAgentsMock,
       updateAgent: updateAgentMock,
       updateAgentModel: updateAgentModelMock,
-      createAgent: vi.fn(),
+      createAgent: createAgentMock,
       deleteAgent: vi.fn(),
     };
     return typeof selector === 'function' ? selector(state) : state;
@@ -108,6 +109,7 @@ describe('Agents page status refresh', () => {
     providersState.vendors = [];
     providersState.defaultAccountId = '';
     fetchAgentsMock.mockResolvedValue(undefined);
+    createAgentMock.mockResolvedValue(undefined);
     updateAgentMock.mockResolvedValue(undefined);
     updateAgentModelMock.mockResolvedValue(undefined);
     refreshProviderSnapshotMock.mockResolvedValue(undefined);
@@ -175,40 +177,24 @@ describe('Agents page status refresh', () => {
     expect(screen.queryByText('gatewayWarning')).not.toBeInTheDocument();
   });
 
-  it('uses "Use default model" as form fill only and disables it when already default', async () => {
+  it('updates an agent through the built-in canvasland model plan dropdown', async () => {
     agentsState.agents = [
       {
         id: 'main',
         name: 'Main',
         isDefault: true,
-        modelDisplay: 'claude-opus-4.6',
-        modelRef: 'openrouter/anthropic/claude-opus-4.6',
-        overrideModelRef: null,
-        inheritedModel: true,
+        modelDisplay: 'GPT 5.4',
+        modelRef: 'canvasland-newapi/gpt-5.4',
+        overrideModelRef: 'canvasland-newapi/gpt-5.4',
+        modelPlanId: 'gpt-5.4',
+        inheritedModel: false,
         workspace: '~/.openclaw/workspace',
         agentDir: '~/.openclaw/agents/main/agent',
         mainSessionKey: 'agent:main:desk',
         channelTypes: [],
       },
     ];
-    agentsState.defaultModelRef = 'openrouter/anthropic/claude-opus-4.6';
-    providersState.accounts = [
-      {
-        id: 'openrouter-default',
-        label: 'OpenRouter',
-        vendorId: 'openrouter',
-        authMode: 'api_key',
-        model: 'openrouter/anthropic/claude-opus-4.6',
-        enabled: true,
-        createdAt: '2026-03-24T00:00:00.000Z',
-        updatedAt: '2026-03-24T00:00:00.000Z',
-      },
-    ];
-    providersState.statuses = [{ id: 'openrouter-default', hasKey: true }];
-    providersState.vendors = [
-      { id: 'openrouter', name: 'OpenRouter', modelIdPlaceholder: 'anthropic/claude-opus-4.6' },
-    ];
-    providersState.defaultAccountId = 'openrouter-default';
+    agentsState.defaultModelRef = 'canvasland-newapi/gpt-5.4';
 
     renderAgents();
 
@@ -219,32 +205,35 @@ describe('Agents page status refresh', () => {
     fireEvent.click(screen.getByTitle('settings'));
     fireEvent.click(screen.getByText('settingsDialog.modelLabel').closest('button') as HTMLButtonElement);
 
-    const useDefaultButton = await screen.findByRole('button', { name: 'settingsDialog.useDefaultModel' });
-    const modelIdInput = screen.getByLabelText('settingsDialog.modelIdLabel');
+    const modelSelect = await screen.findByTestId('agent-model-plan-update-select');
     const saveButton = screen.getByRole('button', { name: 'common:actions.save' });
 
-    expect(useDefaultButton).toBeDisabled();
+    expect(modelSelect).toHaveTextContent('GPT 5.4');
+    expect(modelSelect).toHaveTextContent('GPT 5.5');
+    expect(modelSelect).toHaveTextContent('Qwen 3.6 Plus');
+    expect(modelSelect).toHaveTextContent('Qwen 3.7 Max');
+    expect(saveButton).toBeDisabled();
 
-    fireEvent.change(modelIdInput, { target: { value: 'anthropic/claude-sonnet-4.5' } });
-    expect(useDefaultButton).toBeEnabled();
+    fireEvent.change(modelSelect, { target: { value: 'qwen3.7-max' } });
     expect(saveButton).toBeEnabled();
 
-    fireEvent.click(useDefaultButton);
+    fireEvent.click(saveButton);
 
-    expect(updateAgentModelMock).not.toHaveBeenCalled();
-    expect((modelIdInput as HTMLInputElement).value).toBe('anthropic/claude-opus-4.6');
-    expect(useDefaultButton).toBeDisabled();
+    await waitFor(() => {
+      expect(updateAgentModelMock).toHaveBeenCalledWith('main', 'canvasland-newapi/qwen3.7-max', 'qwen3.7-max');
+    });
   });
 
-  it('shows a direct provider settings action when no configured provider exists', async () => {
+  it('keeps built-in model selection available when no provider account exists', async () => {
     agentsState.agents = [
       {
         id: 'main',
         name: 'Main',
         isDefault: true,
         modelDisplay: 'gpt-5.4',
-        modelRef: null,
+        modelRef: 'canvasland-newapi/gpt-5.4',
         overrideModelRef: null,
+        modelPlanId: 'gpt-5.4',
         inheritedModel: true,
         workspace: '~/.openclaw/workspace',
         agentDir: '~/.openclaw/agents/main/agent',
@@ -265,8 +254,46 @@ describe('Agents page status refresh', () => {
     fireEvent.click(screen.getByTitle('settings'));
     fireEvent.click(screen.getByText('settingsDialog.modelLabel').closest('button') as HTMLButtonElement);
 
-    expect(await screen.findByText('settingsDialog.modelProviderEmpty')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'settingsDialog.addProviderAction' })).toBeEnabled();
+    const modelSelect = await screen.findByTestId('agent-model-plan-update-select');
+    expect(modelSelect).toHaveTextContent('GPT 5.4');
+    expect(modelSelect).toHaveTextContent('Qwen 3.7 Max');
+    expect(screen.queryByText('settingsDialog.modelProviderEmpty')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'settingsDialog.addProviderAction' })).not.toBeInTheDocument();
+  });
+
+  it('creates an agent with a built-in model plan and persona without provider fields', async () => {
+    renderAgents();
+
+    await waitFor(() => {
+      expect(fetchAgentsMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByTestId('agents-add-button'));
+
+    const nameInput = await screen.findByLabelText('createDialog.nameLabel');
+    const modelSelect = screen.getByTestId('agent-model-plan-select');
+    const personaTextarea = screen.getByTestId('agent-persona-textarea');
+
+    expect(modelSelect).toHaveTextContent('GPT 5.4');
+    expect(modelSelect).toHaveTextContent('GPT 5.5');
+    expect(modelSelect).toHaveTextContent('Qwen 3.6 Plus');
+    expect(modelSelect).toHaveTextContent('Qwen 3.7 Max');
+    expect(screen.queryByText('settingsDialog.modelProviderLabel')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/API Key/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Base URL/i)).not.toBeInTheDocument();
+
+    fireEvent.change(nameInput, { target: { value: 'Store Writer' } });
+    fireEvent.change(modelSelect, { target: { value: 'gpt-5.5' } });
+    fireEvent.change(personaTextarea, { target: { value: 'Write concise ecommerce copy.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'common:actions.save' }));
+
+    await waitFor(() => {
+      expect(createAgentMock).toHaveBeenCalledWith('Store Writer', {
+        inheritWorkspace: false,
+        modelPlanId: 'gpt-5.5',
+        persona: 'Write concise ecommerce copy.',
+      });
+    });
   });
 
   it('keeps the last agent snapshot visible while a refresh is in flight', async () => {

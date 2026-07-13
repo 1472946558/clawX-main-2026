@@ -317,6 +317,24 @@ function formatPoints(points: number): string {
 function normalizeWalletRecord(value: unknown): WalletLedgerEntry | null {
   if (!isRecord(value)) return null;
   const id = typeof value.id === 'string' ? value.id : undefined;
+  const kind = value.kind === 'usage' ? 'usage' : 'topup';
+  const points = getNumber(value.points);
+  const createdAt = typeof value.createdAt === 'string' ? value.createdAt : undefined;
+  if (kind === 'usage') {
+    if (!id || points === undefined || !createdAt) return null;
+    return {
+      id,
+      kind: 'usage',
+      provider: 'newapi',
+      paymentKind: 'model',
+      points: Math.max(0, Math.round(points)),
+      status: 'used',
+      createdAt,
+      model: typeof value.model === 'string' ? value.model : undefined,
+      tokenUsed: getNumber(value.tokenUsed),
+      description: typeof value.description === 'string' ? value.description : undefined,
+    };
+  }
   const outTradeNo = typeof value.outTradeNo === 'string' ? value.outTradeNo : undefined;
   const provider = value.provider === 'blueocean' || value.provider === 'epay' || value.provider === 'creem'
     ? value.provider
@@ -325,9 +343,7 @@ function normalizeWalletRecord(value: unknown): WalletLedgerEntry | null {
     ? value.paymentKind
     : undefined;
   const amount = getNumber(value.amount);
-  const points = getNumber(value.points);
   const status = value.status === 'paid' ? 'paid' : 'pending';
-  const createdAt = typeof value.createdAt === 'string' ? value.createdAt : undefined;
   const paidAt = typeof value.paidAt === 'string' ? value.paidAt : undefined;
   if (!id || !outTradeNo || !provider || !paymentKind || amount === undefined || points === undefined || !createdAt) {
     return null;

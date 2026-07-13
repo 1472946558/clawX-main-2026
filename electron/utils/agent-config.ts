@@ -8,6 +8,12 @@ import { expandPath, getOpenClawConfigDir } from './paths';
 import * as logger from './logger';
 import { toUiChannelType } from './channel-alias';
 import { ensurecanvaslandIdentityFile } from './openclaw-workspace';
+import {
+  buildCanvaslandModelRef,
+  getCanvaslandModelPlan,
+  getDefaultCanvaslandModelPlan,
+  resolveCanvaslandModelPlanFromModelRef,
+} from '@shared/model-plans';
 
 const MAIN_AGENT_ID = 'main';
 const MAIN_AGENT_NAME = 'Main Agent';
@@ -47,6 +53,7 @@ interface AgentListEntry extends Record<string, unknown> {
   workspace?: string;
   agentDir?: string;
   model?: string | AgentModelConfig;
+  modelPlanId?: string | null;
 }
 
 interface AgentsConfig extends Record<string, unknown> {
@@ -87,6 +94,7 @@ export interface AgentSummary {
   modelDisplay: string;
   modelRef: string | null;
   overrideModelRef: string | null;
+  modelPlanId: string | null;
   inheritedModel: boolean;
   workspace: string;
   agentDir: string;
@@ -120,6 +128,9 @@ function resolveModelRef(model: unknown): string | null {
 
 function formatModelLabel(model: unknown): string | null {
   const modelRef = resolveModelRef(model);
+  const plan = resolveCanvaslandModelPlanFromModelRef(modelRef);
+  if (plan) return plan.label;
+
   if (modelRef) {
     const trimmed = modelRef;
     const parts = trimmed.split('/');
@@ -127,6 +138,11 @@ function formatModelLabel(model: unknown): string | null {
   }
 
   return null;
+}
+
+function normalizeModelPlanId(value: unknown): string {
+  return getCanvaslandModelPlan(typeof value === 'string' ? value : undefined)?.id
+    ?? getDefaultCanvaslandModelPlan().id;
 }
 
 function normalizeAgentName(name: string): string {
@@ -445,7 +461,7 @@ async function copyRuntimeFiles(sourceAgentDir: string, targetAgentDir: string):
 async function provisionAgentFilesystem(
   config: AgentConfigDocument,
   agent: AgentListEntry,
-  options?: { inheritWorkspace?: boolean },
+  options?: { inheritWorkspace?: boolean; persona?: string | null },
 ): Promise<void> {
   const { entries } = normalizeAgentsConfig(config);
   const mainEntry = entries.find((entry) => entry.id === MAIN_AGENT_ID) ?? createImplicitMainEntry(config);
@@ -468,6 +484,16 @@ async function provisionAgentFilesystem(
     await copyBootstrapFiles(sourceWorkspace, targetWorkspace);
   }
   await ensurecanvaslandIdentityFile(targetWorkspace, { createDir: true });
+  const persona = typeof options?.persona === 'string' ? options.persona.trim() : '';
+  if (persona) {
+    const section = buildAgentProfileSection(agent.name || agent.id, persona);
+    const profileFiles = ['SOUL.md', 'IDENTITY.md'];
+    for (const fileName of profileFiles) {
+      const filePath = join(targetWorkspace, fileName);
+      const existing = await readTextIfExists(filePath);
+      await writeFile(filePath, mergeAgentProfileSection(existing, section), 'utf-8');
+    }
+  }
   if (targetAgentDir !== sourceAgentDir) {
     await copyRuntimeFiles(sourceAgentDir, targetAgentDir);
   }
@@ -545,12 +571,17 @@ async function buildSnapshotFromConfig(config: AgentConfigDocument, preloadedCha
     channelOwners[channelType] = primaryOwner;
   }
 
-  const defaultModelConfig = (config.agents as AgentsConfig | undefined)?.defaults?.model;
+  const defaultModelConfig = (config.agents as AgentsConfig | undefined)?.defaults?.model
+    ?? { primary: buildCanvaslandModelRef(getDefaultCanvaslandModelPlan().id) };
   const defaultModelLabel = formatModelLabel(defaultModelConfig);
   const defaultModelRef = resolveModelRef(defaultModelConfig);
   const agents: AgentSummary[] = entries.map((entry) => {
     const explicitModelRef = resolveModelRef(entry.model);
-    const modelLabel = formatModelLabel(entry.model) || defaultModelLabel || 'Not configured';
+    const explicitPlan = getCanvaslandModelPlan(entry.modelPlanId)
+      ?? resolveCanvaslandModelPlanFromModelRef(explicitModelRef);
+    const inheritedPlan = resolveCanvaslandModelPlanFromModelRef(defaultModelRef);
+    const modelPlan = explicitPlan ?? inheritedPlan ?? getDefaultCanvaslandModelPlan();
+    const modelLabel = explicitPlan?.label || formatModelLabel(entry.model) || defaultModelLabel || modelPlan.label;
     const inheritedModel = !explicitModelRef && Boolean(defaultModelLabel);
     const entryIdNorm = normalizeAgentIdForBinding(entry.id);
     const ownedChannels = agentChannelSets.get(entryIdNorm) ?? new Set<string>();
@@ -559,8 +590,9 @@ async function buildSnapshotFromConfig(config: AgentConfigDocument, preloadedCha
       name: entry.name || (entry.id === MAIN_AGENT_ID ? MAIN_AGENT_NAME : entry.id),
       isDefault: entry.id === defaultAgentId,
       modelDisplay: modelLabel,
-      modelRef: explicitModelRef || defaultModelRef || null,
+      modelRef: explicitModelRef || defaultModelRef || buildCanvaslandModelRef(modelPlan.id),
       overrideModelRef: explicitModelRef,
+      modelPlanId: explicitPlan?.id ?? (inheritedModel ? null : modelPlan.id),
       inheritedModel,
       workspace: entry.workspace || (entry.id === MAIN_AGENT_ID ? getDefaultWorkspacePath(config) : `~/.openclaw/workspace-${entry.id}`),
       agentDir: entry.agentDir || getDefaultAgentDirPath(entry.id),
@@ -618,7 +650,7 @@ export async function resolveAgentIdFromChannel(channel: string, accountId?: str
 
 export async function createAgent(
   name: string,
-  options?: { inheritWorkspace?: boolean },
+  options?: { inheritWorkspace?: boolean; modelPlanId?: string | null; persona?: string | null },
 ): Promise<AgentsSnapshot> {
   return withConfigLock(async () => {
     const config = await readOpenClawConfig() as AgentConfigDocument;
@@ -640,7 +672,9 @@ export async function createAgent(
       name: normalizedName,
       workspace: `~/.openclaw/workspace-${nextId}`,
       agentDir: getDefaultAgentDirPath(nextId),
+      modelPlanId: normalizeModelPlanId(options?.modelPlanId),
     };
+    newAgent.model = { primary: buildCanvaslandModelRef(newAgent.modelPlanId) };
 
     if (!nextEntries.some((entry) => entry.id === MAIN_AGENT_ID) && syntheticMain) {
       nextEntries.unshift(createImplicitMainEntry(config));
@@ -652,7 +686,10 @@ export async function createAgent(
       list: nextEntries,
     };
 
-    await provisionAgentFilesystem(config, newAgent, { inheritWorkspace: options?.inheritWorkspace });
+    await provisionAgentFilesystem(config, newAgent, {
+      inheritWorkspace: options?.inheritWorkspace,
+      persona: options?.persona,
+    });
     await writeOpenClawConfig(config);
     logger.info('Created agent config entry', { agentId: nextId, inheritWorkspace: !!options?.inheritWorkspace });
     return buildSnapshotFromConfig(config);
@@ -734,7 +771,11 @@ function isValidModelRef(modelRef: string): boolean {
   return firstSlash > 0 && firstSlash < modelRef.length - 1;
 }
 
-export async function updateAgentModel(agentId: string, modelRef: string | null): Promise<AgentsSnapshot> {
+export async function updateAgentModel(
+  agentId: string,
+  modelRef: string | null,
+  modelPlanId?: string | null,
+): Promise<AgentsSnapshot> {
   return withConfigLock(async () => {
     const config = await readOpenClawConfig() as AgentConfigDocument;
     const { agentsConfig, entries } = normalizeAgentsConfig(config);
@@ -743,16 +784,30 @@ export async function updateAgentModel(agentId: string, modelRef: string | null)
       throw new Error(`Agent "${agentId}" not found`);
     }
 
-    const normalizedModelRef = typeof modelRef === 'string' ? modelRef.trim() : '';
+    const selectedPlan = getCanvaslandModelPlan(modelPlanId ?? undefined);
+    const normalizedModelRef = selectedPlan
+      ? buildCanvaslandModelRef(selectedPlan.id)
+      : (typeof modelRef === 'string' ? modelRef.trim() : '');
     const nextEntry: AgentListEntry = { ...entries[index] };
 
     if (!normalizedModelRef) {
       delete nextEntry.model;
+      delete nextEntry.modelPlanId;
     } else {
       if (!isValidModelRef(normalizedModelRef)) {
         throw new Error('modelRef must be in "provider/model" format');
       }
       nextEntry.model = { primary: normalizedModelRef };
+      if (selectedPlan) {
+        nextEntry.modelPlanId = selectedPlan.id;
+      } else {
+        const inferredPlan = resolveCanvaslandModelPlanFromModelRef(normalizedModelRef);
+        if (inferredPlan) {
+          nextEntry.modelPlanId = inferredPlan.id;
+        } else {
+          delete nextEntry.modelPlanId;
+        }
+      }
     }
 
     entries[index] = nextEntry;
@@ -762,7 +817,11 @@ export async function updateAgentModel(agentId: string, modelRef: string | null)
     };
 
     await writeOpenClawConfig(config);
-    logger.info('Updated agent model', { agentId, modelRef: normalizedModelRef || null });
+    logger.info('Updated agent model', {
+      agentId,
+      modelRef: normalizedModelRef || null,
+      modelPlanId: nextEntry.modelPlanId ?? null,
+    });
     return buildSnapshotFromConfig(config);
   });
 }

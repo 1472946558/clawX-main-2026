@@ -13,6 +13,7 @@ import { hostApi } from '@/lib/host-api';
 import { trackUiEvent } from '@/lib/telemetry';
 import { FeedbackState } from '@/components/common/FeedbackState';
 import { ProvidersSettings } from '@/components/settings/ProvidersSettings';
+import { CANVASLAND_MODEL_PLANS } from '@shared/model-plans';
 import {
   filterUsageHistoryByWindow,
   groupUsageHistory,
@@ -26,12 +27,10 @@ const DEFAULT_USAGE_FETCH_MAX_ATTEMPTS = 2;
 const WINDOWS_USAGE_FETCH_MAX_ATTEMPTS = 3;
 const USAGE_FETCH_RETRY_DELAY_MS = 1500;
 const USAGE_AUTO_REFRESH_INTERVAL_MS = 15_000;
-const CANVASLAND_RECOMMENDED_MODELS = [
-  { id: 'gpt-4.1-mini', labelKey: 'fast' },
-  { id: 'gpt-4.1', labelKey: 'balanced' },
-  { id: 'deepseek-v3', labelKey: 'coding' },
-  { id: 'qwen-plus', labelKey: 'general' },
-] as const;
+const CANVASLAND_RECOMMENDED_MODELS = CANVASLAND_MODEL_PLANS.map((plan) => ({
+  id: plan.runtimeModel,
+  label: plan.label,
+}));
 
 const HIDDEN_USAGE_MARKERS = ['gateway-injected', 'delivery-mirror'];
 
@@ -327,9 +326,9 @@ export function Models() {
                     data-testid={`canvasland-model-${model.id}`}
                     className="rounded-xl border border-black/5 bg-surface-input p-4 dark:border-white/10"
                   >
-                    <p className="truncate font-mono text-sm font-semibold text-foreground">{model.id}</p>
+                    <p className="truncate font-mono text-sm font-semibold text-foreground">{model.label}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {t(`dashboard:modelAccess.${model.labelKey}`)}
+                      {model.id}
                     </p>
                   </div>
                 ))}
@@ -337,9 +336,11 @@ export function Models() {
             </div>
           </div>
 
-          <div id="ai-providers" className="scroll-mt-10">
-            <ProvidersSettings />
-          </div>
+          {devModeUnlocked && (
+            <div id="ai-providers" className="scroll-mt-10">
+              <ProvidersSettings />
+            </div>
+          )}
 
           {/* Token Usage History Section */}
           <div>

@@ -5,6 +5,7 @@ export interface AgentSummary {
   modelDisplay: string;
   modelRef?: string | null;
   overrideModelRef?: string | null;
+  modelPlanId?: string | null;
   inheritedModel: boolean;
   workspace: string;
   agentDir: string;

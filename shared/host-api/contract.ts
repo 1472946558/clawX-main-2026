@@ -3,6 +3,7 @@ import type { AgentsSnapshot } from '../types/agent';
 import type { CronJob, CronJobCreateInput, CronJobUpdateInput } from '../types/cron';
 import type { GatewayHealth, GatewayStatus } from '../types/gateway';
 import type { MarketplaceSkill, QuickAccessSkill, Skill } from '../types/skill';
+import type { AiWorkflowDefinition } from '../ai-workflows';
 
 export type JsonRecord = Record<string, unknown>;
 export type HostSuccess = { success: boolean; error?: string };
@@ -241,10 +242,10 @@ export type ChannelSaveConfigResult = HostSuccess & {
 export type ChannelConfiguredResult = HostSuccess & { channels?: Array<string | JsonRecord> };
 
 export type AgentSnapshotResult = AgentsSnapshot & OptionalHostSuccess;
-export type AgentCreatePayload = { name: string; inheritWorkspace?: boolean };
+export type AgentCreatePayload = { name: string; inheritWorkspace?: boolean; modelPlanId?: string | null; persona?: string | null };
 export type AgentUpdatePayload = { id: string; name: string };
 export type AgentProfileUpdatePayload = { id: string; name: string; persona: string };
-export type AgentUpdateModelPayload = { id: string; modelRef: string | null };
+export type AgentUpdateModelPayload = { id: string; modelRef?: string | null; modelPlanId?: string | null };
 export type AgentIdPayload = { id: string };
 export type AgentChannelPayload = { id: string; channelType: string };
 
@@ -427,7 +428,7 @@ export type CanvaslandWalletRecord = {
   kind?: 'topup' | 'usage';
   outTradeNo?: string;
   provider?: 'blueocean' | 'epay' | 'creem' | 'newapi';
-  paymentKind?: 'wechat' | 'alipay' | 'creem' | 'model';
+  paymentKind?: 'wechat' | 'alipay' | 'creem' | 'model' | 'ai-app';
   amount?: number;
   currency?: 'CNY' | 'USD' | 'HKD';
   cnyRate?: number;
@@ -437,6 +438,8 @@ export type CanvaslandWalletRecord = {
   createdAt: string;
   paidAt?: string;
   model?: string;
+  workflowId?: string;
+  billingTierId?: string;
   tokenUsed?: number;
   description?: string;
 };
@@ -906,6 +909,72 @@ export type SkillMarketplaceInstallResult = HostSuccess & {
   installPath?: string;
 };
 
+export type SkillInstallStatus =
+  | 'not_installed'
+  | 'downloading'
+  | 'downloaded'
+  | 'installed_metadata_only'
+  | 'failed';
+export type SkillInstallSource = 'github' | 'local';
+export type SkillDetectedCommandKind = 'pip' | 'npm' | 'bash' | 'python' | 'node' | 'curl' | 'wget';
+export type SkillDetectedCommand = {
+  kind: SkillDetectedCommandKind;
+  line: string;
+  file: string;
+};
+export type InstalledSkillRecord = {
+  skillId: string;
+  source: SkillInstallSource;
+  sourceUrl?: string;
+  installDir: string;
+  status: SkillInstallStatus;
+  version?: string;
+  installedAt?: string;
+  updatedAt: string;
+  lastError?: string;
+  detectedCommands: SkillDetectedCommand[];
+  hasSkillMd: boolean;
+  hasManifest: boolean;
+  checksum?: string;
+};
+export type SkillInstallFromGithubPayload = {
+  skillId: string;
+  repositoryUrl: string;
+  selectedInstallTarget?: string;
+};
+export type SkillInstallFromLocalPayload = {
+  skillId: string;
+  localDir: string;
+};
+export type SkillInstallStatusPayload = {
+  skillId: string;
+};
+export type SkillUninstallPayload = {
+  skillId: string;
+};
+export type SkillScanDirPayload = {
+  skillId?: string;
+  dir: string;
+};
+export type SkillScanResult = HostSuccess & {
+  skillId?: string;
+  dir?: string;
+  detectedCommands?: SkillDetectedCommand[];
+  hasSkillMd?: boolean;
+  hasManifest?: boolean;
+  version?: string;
+};
+export type SkillInstallResult = HostSuccess & {
+  record?: InstalledSkillRecord;
+};
+export type SkillInstalledListResult = HostSuccess & {
+  skills?: InstalledSkillRecord[];
+};
+export type SkillInstallStatusResult = HostSuccess & {
+  record?: InstalledSkillRecord;
+  status?: SkillInstallStatus;
+};
+
 export type AiAppJobStatus = 'queued' | 'running' | 'completed' | 'failed';
 export type AiAppJobMode = 'live';
 export type AiAppOutputType = 'text' | 'image' | 'video' | 'poster';
@@ -939,6 +1008,8 @@ export type AiAppJob = {
   providerTaskId?: string;
   rawResponseSummary?: string;
   resultUrl?: string;
+  billingTierId?: string;
+  pointsUsed?: number;
   error?: string;
 };
 export type AiAppCreateJobPayload = {
@@ -967,6 +1038,9 @@ export type AiAppVideoCapabilities = {
 };
 export type AiAppVideoCapabilitiesResult = HostSuccess & {
   capabilities?: AiAppVideoCapabilities;
+};
+export type AiAppWorkflowListResult = HostSuccess & {
+  workflows?: AiWorkflowDefinition[];
 };
 export type ClawHubInstalledSkill = {
   slug: string;
@@ -1213,6 +1287,12 @@ export type HostApiContract = {
     marketplaceReview: (payload: SkillMarketplaceReviewPayload) => SkillMarketplaceMutationResult;
     marketplaceUpdate: (payload: SkillMarketplaceUpdatePayload) => SkillMarketplaceMutationResult;
     marketplaceInstall: (payload: SkillMarketplaceInstallPayload) => SkillMarketplaceInstallResult;
+    installFromGithub: (payload: SkillInstallFromGithubPayload) => SkillInstallResult;
+    installFromLocal: (payload: SkillInstallFromLocalPayload) => SkillInstallResult;
+    getInstalledSkills: () => SkillInstalledListResult;
+    getInstallStatus: (payload: SkillInstallStatusPayload) => SkillInstallStatusResult;
+    uninstall: (payload: SkillUninstallPayload) => HostSuccess;
+    scanSkillDir: (payload: SkillScanDirPayload) => SkillScanResult;
     clawhubCapability: () => ClawHubCapabilityResult;
     clawhubList: () => ClawHubListResult;
     clawhubSearch: (payload: ClawHubSearchPayload) => ClawHubSearchResult;
@@ -1222,6 +1302,7 @@ export type HostApiContract = {
     clawhubOpenSkillPath: (payload: ClawHubOpenPayload) => HostSuccess;
   };
   aiApps: {
+    listWorkflows: () => AiAppWorkflowListResult;
     createJob: (payload: AiAppCreateJobPayload) => AiAppJobResult;
     getJob: (payload: AiAppJobPayload) => AiAppJobResult;
     refreshJob: (payload: AiAppJobPayload) => AiAppJobResult;

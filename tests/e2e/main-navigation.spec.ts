@@ -26,17 +26,25 @@ test.describe('canvasland main navigation without setup flow', () => {
       await expect(page.getByTestId('sidebar-resize-handle')).toBeVisible();
       await expect(page.getByTestId('main-content')).toHaveCSS('border-top-left-radius', '16px');
 
-      await page.getByTestId('sidebar-nav-models').click();
-      await expect(page.getByTestId('models-page')).toBeVisible();
-      await expect(page.getByTestId('models-page-title')).toBeVisible();
-      await expect(page.getByTestId('canvasland-provider-card')).toBeVisible();
-      const modelProvidersSettings = page.getByTestId('providers-settings');
-      await modelProvidersSettings.scrollIntoViewIfNeeded();
-      await expect(modelProvidersSettings).toBeVisible();
-      await expect(page.getByTestId('providers-add-button')).toBeVisible();
+      await expect(page.getByTestId('sidebar-nav-models')).toHaveCount(0);
+      await page.evaluate(() => {
+        window.location.hash = '#/models';
+      });
+      await expect(page.getByTestId('token-topup-page')).toBeVisible();
 
       await page.getByTestId('sidebar-nav-agents').click();
       await expect(page.getByTestId('agents-page')).toBeVisible();
+      await page.getByTestId('agents-add-button').click();
+      await expect(page.getByTestId('add-agent-dialog')).toBeVisible();
+      const agentModelPlan = page.getByTestId('agent-model-plan-select');
+      await expect(agentModelPlan).toBeVisible();
+      await expect(agentModelPlan).toContainText('GPT 5.4');
+      await expect(agentModelPlan).toContainText('Qwen 3.7 Max');
+      await expect(page.getByTestId('agent-persona-textarea')).toBeVisible();
+      await expect(page.getByLabel(/API Key/i)).toHaveCount(0);
+      await expect(page.getByLabel(/Base URL/i)).toHaveCount(0);
+      await expect(page.getByText(/^Provider$/i)).toHaveCount(0);
+      await page.keyboard.press('Escape');
 
       await page.getByTestId('sidebar-nav-channels').click();
       await expect(page.getByTestId('channels-page')).toBeVisible();
@@ -46,6 +54,14 @@ test.describe('canvasland main navigation without setup flow', () => {
       await expect(page.getByTestId('ai-apps-title')).toHaveText('AI Apps');
       await expect(page.getByTestId('ai-apps-category-tabs')).toBeVisible();
       await expect(page.getByTestId('ai-apps-grid').locator('[data-testid^="ai-app-card-"]')).toHaveCount(3);
+      await page.getByTestId('ai-app-card-ecommerce-copywriting').click();
+      await expect(page.getByTestId('ai-app-billing-tier-short')).toContainText('10 points');
+      await expect(page.getByTestId('ai-app-billing-tier-social')).toContainText('15 points');
+      await expect(page.getByTestId('ai-app-billing-tier-long')).toContainText('20 points');
+      await expect(page.getByTestId('ai-app-billing-tier-deep')).toContainText('30 points');
+      await page.getByTestId('ai-app-billing-tier-deep').click();
+      await expect(page.getByTestId('ai-app-selected-points')).toContainText('30 points');
+      await page.getByTestId('ai-app-workbench-back').click();
 
       await page.getByTestId('sidebar-nav-skills').click();
       await expect(page.getByTestId('skills-page')).toBeVisible();
@@ -64,6 +80,11 @@ test.describe('canvasland main navigation without setup flow', () => {
       await expect(page.getByTestId('token-topup-recharge-tiers')).toBeVisible();
       await expect(page.getByTestId('token-topup-tier-points-5')).toContainText('500');
       await expect(page.getByTestId('token-topup-tier-points-10')).toContainText('1,000');
+      await expect(page.getByTestId('token-topup-tier-points-50')).toContainText('6,000');
+      await expect(page.getByTestId('token-topup-tier-20')).toContainText('Base 2,000 points');
+      await expect(page.getByTestId('token-topup-tier-20')).toContainText('Bonus 100 points');
+      await expect(page.getByTestId('token-topup-tier-20')).toContainText('Total 2,100 points');
+      await expect(page.getByTestId('token-topup-tier-50')).toContainText('Total 6,000 points');
       await page.getByTestId('token-topup-custom-amount').fill('12');
       await expect(page.getByTestId('token-topup-custom-points-preview')).toContainText('1,200');
       await page.getByTestId('token-topup-custom-amount').fill('0.09');
@@ -118,8 +139,8 @@ test.describe('canvasland main navigation without setup flow', () => {
       const page = await getStableWindow(app);
       await expect(page.getByTestId('chat-page')).toBeVisible();
 
-      await page.getByTestId('sidebar-nav-models').click();
-      await expect(page.getByTestId('models-page')).toBeVisible();
+      await page.getByTestId('sidebar-nav-token-topup').click();
+      await expect(page.getByTestId('token-topup-page')).toBeVisible();
 
       await app.evaluate(({ BrowserWindow, Menu }) => {
         const menu = Menu.getApplicationMenu();

@@ -26,6 +26,8 @@ import { Button } from '@/components/ui/button';
 import ImageViewer from '@/components/file-preview/ImageViewer';
 import { hostApi, type AiAppJob, type StagedFileResult } from '@/lib/host-api';
 import type { AiAppVideoCapabilities } from '@shared/host-api/contract';
+import type { AiWorkflowDefinition } from '@shared/ai-workflows';
+import { listAiWorkflowDefinitions } from '@shared/ai-workflows';
 import { cn } from '@/lib/utils';
 import detailPosterCover from '@/assets/ai-apps/detail-poster.webp';
 import imageVideoCover from '@/assets/ai-apps/image-video.webp';
@@ -34,19 +36,10 @@ import productMainDetailCover from '@/assets/ai-apps/product-main-detail.webp';
 type AiAppCategory = 'all' | 'ecommerce' | 'media' | 'tools' | 'finance' | 'goddess';
 type AiAppIcon = 'copy' | 'image' | 'video';
 
-interface AiApplication {
-  id: string;
-  titleKey: string;
-  descriptionKey: string;
-  category: Exclude<AiAppCategory, 'all'>;
-  icon: AiAppIcon;
+type AiApplication = AiWorkflowDefinition & {
   coverImage: string;
-  tags: string[];
-  inputTypes: string[];
-  outputTypes: string[];
   enabled: boolean;
-  sortOrder: number;
-}
+};
 
 const AI_APP_CATEGORIES: Array<{ key: AiAppCategory; icon: ComponentType<{ className?: string }> }> = [
   { key: 'all', icon: Grid3X3 },
@@ -57,47 +50,21 @@ const AI_APP_CATEGORIES: Array<{ key: AiAppCategory; icon: ComponentType<{ class
   { key: 'goddess', icon: Sparkles },
 ];
 
-const AI_APPLICATIONS: AiApplication[] = [
-  {
-    id: 'ecommerce-copywriting',
-    titleKey: 'apps.copywriting.title',
-    descriptionKey: 'apps.copywriting.description',
-    category: 'ecommerce',
-    icon: 'copy',
-    coverImage: productMainDetailCover,
-    tags: ['copywriting', 'sellingPoint'],
-    inputTypes: ['productName', 'sellingPoints', 'platform'],
-    outputTypes: ['titleCopy', 'sellingPointCopy', 'detailCopy'],
+const APP_COVER_IMAGES: Record<string, string> = {
+  'ecommerce-copywriting': productMainDetailCover,
+  'detail-poster-generator': detailPosterCover,
+  'product-short-video': imageVideoCover,
+};
+
+function toAiApplication(workflow: AiWorkflowDefinition): AiApplication {
+  return {
+    ...workflow,
+    coverImage: APP_COVER_IMAGES[workflow.id] || productMainDetailCover,
     enabled: true,
-    sortOrder: 10,
-  },
-  {
-    id: 'detail-poster-generator',
-    titleKey: 'apps.detailPosterGenerator.title',
-    descriptionKey: 'apps.detailPosterGenerator.description',
-    category: 'ecommerce',
-    icon: 'image',
-    coverImage: detailPosterCover,
-    tags: ['detailImage', 'poster'],
-    inputTypes: ['productImage', 'referenceImage', 'brief'],
-    outputTypes: ['detailImage', 'poster'],
-    enabled: true,
-    sortOrder: 20,
-  },
-  {
-    id: 'product-short-video',
-    titleKey: 'apps.shortVideo.title',
-    descriptionKey: 'apps.shortVideo.description',
-    category: 'ecommerce',
-    icon: 'video',
-    coverImage: imageVideoCover,
-    tags: ['videoGeneration', 'scenarioVideo'],
-    inputTypes: ['productImage', 'script', 'scenario'],
-    outputTypes: ['videoScript', 'storyboard', 'video'],
-    enabled: true,
-    sortOrder: 30,
-  },
-];
+  };
+}
+
+const DEFAULT_AI_APPLICATIONS: AiApplication[] = listAiWorkflowDefinitions().map(toAiApplication);
 
 const APP_ICONS: Record<AiAppIcon, ComponentType<{ className?: string }>> = {
   copy: FileText,
@@ -137,7 +104,7 @@ function AiAppCover({ app, t }: { app: AiApplication; t: TFunction<'skills'> }) 
         <div className="flex max-w-full items-center justify-center gap-1.5 rounded-md bg-white/80 px-2.5 py-1 shadow-sm backdrop-blur-[2px]">
           <Icon className="h-4 w-4 shrink-0 text-slate-950" />
           <span className="truncate text-center text-[15px] font-black leading-none text-slate-950">
-          {t(`aiApps.${app.titleKey}`)}
+          {t(`aiApps.${app.nameKey}`)}
           </span>
         </div>
       </div>
@@ -539,7 +506,61 @@ function GenerationSettings({
         )}
       </div>
       <Field label={t('aiApps.workbench.generateCount')} placeholder="1" required />
-      <p className="text-right text-sm font-semibold text-[#1548d2]">{t(showVideo ? 'aiApps.workbench.videoPrice' : 'aiApps.workbench.imagePrice')}</p>
+    </div>
+  );
+}
+
+function BillingTierPicker({
+  app,
+  value,
+  onChange,
+  t,
+}: {
+  app: AiApplication;
+  value: string;
+  onChange: (value: string) => void;
+  t: TFunction<'skills'>;
+}) {
+  return (
+    <div className="mt-6 border-t border-black/5 pt-5 dark:border-white/10">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-900 dark:text-foreground">{t('aiApps.billing.title')}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t('aiApps.billing.subtitle')}</p>
+        </div>
+        <BadgeCheck className="h-5 w-5 text-[#2f7dff]" />
+      </div>
+      <div className={cn('grid gap-3', app.billingTiers.length >= 3 ? 'sm:grid-cols-2 2xl:grid-cols-4' : 'sm:grid-cols-2')}>
+        {app.billingTiers.map((tier) => (
+          <button
+            key={tier.id}
+            type="button"
+            data-testid={`ai-app-billing-tier-${tier.id}`}
+            onClick={() => onChange(tier.id)}
+            className={cn(
+              'min-w-0 rounded-lg border p-3 text-left transition-colors',
+              value === tier.id
+                ? 'border-[#2f7dff] bg-[#2f7dff]/5 ring-2 ring-[#2f7dff]/10'
+                : 'border-slate-200 bg-white hover:border-[#2f7dff]/60 dark:border-white/10 dark:bg-white/5',
+            )}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-sm font-bold text-slate-950 dark:text-foreground">{t(`aiApps.${tier.nameKey}`)}</span>
+              <span className="shrink-0 text-sm font-bold text-[#1548d2] dark:text-blue-300">
+                {t('aiApps.billing.points', { points: tier.points })}
+              </span>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t(`aiApps.${tier.descriptionKey}`)}</p>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {tier.benefitKeys.map((benefitKey) => (
+                <span key={benefitKey} className="rounded bg-black/5 px-1.5 py-0.5 text-[11px] text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                  {t(`aiApps.${benefitKey}`)}
+                </span>
+              ))}
+            </div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -579,6 +600,9 @@ function AiAppWorkbench({
   const [productDescription, setProductDescription] = useState('');
   const [referenceImage, setReferenceImage] = useState<StagedFileResult | null>(null);
   const [referenceError, setReferenceError] = useState<string | null>(null);
+  const [selectedBillingTierId, setSelectedBillingTierId] = useState(app.defaultBillingTierId);
+  const selectedBillingTier = app.billingTiers.find((tier) => tier.id === selectedBillingTierId)
+    ?? app.billingTiers[0];
 
   useEffect(() => {
     setJob(null);
@@ -588,7 +612,8 @@ function AiAppWorkbench({
     setReferenceImage(null);
     setReferenceError(null);
     setProductDescription('');
-  }, [app.id]);
+    setSelectedBillingTierId(app.defaultBillingTierId);
+  }, [app.defaultBillingTierId, app.id]);
 
   useEffect(() => {
     if (app.id !== 'product-short-video') return;
@@ -705,9 +730,10 @@ function AiAppWorkbench({
         appId: app.id,
         mode: 'live',
         inputs: {
-          appTitle: t(`aiApps.${app.titleKey}`),
+          appTitle: t(`aiApps.${app.nameKey}`),
           inputTypes: inputLabels,
           outputTypes: outputLabels,
+          billingTierId: selectedBillingTierId,
           ...(app.id === 'ecommerce-copywriting' ? {
             productName: copyForm.productName.trim(),
             sellingPoints: copyForm.sellingPoints.trim(),
@@ -931,7 +957,7 @@ function AiAppWorkbench({
           <Icon className="h-4 w-4" />
         </div>
         <h1 data-testid="ai-app-workbench-title" className="text-lg font-bold tracking-tight text-[#1548d2] dark:text-foreground">
-          {t(`aiApps.${app.titleKey}`)}
+          {t(`aiApps.${app.nameKey}`)}
         </h1>
       </div>
 
@@ -943,6 +969,12 @@ function AiAppWorkbench({
               <span className="text-sm font-semibold text-slate-900 dark:text-foreground">{t('aiApps.workbench.formTitle')}</span>
             </div>
             {renderForm()}
+            <BillingTierPicker
+              app={app}
+              value={selectedBillingTierId}
+              onChange={setSelectedBillingTierId}
+              t={t}
+            />
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Button
                 type="button"
@@ -954,7 +986,9 @@ function AiAppWorkbench({
                 {isCreatingJob ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 {isCreatingJob ? t('aiApps.detail.creatingJob') : t('aiApps.workbench.submitGenerate')}
               </Button>
-              <span className="text-sm text-muted-foreground">{t('aiApps.workbench.estimatedCost')}</span>
+              <span data-testid="ai-app-selected-points" className="text-sm font-semibold text-[#1548d2] dark:text-blue-300">
+                {t('aiApps.billing.willUse', { points: selectedBillingTier?.points || 0 })}
+              </span>
             </div>
           </section>
 
@@ -1020,6 +1054,9 @@ function AiAppWorkbench({
                       </details>
                     )}
                     <p>{t('aiApps.detail.outputCount', { count: getOutputAssetCount(job) })}</p>
+                    {typeof job.pointsUsed === 'number' && (
+                      <p data-testid="ai-app-points-used">{t('aiApps.billing.used', { points: job.pointsUsed })}</p>
+                    )}
                     {app.id === 'product-short-video' && job.providerTaskId && job.status !== 'completed' && job.status !== 'failed' && (
                       <Button
                         type="button"
@@ -1080,19 +1117,36 @@ function AiAppWorkbench({
 
 export function AiApps() {
   const { t } = useTranslation('skills');
+  const [applications, setApplications] = useState<AiApplication[]>(DEFAULT_AI_APPLICATIONS);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<AiAppCategory>('all');
   const [viewMode, setViewMode] = useState<'cover' | 'grid'>('cover');
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
 
+  useEffect(() => {
+    let canceled = false;
+    void hostApi.aiApps.listWorkflows()
+      .then((result) => {
+        if (!canceled && result.success && result.workflows?.length) {
+          setApplications(result.workflows.map(toAiApplication));
+        }
+      })
+      .catch(() => {
+        if (!canceled) setApplications(DEFAULT_AI_APPLICATIONS);
+      });
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
   const filteredApps = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return AI_APPLICATIONS
+    return applications
       .filter((app) => categoryFilter === 'all' || app.category === categoryFilter)
       .filter((app) => {
         if (!query) return true;
         const haystack = [
-          t(`aiApps.${app.titleKey}`),
+          t(`aiApps.${app.nameKey}`),
           t(`aiApps.${app.descriptionKey}`),
           t(`aiApps.categories.${app.category}`),
           ...tokenLabels(t, app.tags, 'tags'),
@@ -1102,9 +1156,9 @@ export function AiApps() {
         return haystack.includes(query);
       })
       .sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [categoryFilter, searchQuery, t]);
+  }, [applications, categoryFilter, searchQuery, t]);
 
-  const selectedApp = useMemo(() => AI_APPLICATIONS.find((app) => app.id === selectedAppId) ?? null, [selectedAppId]);
+  const selectedApp = useMemo(() => applications.find((app) => app.id === selectedAppId) ?? null, [applications, selectedAppId]);
 
   if (selectedApp) {
     return <AiAppWorkbench app={selectedApp} onBack={() => setSelectedAppId(null)} t={t} />;
@@ -1215,7 +1269,7 @@ export function AiApps() {
                   <AiAppCover app={app} t={t} />
                   <div className="px-4 pb-4 pt-5">
                     <h2 className="mb-2 line-clamp-1 text-center text-lg font-bold leading-tight text-slate-950 dark:text-foreground">
-                      {t(`aiApps.${app.titleKey}`)}
+                      {t(`aiApps.${app.nameKey}`)}
                     </h2>
                     <p className="line-clamp-2 min-h-[44px] text-sm leading-relaxed text-slate-600 dark:text-muted-foreground">
                       {t(`aiApps.${app.descriptionKey}`)}

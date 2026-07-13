@@ -21,7 +21,6 @@ import {
   Pencil,
   Check,
   X,
-  Cpu,
   Grid3X3,
   ImagePlus,
   Moon,
@@ -46,6 +45,7 @@ import { useTranslation } from 'react-i18next';
 import logoPng from '@/assets/logo.png';
 import { useNewChatAction } from './use-new-chat-action';
 import type { CanvaslandBalanceResult } from '@shared/host-api/contract';
+import { getDefaultCanvaslandModelPlan } from '@shared/model-plans';
 
 interface NavItemProps {
   to: string;
@@ -95,7 +95,8 @@ function NavItem({ to, icon, label, badge, collapsed, onClick, testId }: NavItem
 
 const INITIAL_NOW_MS = Date.now();
 const CANVASLAND_ACCOUNT_ID = 'canvasland-newapi';
-const CANVASLAND_DEFAULT_MODEL_ID = 'gpt-4.1-mini';
+const CANVASLAND_PROVIDER_BASE_URL = 'https://apitoken.unihuax.com/v1';
+const CANVASLAND_DEFAULT_MODEL_ID = getDefaultCanvaslandModelPlan().runtimeModel;
 const DEFAULT_EXPANDED_SESSION_BUCKETS: Record<SessionBucketKey, boolean> = {
   today: true,
   withinWeek: true,
@@ -221,11 +222,35 @@ export function Sidebar() {
         if (cancelled) return;
         setCanvaslandBalance(balanceResult);
 
-        if (account && account.model !== CANVASLAND_DEFAULT_MODEL_ID) {
+        if (!account) {
+          const now = new Date().toISOString();
+          await hostApi.providers.createAccount({
+            account: {
+              id: CANVASLAND_ACCOUNT_ID,
+              vendorId: 'custom',
+              label: 'canvasland',
+              authMode: 'api_key',
+              baseUrl: CANVASLAND_PROVIDER_BASE_URL,
+              apiProtocol: 'openai-completions',
+              model: CANVASLAND_DEFAULT_MODEL_ID,
+              enabled: true,
+              isDefault: true,
+              createdAt: now,
+              updatedAt: now,
+            },
+            apiKey: 'canvasland-server-proxy',
+          });
+          await hostApi.providers.setDefaultAccount(CANVASLAND_ACCOUNT_ID);
+        } else if (
+          account.model !== CANVASLAND_DEFAULT_MODEL_ID
+          || account.baseUrl !== CANVASLAND_PROVIDER_BASE_URL
+        ) {
           await hostApi.providers.updateAccount(CANVASLAND_ACCOUNT_ID, {
+            baseUrl: CANVASLAND_PROVIDER_BASE_URL,
+            apiProtocol: 'openai-completions',
             model: CANVASLAND_DEFAULT_MODEL_ID,
             updatedAt: new Date().toISOString(),
-          });
+          }, 'canvasland-server-proxy');
           await hostApi.providers.setDefaultAccount(CANVASLAND_ACCOUNT_ID);
         }
       } catch {
@@ -353,7 +378,6 @@ export function Sidebar() {
   const extraNavItems = rendererExtensionRegistry.getExtraNavItems();
 
   const coreNavItems = [
-    { to: '/models', icon: <Cpu className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.models'), testId: 'sidebar-nav-models' },
     { to: '/agents', icon: <Bot className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.agents'), testId: 'sidebar-nav-agents' },
     { to: '/channels', icon: <Network className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.channels'), testId: 'sidebar-nav-channels' },
     { to: '/token-topup', icon: <CreditCard className="h-4 w-4" strokeWidth={2} />, label: t('sidebar.tokenTopUp'), testId: 'sidebar-nav-token-topup' },
