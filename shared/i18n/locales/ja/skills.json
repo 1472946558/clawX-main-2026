@@ -55,7 +55,9 @@
             "queued": "待機中",
             "running": "実行中",
             "completed": "完了",
-            "failed": "失敗"
+            "succeeded": "完了",
+            "failed": "失敗",
+            "cancelled": "キャンセル済み"
         },
         "assetTypes": {
             "text": "コピー",
@@ -75,6 +77,18 @@
             "detailPageCopyBlock": {
                 "title": "詳細ページ文案",
                 "description": "シーン、素材、機能、購入導線を整理した詳細ページ用コピーを生成します。"
+            },
+            "videoScript": {
+                "title": "短編動画スクリプト",
+                "description": "冒頭フック、シーン、画面説明、ナレーション、結びを生成します。"
+            },
+            "searchKeywords": {
+                "title": "検索キーワード",
+                "description": "商品検索と広告向けのキーワードタグを生成します。"
+            },
+            "rawCopywritingResponse": {
+                "title": "原文レスポンス",
+                "description": "構造化解析に失敗した場合のモデル原文です。"
             },
             "mainImageVariation": {
                 "title": "商品メイン画像案",
@@ -284,6 +298,100 @@
                 "0": "メイン画像と詳細画像向けの商用画像生成",
                 "1": "素早いプレビューとスタイル調整向けのライブ画像生成",
                 "2": "EC シーン展示向けの 720P 商品ショート動画生成"
+            }
+        },
+        "copywriting": {
+            "workspaceTitle": "EC文案ワークスペース",
+            "workspaceSubtitle": "入力、設定、セッション確認、構造化出力のプレビューを行います。",
+            "tabs": {
+                "input": "入力とアップロード",
+                "settings": "パラメータ",
+                "session": "セッション",
+                "preview": "プレビュー出力"
+            },
+            "referenceMaterials": "任意の参考資料",
+            "referenceMaterialsPlaceholder": "例：サイズ、素材、競合制約、禁止語、ブランド資料",
+            "currentModel": "現在のモデル",
+            "outputLanguage": "出力言語",
+            "titleCount": "タイトル数",
+            "sellingPointCount": "訴求数",
+            "copyLength": "文案の長さ",
+            "creativity": "創造度",
+            "includeVideoScript": "短編動画スクリプトを生成",
+            "includeKeywords": "キーワードを生成",
+            "languages": {
+                "zhCN": "中国語",
+                "en": "英語",
+                "ja": "日本語"
+            },
+            "copyLengths": {
+                "short": "短め",
+                "standard": "標準",
+                "long": "長め"
+            },
+            "creativityLevels": {
+                "conservative": "堅実",
+                "balanced": "バランス",
+                "creative": "クリエイティブ"
+            },
+            "currentStage": "現在の段階",
+            "createdAt": "作成時刻",
+            "startedAt": "開始時刻",
+            "completedAt": "完了時刻",
+            "elapsed": "経過時間",
+            "seconds": "{{count}}秒",
+            "executionLog": "実行ログ",
+            "errorSummary": "エラー概要",
+            "retry": "再試行",
+            "logs": {
+                "waiting": "生成タスクの送信待ちです。",
+                "created": "タスクが作成されました。",
+                "running": "モデルが構造化文案を生成中です。",
+                "succeeded": "タスクが完了し、プレビューできます。",
+                "failed": "タスクは失敗しました。ポイントは消費されません。"
+            },
+            "stages": {
+                "queued": "待機中",
+                "running": "生成中",
+                "completed": "生成済み",
+                "succeeded": "生成済み",
+                "failed": "失敗",
+                "cancelled": "キャンセル済み"
+            },
+            "cards": {
+                "titleOptions": "商品タイトル案",
+                "sellingPoints": "訴求文案",
+                "detailPage": "詳細ページ文案",
+                "videoScript": "短編動画スクリプト",
+                "keywords": "キーワード"
+            },
+            "resultTypes": {
+                "title_options": "商品タイトル案",
+                "selling_points": "訴求文案",
+                "detail_page": "詳細ページ文案",
+                "video_script": "短編動画スクリプト",
+                "keywords": "キーワード",
+                "raw_text": "原文"
+            },
+            "positioning": "商品ポジショニング",
+            "useCases": "利用シーン",
+            "coreBenefits": "主要ベネフィット",
+            "hook": "冒頭",
+            "visual": "画面説明",
+            "voiceover": "ナレーション",
+            "ending": "結び",
+            "callToAction": "行動喚起",
+            "copy": "コピー",
+            "selectFinal": "最終タイトルに選択",
+            "inlineOnly": "この結果はアプリ内にのみ保存されています",
+            "parseFailed": "構造化解析に失敗しました",
+            "noStructuredResult": "構造化結果はまだありません",
+            "regenerate": {
+                "title_options": "タイトルを再生成",
+                "selling_points": "訴求を再生成",
+                "detail_page": "詳細ページを再生成",
+                "video_script": "脚本を再生成",
+                "keywords": "キーワードを再生成"
             }
         },
         "billing": {

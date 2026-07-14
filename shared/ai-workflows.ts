@@ -79,7 +79,7 @@ export const AI_WORKFLOWS: AiWorkflowDefinition[] = [
       '品牌语气：{{brandTone}}',
       '目标人群：{{targetAudience}}',
       '使用场景：{{useScene}}',
-      '任务：生成 3 个商品标题、5 条卖点文案、1 段详情页文案和 1 条短视频脚本钩子。',
+      '任务：返回严格 JSON，包含 titleOptions、sellingPoints、detailPage、videoScript 和 keywords。',
     ].join('\n'),
     defaultModel: 'default-chat-provider-model',
     supportedRatios: [],

@@ -16,7 +16,9 @@ import {
   Search,
   Send,
   Sparkles,
+  Tags,
   Upload,
+  Video,
   WandSparkles,
   X,
 } from 'lucide-react';
@@ -25,7 +27,7 @@ import type { TFunction } from 'i18next';
 import { Button } from '@/components/ui/button';
 import ImageViewer from '@/components/file-preview/ImageViewer';
 import { hostApi, type AiAppJob, type StagedFileResult } from '@/lib/host-api';
-import type { AiAppVideoCapabilities } from '@shared/host-api/contract';
+import type { AiAppOutputAsset, AiAppVideoCapabilities, EcommerceCopywritingResult } from '@shared/host-api/contract';
 import type { AiWorkflowDefinition } from '@shared/ai-workflows';
 import { listAiWorkflowDefinitions } from '@shared/ai-workflows';
 import { cn } from '@/lib/utils';
@@ -35,6 +37,8 @@ import productMainDetailCover from '@/assets/ai-apps/product-main-detail.webp';
 
 type AiAppCategory = 'all' | 'ecommerce' | 'media' | 'tools' | 'finance' | 'goddess';
 type AiAppIcon = 'copy' | 'image' | 'video';
+type CopywritingTab = 'input' | 'settings' | 'session' | 'preview';
+type CopywritingResultType = 'title_options' | 'selling_points' | 'detail_page' | 'video_script' | 'keywords' | 'raw_text';
 
 type AiApplication = AiWorkflowDefinition & {
   coverImage: string;
@@ -121,6 +125,72 @@ function getDemoOutputText(t: TFunction<'skills'>, asset: NonNullable<AiAppJob['
   const fallback = field === 'title' ? asset.title : asset.description;
   const key = field === 'title' ? asset.titleKey : asset.descriptionKey;
   return key ? t(`aiApps.demoOutputs.${key}.${field}`, { defaultValue: fallback || '' }) : fallback || '';
+}
+
+function isTerminalJobStatus(status?: AiAppJob['status']): boolean {
+  return status === 'completed' || status === 'succeeded' || status === 'failed' || status === 'cancelled';
+}
+
+function isSuccessfulJobStatus(status?: AiAppJob['status']): boolean {
+  return status === 'completed' || status === 'succeeded';
+}
+
+function resultTypeFromAsset(asset: AiAppOutputAsset): CopywritingResultType {
+  const value = asset.metadata?.resultType;
+  return value === 'title_options'
+    || value === 'selling_points'
+    || value === 'detail_page'
+    || value === 'video_script'
+    || value === 'keywords'
+    || value === 'raw_text'
+    ? value
+    : 'raw_text';
+}
+
+function elapsedSeconds(job: AiAppJob | null, now: number): number {
+  if (!job) return 0;
+  const start = Date.parse(job.createdAt);
+  const end = isTerminalJobStatus(job.status) ? Date.parse(job.updatedAt) : now;
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
+  return Math.max(0, Math.round((end - start) / 1000));
+}
+
+function joinCopywritingModule(
+  type: CopywritingResultType,
+  result?: EcommerceCopywritingResult,
+  rawText?: string,
+  labels: { visual: string; voiceover: string } = { visual: 'Visual', voiceover: 'Voiceover' },
+): string {
+  if (!result) return rawText || '';
+  switch (type) {
+    case 'title_options':
+      return result.titleOptions.map((item, index) => `${index + 1}. ${item.text}`).join('\n');
+    case 'selling_points':
+      return result.sellingPoints.map((item, index) => `${index + 1}. ${item.title ? `${item.title}：` : ''}${item.text}`).join('\n');
+    case 'detail_page':
+      return [
+        result.detailPage.positioning,
+        result.detailPage.audience,
+        result.detailPage.coreBenefits?.join(' / '),
+        result.detailPage.useCases?.join(' / '),
+        result.detailPage.body,
+        result.detailPage.callToAction,
+      ].filter(Boolean).join('\n\n');
+    case 'video_script':
+      return result.videoScript
+        ? [
+          result.videoScript.hook,
+          ...result.videoScript.scenes.map((scene) => `${scene.scene}\n${labels.visual}: ${scene.visual}\n${labels.voiceover}: ${scene.voiceover}`),
+          result.videoScript.ending,
+        ].join('\n\n')
+        : '';
+    case 'keywords':
+      return result.keywords?.join('、') || '';
+    case 'raw_text':
+      return rawText || '';
+    default:
+      return '';
+  }
 }
 
 function AiAppResultAssets({ app, job, t }: { app: AiApplication; job: AiAppJob | null; t: TFunction<'skills'> }) {
@@ -585,7 +655,26 @@ function AiAppWorkbench({
     brandTone: '',
     targetAudience: '',
     useScene: '',
+    referenceMaterials: '',
   });
+  const [copySettings, setCopySettings] = useState({
+    modelId: app.defaultModel,
+    outputLanguage: 'zh-CN',
+    titleCount: '5',
+    sellingPointCount: '5',
+    copyLength: 'standard',
+    creativity: 'balanced',
+    includeVideoScript: true,
+    includeKeywords: true,
+  });
+  const [activeTab, setActiveTab] = useState<CopywritingTab>('input');
+  const [selectedTitleId, setSelectedTitleId] = useState<string | null>(null);
+  const [openCopywritingResult, setOpenCopywritingResult] = useState<{
+    taskId: string;
+    resultType: CopywritingResultType;
+    resultId: string;
+  } | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [imageRatio, setImageRatio] = useState('1:1');
   const [videoMode, setVideoMode] = useState('imageToVideo');
   const [videoForm, setVideoForm] = useState({
@@ -613,7 +702,16 @@ function AiAppWorkbench({
     setReferenceError(null);
     setProductDescription('');
     setSelectedBillingTierId(app.defaultBillingTierId);
-  }, [app.defaultBillingTierId, app.id]);
+    setActiveTab('input');
+    setSelectedTitleId(null);
+    setOpenCopywritingResult(null);
+    setCopySettings((current) => ({ ...current, modelId: app.defaultModel }));
+  }, [app.defaultBillingTierId, app.defaultModel, app.id]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (app.id !== 'product-short-video') return;
@@ -678,7 +776,7 @@ function AiAppWorkbench({
   }, [app.id]);
 
   useEffect(() => {
-    if (!job || job.appId === 'product-short-video' || job.status === 'completed' || job.status === 'failed') return;
+    if (!job || job.appId === 'product-short-video' || isTerminalJobStatus(job.status)) return;
 
     const timeout = window.setTimeout(async () => {
       try {
@@ -697,6 +795,12 @@ function AiAppWorkbench({
 
     return () => window.clearTimeout(timeout);
   }, [job]);
+
+  useEffect(() => {
+    if (app.id !== 'ecommerce-copywriting' || !job) return;
+    if (isSuccessfulJobStatus(job.status)) setActiveTab('preview');
+    if (job.status === 'failed' || job.status === 'cancelled') setActiveTab('session');
+  }, [app.id, job?.status]);
 
   const Icon = APP_ICONS[app.icon];
   const inputLabels = tokenLabels(t, app.inputTypes, 'inputTypes');
@@ -725,6 +829,7 @@ function AiAppWorkbench({
     }
     setIsCreatingJob(true);
     setJobError(null);
+    if (app.id === 'ecommerce-copywriting') setActiveTab('session');
     try {
       const result = await hostApi.aiApps.createJob({
         appId: app.id,
@@ -741,6 +846,15 @@ function AiAppWorkbench({
             brandTone: copyForm.brandTone.trim(),
             targetAudience: copyForm.targetAudience.trim(),
             useScene: copyForm.useScene.trim(),
+            referenceMaterials: copyForm.referenceMaterials.trim(),
+            modelId: copySettings.modelId,
+            outputLanguage: copySettings.outputLanguage,
+            titleCount: copySettings.titleCount,
+            sellingPointCount: copySettings.sellingPointCount,
+            copyLength: copySettings.copyLength,
+            creativity: copySettings.creativity,
+            includeVideoScript: copySettings.includeVideoScript,
+            includeKeywords: copySettings.includeKeywords,
           } : {}),
           ...(app.id === 'product-short-video' ? {
             productText: videoForm.productText.trim(),
@@ -797,6 +911,451 @@ function AiAppWorkbench({
     } finally {
       setIsRefreshingJob(false);
     }
+  };
+
+  const copyResult = job?.outputs?.ecommerceCopywriting;
+  const copyRawText = job?.outputs?.rawText;
+  const copyParseError = job?.outputs?.parseError;
+  const copyModuleLabels = {
+    visual: t('aiApps.copywriting.visual'),
+    voiceover: t('aiApps.copywriting.voiceover'),
+  };
+  const openedCopyText = openCopywritingResult
+    ? joinCopywritingModule(openCopywritingResult.resultType, copyResult, copyRawText, copyModuleLabels)
+    : '';
+  const openedCopyTitle = openCopywritingResult
+    ? t(`aiApps.copywriting.resultTypes.${openCopywritingResult.resultType}`)
+    : '';
+
+  const copyToClipboard = (text: string) => {
+    if (!text.trim()) return;
+    void navigator.clipboard?.writeText(text);
+  };
+
+  const openResult = (input: { taskId: string; resultType: CopywritingResultType; resultId: string }) => {
+    setOpenCopywritingResult(input);
+  };
+
+  const renderCopywritingTabs = () => {
+    const tabs: Array<{ id: CopywritingTab; label: string }> = [
+      { id: 'input', label: t('aiApps.copywriting.tabs.input') },
+      { id: 'settings', label: t('aiApps.copywriting.tabs.settings') },
+      { id: 'session', label: t('aiApps.copywriting.tabs.session') },
+      { id: 'preview', label: t('aiApps.copywriting.tabs.preview') },
+    ];
+    return (
+      <div className="flex flex-wrap gap-2 border-b border-black/5 pb-3 dark:border-white/10" role="tablist">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            data-testid={`ai-app-copy-tab-${tab.id}`}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              'rounded-md px-3 py-1.5 text-sm font-semibold transition-colors',
+              activeTab === tab.id
+                ? 'bg-[#2f7dff] text-white shadow-sm'
+                : 'text-slate-700 hover:bg-black/5 dark:text-slate-200 dark:hover:bg-white/10',
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const renderCopywritingInput = () => (
+    <div className="grid gap-5 sm:grid-cols-2" data-testid="ai-app-copy-tab-panel-input">
+      <Field
+        label={t('aiApps.workbench.productName')}
+        required
+        placeholder={t('aiApps.workbench.productNamePlaceholder')}
+        value={copyForm.productName}
+        onChange={(productName) => setCopyForm((current) => ({ ...current, productName }))}
+        testId="ai-app-copy-product-name"
+      />
+      <TextAreaField
+        label={t('aiApps.workbench.coreSellingPoints')}
+        required
+        placeholder={t('aiApps.workbench.sellingPointsPlaceholder')}
+        value={copyForm.sellingPoints}
+        onChange={(sellingPoints) => setCopyForm((current) => ({ ...current, sellingPoints }))}
+        testId="ai-app-copy-selling-points"
+      />
+      <SelectLike
+        label={t('aiApps.workbench.targetPlatform')}
+        required
+        value={copyForm.platform}
+        options={['taobao', 'tmall', 'jd', 'pdd'].map((value) => ({ value, label: t(`aiApps.platforms.${value}`) }))}
+        onChange={(platform) => setCopyForm((current) => ({ ...current, platform }))}
+        testId="ai-app-copy-platform"
+      />
+      <Field
+        label={t('aiApps.workbench.brandTone')}
+        placeholder={t('aiApps.workbench.brandTonePlaceholder')}
+        value={copyForm.brandTone}
+        onChange={(brandTone) => setCopyForm((current) => ({ ...current, brandTone }))}
+        testId="ai-app-copy-brand-tone"
+      />
+      <Field
+        label={t('aiApps.workbench.targetAudience')}
+        placeholder={t('aiApps.workbench.targetAudiencePlaceholder')}
+        value={copyForm.targetAudience}
+        onChange={(targetAudience) => setCopyForm((current) => ({ ...current, targetAudience }))}
+        testId="ai-app-copy-target-audience"
+      />
+      <Field
+        label={t('aiApps.workbench.usageScenario')}
+        placeholder={t('aiApps.workbench.usageScenarioPlaceholder')}
+        value={copyForm.useScene}
+        onChange={(useScene) => setCopyForm((current) => ({ ...current, useScene }))}
+        testId="ai-app-copy-use-scene"
+      />
+      <div className="sm:col-span-2">
+        <TextAreaField
+          label={t('aiApps.copywriting.referenceMaterials')}
+          placeholder={t('aiApps.copywriting.referenceMaterialsPlaceholder')}
+          value={copyForm.referenceMaterials}
+          onChange={(referenceMaterials) => setCopyForm((current) => ({ ...current, referenceMaterials }))}
+          testId="ai-app-copy-reference-materials"
+        />
+      </div>
+    </div>
+  );
+
+  const renderCopywritingSettings = () => (
+    <div className="grid gap-5 sm:grid-cols-2" data-testid="ai-app-copy-tab-panel-settings">
+      <Field
+        label={t('aiApps.copywriting.currentModel')}
+        placeholder={app.defaultModel}
+        value={copySettings.modelId}
+        onChange={(modelId) => setCopySettings((current) => ({ ...current, modelId }))}
+        testId="ai-app-copy-model"
+      />
+      <SelectLike
+        label={t('aiApps.copywriting.outputLanguage')}
+        value={copySettings.outputLanguage}
+        options={[
+          { value: 'zh-CN', label: t('aiApps.copywriting.languages.zhCN') },
+          { value: 'en', label: t('aiApps.copywriting.languages.en') },
+          { value: 'ja', label: t('aiApps.copywriting.languages.ja') },
+        ]}
+        onChange={(outputLanguage) => setCopySettings((current) => ({ ...current, outputLanguage }))}
+        testId="ai-app-copy-output-language"
+      />
+      <Field
+        label={t('aiApps.copywriting.titleCount')}
+        placeholder="5"
+        value={copySettings.titleCount}
+        onChange={(titleCount) => setCopySettings((current) => ({ ...current, titleCount }))}
+        testId="ai-app-copy-title-count"
+      />
+      <Field
+        label={t('aiApps.copywriting.sellingPointCount')}
+        placeholder="5"
+        value={copySettings.sellingPointCount}
+        onChange={(sellingPointCount) => setCopySettings((current) => ({ ...current, sellingPointCount }))}
+        testId="ai-app-copy-selling-point-count"
+      />
+      <SelectLike
+        label={t('aiApps.copywriting.copyLength')}
+        value={copySettings.copyLength}
+        options={['short', 'standard', 'long'].map((value) => ({ value, label: t(`aiApps.copywriting.copyLengths.${value}`) }))}
+        onChange={(copyLength) => setCopySettings((current) => ({ ...current, copyLength }))}
+        testId="ai-app-copy-length"
+      />
+      <SelectLike
+        label={t('aiApps.copywriting.creativity')}
+        value={copySettings.creativity}
+        options={['conservative', 'balanced', 'creative'].map((value) => ({ value, label: t(`aiApps.copywriting.creativityLevels.${value}`) }))}
+        onChange={(creativity) => setCopySettings((current) => ({ ...current, creativity }))}
+        testId="ai-app-copy-creativity"
+      />
+      <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm dark:border-white/10 dark:bg-white/5">
+        <input
+          type="checkbox"
+          checked={copySettings.includeVideoScript}
+          onChange={(event) => setCopySettings((current) => ({ ...current, includeVideoScript: event.target.checked }))}
+          data-testid="ai-app-copy-include-video-script"
+        />
+        {t('aiApps.copywriting.includeVideoScript')}
+      </label>
+      <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm dark:border-white/10 dark:bg-white/5">
+        <input
+          type="checkbox"
+          checked={copySettings.includeKeywords}
+          onChange={(event) => setCopySettings((current) => ({ ...current, includeKeywords: event.target.checked }))}
+          data-testid="ai-app-copy-include-keywords"
+        />
+        {t('aiApps.copywriting.includeKeywords')}
+      </label>
+      <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-3 text-sm font-semibold text-[#1548d2] dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
+        {t('aiApps.billing.willUse', { points: selectedBillingTier?.points || 0 })}
+      </div>
+    </div>
+  );
+
+  const renderCopywritingSession = () => (
+    <div className="space-y-4" data-testid="ai-app-copy-tab-panel-session">
+      {(job || jobError) && (
+        <div
+          data-testid="ai-app-demo-job-result"
+          className={cn(
+            'rounded-xl border p-4',
+            job && job.status !== 'failed'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200'
+              : 'border-red-200 bg-red-50 text-red-900 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200',
+          )}
+        >
+          <p className="text-sm font-semibold">
+            {job?.status === 'failed' ? t('aiApps.detail.jobError') : job ? t('aiApps.detail.jobCreated') : t('aiApps.detail.jobError')}
+          </p>
+          {job && (
+            <p data-testid="ai-app-demo-job-status" className="mt-2 text-xs">
+              {t('aiApps.detail.jobStatus')}: {t(`aiApps.jobStatuses.${job.status}`)}
+            </p>
+          )}
+          {jobError && <p className="mt-2 text-xs">{jobError}</p>}
+        </div>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {[
+          [t('aiApps.detail.jobId'), job?.id],
+          [t('aiApps.detail.jobStatus'), job ? t(`aiApps.jobStatuses.${job.status}`) : '-'],
+          [t('aiApps.copywriting.currentStage'), job ? t(`aiApps.copywriting.stages.${job.status}`) : '-'],
+          [t('aiApps.copywriting.createdAt'), job?.createdAt],
+          [t('aiApps.copywriting.startedAt'), job && job.status !== 'queued' ? job.createdAt : '-'],
+          [t('aiApps.copywriting.completedAt'), job && isTerminalJobStatus(job.status) ? job.updatedAt : '-'],
+          [t('aiApps.copywriting.currentModel'), copyResult?.modelId || copySettings.modelId],
+          [t('aiApps.copywriting.elapsed'), t('aiApps.copywriting.seconds', { count: elapsedSeconds(job, now) })],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-lg border border-black/5 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className="mt-1 break-all text-sm font-semibold text-slate-900 dark:text-foreground">{value || '-'}</p>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg border border-black/5 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+        <p className="text-xs text-muted-foreground">{t('aiApps.copywriting.executionLog')}</p>
+        <div className="mt-2 space-y-1 text-xs text-slate-700 dark:text-slate-200">
+          <p>{job ? t('aiApps.copywriting.logs.created') : t('aiApps.copywriting.logs.waiting')}</p>
+          {job && job.status !== 'queued' && <p>{t('aiApps.copywriting.logs.running')}</p>}
+          {job && isSuccessfulJobStatus(job.status) && <p>{t('aiApps.copywriting.logs.succeeded')}</p>}
+          {job?.status === 'failed' && <p>{t('aiApps.copywriting.logs.failed')}</p>}
+        </div>
+      </div>
+      {(job?.error || jobError || copyParseError) && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200">
+          <p className="font-semibold">{t('aiApps.copywriting.errorSummary')}</p>
+          <p className="mt-1">{job?.error || jobError || copyParseError}</p>
+          {job?.status === 'failed' && (
+            <Button type="button" size="sm" className="mt-3" onClick={() => void handleCreateJob()}>
+              {t('aiApps.copywriting.retry')}
+            </Button>
+          )}
+        </div>
+      )}
+      <div>
+        <h3 className="mb-2 text-sm font-semibold text-slate-950 dark:text-foreground">{t('aiApps.detail.recentJobs')}</h3>
+        <div className="space-y-2">
+          {recentJobs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('aiApps.detail.noRecentJobs')}</p>
+          ) : recentJobs.slice(0, 5).map((recentJob) => (
+            <button
+              key={recentJob.id}
+              type="button"
+              onClick={() => { setJob(recentJob); setActiveTab('session'); }}
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-black/5 bg-white px-3 py-2 text-left text-xs dark:border-white/10 dark:bg-white/5"
+            >
+              <span className="min-w-0 truncate font-mono">{recentJob.id}</span>
+              <span className="shrink-0 rounded-full bg-black/5 px-2 py-0.5 font-semibold dark:bg-white/10">
+                {t(`aiApps.jobStatuses.${recentJob.status}`)}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderLocateButton = (asset?: AiAppOutputAsset) => {
+    const filePath = typeof asset?.downloadUrl === 'string' && asset.downloadUrl.trim() ? asset.downloadUrl : '';
+    const isRemote = /^https?:\/\//i.test(filePath);
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        disabled={!filePath || isRemote}
+        title={filePath && !isRemote ? t('aiApps.detail.revealResult') : t('aiApps.copywriting.inlineOnly')}
+        onClick={() => {
+          if (filePath && !isRemote) void hostApi.shell.showItemInFolder(filePath);
+        }}
+        className="h-7 gap-1 px-2 text-xs"
+        data-testid={`ai-app-copy-reveal-${asset ? resultTypeFromAsset(asset) : 'missing'}`}
+      >
+        <Download className="h-3.5 w-3.5" />
+        {t('aiApps.detail.revealResult')}
+      </Button>
+    );
+  };
+
+  const renderCardActions = (type: CopywritingResultType, resultId: string, asset?: AiAppOutputAsset) => (
+    <div className="mt-3 flex flex-wrap gap-2">
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className="h-7 gap-1 px-2 text-xs"
+        data-testid={`ai-app-copy-open-${type}`}
+        data-result-type={type}
+        data-result-id={resultId}
+        onClick={() => job && openResult({ taskId: job.id, resultType: type, resultId })}
+      >
+        <Eye className="h-3.5 w-3.5" />
+        {t('aiApps.detail.openResult')}
+      </Button>
+      {renderLocateButton(asset)}
+      <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs" onClick={() => copyToClipboard(joinCopywritingModule(type, copyResult, copyRawText, copyModuleLabels))}>
+        {t('aiApps.copywriting.copy')}
+      </Button>
+      {type !== 'raw_text' && (
+        <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs" onClick={() => void handleCreateJob()}>
+          {t(`aiApps.copywriting.regenerate.${type}`)}
+        </Button>
+      )}
+    </div>
+  );
+
+  const renderCopywritingPreview = () => {
+    const assets = job?.outputs?.assets || [];
+    const assetByType = new Map(assets.map((asset) => [resultTypeFromAsset(asset), asset]));
+    if (!job && !jobError) {
+      return (
+        <div className="flex min-h-[360px] flex-col items-center justify-center text-center text-muted-foreground" data-testid="ai-app-copy-tab-panel-preview">
+          <MessageSquareText className="mb-4 h-10 w-10 text-[#2f7dff]/50" />
+          <p className="text-base font-medium text-slate-700 dark:text-slate-200">{t('aiApps.workbench.waitingTitle')}</p>
+          <p className="mt-2 max-w-xs text-sm leading-relaxed">{t('aiApps.workbench.waitingDescription')}</p>
+        </div>
+      );
+    }
+    if (copyParseError && copyRawText) {
+      return (
+        <div className="space-y-3" data-testid="ai-app-copy-tab-panel-preview">
+          <div data-testid="ai-app-copy-parse-error" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+            {t('aiApps.copywriting.parseFailed')}: {copyParseError}
+          </div>
+          <div className="rounded-lg border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-white/5">
+            <pre className="max-h-[520px] whitespace-pre-wrap text-sm leading-7 text-slate-800 dark:text-slate-100">{copyRawText}</pre>
+            {renderCardActions('raw_text', 'raw-text', assetByType.get('raw_text'))}
+          </div>
+        </div>
+      );
+    }
+    if (!copyResult) {
+      return (
+        <div className="rounded-lg border border-black/5 bg-white p-4 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/5" data-testid="ai-app-copy-tab-panel-preview">
+          {t('aiApps.copywriting.noStructuredResult')}
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-3" data-testid="ai-app-copy-tab-panel-preview">
+        <div className="rounded-lg border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-white/5" data-testid="ai-app-copy-card-title-options">
+          <div className="mb-3 flex items-center gap-2">
+            <FileText className="h-4 w-4 text-[#2f7dff]" />
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-foreground">{t('aiApps.copywriting.cards.titleOptions')}</h3>
+          </div>
+          <div className="space-y-2">
+            {copyResult.titleOptions.map((item, index) => (
+              <div key={item.id} className="flex gap-2 rounded-md bg-black/[0.03] p-2 text-sm dark:bg-white/10">
+                <span className="text-muted-foreground">{index + 1}.</span>
+                <p className="min-w-0 flex-1">{item.text}</p>
+                <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => copyToClipboard(item.text)}>{t('aiApps.copywriting.copy')}</Button>
+                <Button type="button" size="sm" variant={selectedTitleId === item.id ? 'default' : 'ghost'} className="h-7 px-2 text-xs" onClick={() => setSelectedTitleId(item.id)}>
+                  {t('aiApps.copywriting.selectFinal')}
+                </Button>
+              </div>
+            ))}
+          </div>
+          {renderCardActions('title_options', 'title_options', assetByType.get('title_options'))}
+        </div>
+        <div className="rounded-lg border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-white/5" data-testid="ai-app-copy-card-selling-points">
+          <div className="mb-3 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-[#2f7dff]" />
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-foreground">{t('aiApps.copywriting.cards.sellingPoints')}</h3>
+          </div>
+          <div className="space-y-2">
+            {copyResult.sellingPoints.map((item) => (
+              <div key={item.id} className="rounded-md bg-black/[0.03] p-3 text-sm leading-6 dark:bg-white/10">
+                {item.title && <p className="font-semibold text-slate-950 dark:text-foreground">{item.title}</p>}
+                <p>{item.text}</p>
+                <Button type="button" size="sm" variant="ghost" className="mt-2 h-7 px-2 text-xs" onClick={() => copyToClipboard(item.text)}>{t('aiApps.copywriting.copy')}</Button>
+              </div>
+            ))}
+          </div>
+          {renderCardActions('selling_points', 'selling_points', assetByType.get('selling_points'))}
+        </div>
+        <div className="rounded-lg border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-white/5" data-testid="ai-app-copy-card-detail-page">
+          <div className="mb-3 flex items-center gap-2">
+            <FileText className="h-4 w-4 text-[#2f7dff]" />
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-foreground">{t('aiApps.copywriting.cards.detailPage')}</h3>
+          </div>
+          <div className="space-y-2 text-sm leading-6">
+            {copyResult.detailPage.positioning && <p><strong>{t('aiApps.copywriting.positioning')}：</strong>{copyResult.detailPage.positioning}</p>}
+            {copyResult.detailPage.useCases?.length ? <p><strong>{t('aiApps.copywriting.useCases')}：</strong>{copyResult.detailPage.useCases.join('、')}</p> : null}
+            {copyResult.detailPage.coreBenefits?.length ? <p><strong>{t('aiApps.copywriting.coreBenefits')}：</strong>{copyResult.detailPage.coreBenefits.join('、')}</p> : null}
+            <p className="whitespace-pre-wrap">{copyResult.detailPage.body}</p>
+            {copyResult.detailPage.callToAction && <p><strong>{t('aiApps.copywriting.callToAction')}：</strong>{copyResult.detailPage.callToAction}</p>}
+          </div>
+          {renderCardActions('detail_page', 'detail_page', assetByType.get('detail_page'))}
+        </div>
+        {copyResult.videoScript && (
+          <div className="rounded-lg border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-white/5" data-testid="ai-app-copy-card-video-script">
+            <div className="mb-3 flex items-center gap-2">
+              <Video className="h-4 w-4 text-[#2f7dff]" />
+              <h3 className="text-sm font-semibold text-slate-950 dark:text-foreground">{t('aiApps.copywriting.cards.videoScript')}</h3>
+            </div>
+            <div className="space-y-2 text-sm leading-6">
+              <p><strong>{t('aiApps.copywriting.hook')}：</strong>{copyResult.videoScript.hook}</p>
+              {copyResult.videoScript.scenes.map((scene) => (
+                <div key={scene.scene} className="rounded-md bg-black/[0.03] p-3 dark:bg-white/10">
+                  <p className="font-semibold">{scene.scene}</p>
+                  <p>{t('aiApps.copywriting.visual')}：{scene.visual}</p>
+                  <p>{t('aiApps.copywriting.voiceover')}：{scene.voiceover}</p>
+                </div>
+              ))}
+              <p><strong>{t('aiApps.copywriting.ending')}：</strong>{copyResult.videoScript.ending}</p>
+            </div>
+            {renderCardActions('video_script', 'video_script', assetByType.get('video_script'))}
+          </div>
+        )}
+        {copyResult.keywords?.length ? (
+          <div className="rounded-lg border border-black/5 bg-white p-4 dark:border-white/10 dark:bg-white/5" data-testid="ai-app-copy-card-keywords">
+            <div className="mb-3 flex items-center gap-2">
+              <Tags className="h-4 w-4 text-[#2f7dff]" />
+              <h3 className="text-sm font-semibold text-slate-950 dark:text-foreground">{t('aiApps.copywriting.cards.keywords')}</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {copyResult.keywords.map((keyword) => (
+                <span key={keyword} className="rounded-full bg-[#2f7dff]/10 px-2.5 py-1 text-xs font-semibold text-[#1548d2] dark:text-blue-200">{keyword}</span>
+              ))}
+            </div>
+            {renderCardActions('keywords', 'keywords', assetByType.get('keywords'))}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderCopywritingPanel = () => {
+    if (activeTab === 'settings') return renderCopywritingSettings();
+    if (activeTab === 'session') return renderCopywritingSession();
+    if (activeTab === 'preview') return renderCopywritingPreview();
+    return renderCopywritingInput();
   };
 
   const renderForm = () => {
@@ -941,6 +1500,99 @@ function AiAppWorkbench({
       </div>
     );
   };
+
+  if (app.id === 'ecommerce-copywriting') {
+    return (
+      <div data-testid="ai-app-workbench" className="-m-6 flex h-[calc(100vh-2.5rem)] flex-col overflow-hidden bg-[#eef4ff] dark:bg-background">
+        <div className="flex h-[58px] shrink-0 items-center gap-3 border-b border-black/5 bg-surface-modal px-6 dark:border-white/10">
+          <button
+            type="button"
+            data-testid="ai-app-workbench-back"
+            onClick={onBack}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2f7dff]/10 text-[#2f7dff]">
+            <Icon className="h-4 w-4" />
+          </div>
+          <h1 data-testid="ai-app-workbench-title" className="text-lg font-bold tracking-tight text-[#1548d2] dark:text-foreground">
+            {t(`aiApps.${app.nameKey}`)}
+          </h1>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+          <div className="mx-auto w-full max-w-[1180px] rounded-xl bg-surface-modal p-5 shadow-sm" data-testid="ai-app-copywriting-workbench">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900 dark:text-foreground">{t('aiApps.copywriting.workspaceTitle')}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t('aiApps.copywriting.workspaceSubtitle')}</p>
+              </div>
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setJob(null); setJobError(null); setActiveTab('input'); }}>
+                {t('aiApps.workbench.clear')}
+              </Button>
+            </div>
+            {renderCopywritingTabs()}
+            <div className="mt-5">{renderCopywritingPanel()}</div>
+            {(activeTab === 'input' || activeTab === 'settings') && (
+              <>
+                <BillingTierPicker
+                  app={app}
+                  value={selectedBillingTierId}
+                  onChange={setSelectedBillingTierId}
+                  t={t}
+                />
+                <div className="mt-8 flex flex-wrap items-center gap-4">
+                  <Button
+                    type="button"
+                    data-testid="ai-app-create-demo-job"
+                    disabled={isCreatingJob}
+                    onClick={handleCreateJob}
+                    className="h-10 min-w-36 bg-[#2f7dff] text-white hover:bg-[#246ee8] disabled:opacity-70"
+                  >
+                    {isCreatingJob ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    {isCreatingJob ? t('aiApps.detail.creatingJob') : t('aiApps.workbench.submitGenerate')}
+                  </Button>
+                  <span data-testid="ai-app-selected-points" className="text-sm font-semibold text-[#1548d2] dark:text-blue-300">
+                    {t('aiApps.billing.willUse', { points: selectedBillingTier?.points || 0 })}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {openCopywritingResult && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" data-testid="ai-app-copy-result-modal">
+            <div className="max-h-[82vh] w-full max-w-3xl overflow-hidden rounded-xl bg-surface-modal shadow-xl">
+              <div className="flex items-center justify-between gap-3 border-b border-black/5 px-5 py-4 dark:border-white/10">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-950 dark:text-foreground">{openedCopyTitle}</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t('aiApps.detail.jobId')}: {openCopywritingResult.taskId} · {openCopywritingResult.resultType}
+                  </p>
+                </div>
+                <Button type="button" variant="ghost" size="icon" onClick={() => setOpenCopywritingResult(null)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="max-h-[62vh] overflow-auto p-5">
+                <pre className="whitespace-pre-wrap text-sm leading-7 text-slate-800 dark:text-slate-100">{openedCopyText}</pre>
+              </div>
+              <div className="flex justify-end gap-2 border-t border-black/5 px-5 py-4 dark:border-white/10">
+                <Button type="button" variant="outline" onClick={() => copyToClipboard(openedCopyText)}>
+                  {t('aiApps.copywriting.copy')}
+                </Button>
+                <Button type="button" onClick={() => setOpenCopywritingResult(null)}>
+                  {t('aiApps.detail.close')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div data-testid="ai-app-workbench" className="-m-6 flex h-[calc(100vh-2.5rem)] flex-col overflow-hidden bg-[#eef4ff] dark:bg-background">

@@ -987,9 +987,42 @@ export type SkillInstallStatusResult = HostSuccess & {
   status?: SkillInstallStatus;
 };
 
-export type AiAppJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+export type AiAppJobStatus = 'queued' | 'running' | 'completed' | 'succeeded' | 'failed' | 'cancelled';
 export type AiAppJobMode = 'live';
 export type AiAppOutputType = 'text' | 'image' | 'video' | 'poster';
+export type EcommerceCopywritingResult = {
+  taskId: string;
+  modelId: string;
+  generatedAt: string;
+  titleOptions: Array<{
+    id: string;
+    text: string;
+  }>;
+  sellingPoints: Array<{
+    id: string;
+    title?: string;
+    text: string;
+  }>;
+  detailPage: {
+    positioning?: string;
+    audience?: string;
+    coreBenefits?: string[];
+    useCases?: string[];
+    materialAndSpecs?: string;
+    body: string;
+    callToAction?: string;
+  };
+  videoScript?: {
+    hook: string;
+    scenes: Array<{
+      scene: string;
+      visual: string;
+      voiceover: string;
+    }>;
+    ending: string;
+  };
+  keywords?: string[];
+};
 export type AiAppOutputAsset = {
   id: string;
   type: AiAppOutputType;
@@ -1004,6 +1037,9 @@ export type AiAppOutputAsset = {
 export type AiAppJobOutputs = {
   assetCount: number;
   assets: AiAppOutputAsset[];
+  ecommerceCopywriting?: EcommerceCopywritingResult;
+  rawText?: string;
+  parseError?: string;
 };
 export type AiAppJob = {
   id: string;

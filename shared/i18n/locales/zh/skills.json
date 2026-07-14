@@ -55,7 +55,9 @@
             "queued": "排队中",
             "running": "运行中",
             "completed": "已完成",
-            "failed": "失败"
+            "succeeded": "已完成",
+            "failed": "失败",
+            "cancelled": "已取消"
         },
         "assetTypes": {
             "text": "文案",
@@ -75,6 +77,18 @@
             "detailPageCopyBlock": {
                 "title": "详情页文案模块",
                 "description": "按场景、材质、功能和转化引导组织详情页说明。"
+            },
+            "videoScript": {
+                "title": "短视频脚本",
+                "description": "生成开场钩子、分镜、画面描述、口播和结尾。"
+            },
+            "searchKeywords": {
+                "title": "搜索关键词",
+                "description": "生成适合商品搜索和投放的关键词标签。"
+            },
+            "rawCopywritingResponse": {
+                "title": "原始文案响应",
+                "description": "结构化解析失败时保留模型原文。"
             },
             "mainImageVariation": {
                 "title": "商品主图方案",
@@ -270,6 +284,100 @@
                 "0": "正式商用图片生成，适合主图和详情图",
                 "1": "实时图片生成，适合快速预览和风格迭代",
                 "2": "720P 商品短视频生成，适合电商场景展示"
+            }
+        },
+        "copywriting": {
+            "workspaceTitle": "电商文案工作台",
+            "workspaceSubtitle": "按真实任务状态填写、设置、观察会话并预览结构化输出。",
+            "tabs": {
+                "input": "填写与上传",
+                "settings": "参数设置",
+                "session": "会话",
+                "preview": "预览输出"
+            },
+            "referenceMaterials": "可选参考资料",
+            "referenceMaterialsPlaceholder": "例如：尺码、面料、竞品限制、禁用词或品牌资料",
+            "currentModel": "当前模型",
+            "outputLanguage": "输出语言",
+            "titleCount": "标题数量",
+            "sellingPointCount": "卖点数量",
+            "copyLength": "文案长度",
+            "creativity": "创意程度",
+            "includeVideoScript": "生成短视频脚本",
+            "includeKeywords": "生成关键词",
+            "languages": {
+                "zhCN": "中文",
+                "en": "英文",
+                "ja": "日文"
+            },
+            "copyLengths": {
+                "short": "短文案",
+                "standard": "标准",
+                "long": "长文案"
+            },
+            "creativityLevels": {
+                "conservative": "稳妥",
+                "balanced": "平衡",
+                "creative": "创意"
+            },
+            "currentStage": "当前阶段",
+            "createdAt": "创建时间",
+            "startedAt": "开始时间",
+            "completedAt": "完成时间",
+            "elapsed": "已等待时间",
+            "seconds": "{{count}} 秒",
+            "executionLog": "执行日志",
+            "errorSummary": "错误摘要",
+            "retry": "重试",
+            "logs": {
+                "waiting": "等待提交生成任务。",
+                "created": "任务已创建。",
+                "running": "模型正在生成结构化文案。",
+                "succeeded": "任务已完成，已进入预览输出。",
+                "failed": "任务失败，未扣除积分。"
+            },
+            "stages": {
+                "queued": "排队等待",
+                "running": "生成中",
+                "completed": "已生成",
+                "succeeded": "已生成",
+                "failed": "失败",
+                "cancelled": "已取消"
+            },
+            "cards": {
+                "titleOptions": "商品标题方案",
+                "sellingPoints": "卖点文案提炼",
+                "detailPage": "详情页文案",
+                "videoScript": "短视频脚本",
+                "keywords": "关键词"
+            },
+            "resultTypes": {
+                "title_options": "商品标题方案",
+                "selling_points": "卖点文案提炼",
+                "detail_page": "详情页文案",
+                "video_script": "短视频脚本",
+                "keywords": "关键词",
+                "raw_text": "原始文案"
+            },
+            "positioning": "产品定位",
+            "useCases": "使用场景",
+            "coreBenefits": "核心卖点",
+            "hook": "开场",
+            "visual": "画面描述",
+            "voiceover": "口播",
+            "ending": "结尾",
+            "callToAction": "行动号召",
+            "copy": "复制",
+            "selectFinal": "选为最终标题",
+            "inlineOnly": "当前结果仅保存在应用内",
+            "parseFailed": "结构化解析失败",
+            "noStructuredResult": "暂无结构化结果",
+            "regenerate": {
+                "title_options": "重新生成标题",
+                "selling_points": "重新生成卖点",
+                "detail_page": "重新生成详情页",
+                "video_script": "重新生成脚本",
+                "keywords": "重新生成关键词"
             }
         },
         "billing": {

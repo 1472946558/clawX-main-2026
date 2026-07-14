@@ -1,0 +1,143 @@
+{
+  "requestId": "ecommerce-copywriting-real-1784015623268",
+  "taskId": "ecommerce-copywriting-real-1784015623268",
+  "modelId": "gpt-5.4",
+  "elapsedMs": 27817,
+  "beforeBalance": {
+    "success": true,
+    "wallet": {
+      "totalGranted": 70,
+      "totalUsed": 20,
+      "totalAvailable": 50
+    }
+  },
+  "quote": {
+    "success": true,
+    "workflowId": "ecommerce-copywriting",
+    "billingTierId": "short",
+    "points": 10,
+    "availablePoints": 50,
+    "affordable": true
+  },
+  "responseStatus": 200,
+  "canvaslandUsage": {
+    "pointsUsed": 10,
+    "modelPlanId": "gpt-5.4",
+    "workflowId": "ecommerce-copywriting",
+    "billingTierId": "short",
+    "duplicate": false
+  },
+  "afterBalance": {
+    "success": true,
+    "wallet": {
+      "totalGranted": 70,
+      "totalUsed": 30,
+      "totalAvailable": 40
+    }
+  },
+  "usageRecord": {
+    "id": "ecommerce-copywriting-real-1784015623268",
+    "kind": "usage",
+    "provider": "newapi",
+    "paymentKind": "ai-app",
+    "workflowId": "ecommerce-copywriting",
+    "billingTierId": "short",
+    "points": 10,
+    "status": "used",
+    "createdAt": "2026-07-14T07:54:08.693Z",
+    "description": "ecommerce-copywriting short"
+  },
+  "parseError": null,
+  "parsed": {
+    "taskId": "ecommerce-copywriting-real-1784015623268",
+    "modelId": "gpt-5.4",
+    "generatedAt": "2025-02-14T00:00:00Z",
+    "titleOptions": [
+      {
+        "id": "title-1",
+        "text": "夏季通勤透气舒适裤子年轻上班族日常百搭"
+      },
+      {
+        "id": "title-2",
+        "text": "透气舒适通勤裤子适合办公室与日常休闲"
+      },
+      {
+        "id": "title-3",
+        "text": "年轻上班族夏季通勤裤子轻松应对办公室日常"
+      },
+      {
+        "id": "title-4",
+        "text": "夏季舒适透气裤子通勤办公休闲一裤多场景"
+      },
+      {
+        "id": "title-5",
+        "text": "办公室通勤裤子透气不闷舒适贴合夏季穿着需求"
+      }
+    ],
+    "sellingPoints": [
+      {
+        "id": "selling-point-1",
+        "title": "透气不易闷",
+        "text": "围绕夏季穿着需求打造，日常通勤与久坐办公时更注重透气体验，减少闷热感，穿着更轻松。"
+      },
+      {
+        "id": "selling-point-2",
+        "title": "舒适穿着体验",
+        "text": "以舒适感为核心，无论是上下班路上还是办公室久坐场景，都能带来更自在的日常穿着感受。"
+      },
+      {
+        "id": "selling-point-3",
+        "title": "适配多种日常场景",
+        "text": "兼顾通勤、办公室与日常休闲等使用需求，让一条裤子满足年轻上班族夏季多场景穿搭。"
+      }
+    ],
+    "detailPage": {
+      "positioning": "面向夏季通勤需求的日常裤子",
+      "audience": "年轻上班族",
+      "coreBenefits": [
+        "透气",
+        "舒适",
+        "适合夏季通勤"
+      ],
+      "useCases": [
+        "通勤",
+        "办公室",
+        "日常休闲"
+      ],
+      "materialAndSpecs": "未提供",
+      "body": "这是一款面向年轻上班族打造的夏季通勤裤子，整体定位聚焦日常实穿与多场景适配。核心卖点在于透气、舒适，并适合夏季通勤穿着，帮助用户在上下班途中、办公室久坐以及日常休闲时获得更轻松的穿着体验。无论是工作日搭配通勤上装，还是下班后的日常出行，这条裤子都能满足基础穿搭需求，兼顾办公室与休闲场景使用。",
+      "callToAction": "如果你正在挑选一条适合夏季通勤、穿着舒适又适配多场景的裤子，现在就加入选购清单。"
+    },
+    "videoScript": {
+      "hook": "夏天通勤穿裤子，怕闷怕热又怕不舒服？这条更适合日常上班穿。",
+      "scenes": [
+        {
+          "scene": "镜头1",
+          "visual": "年轻上班族早晨出门，快速搭配裤子与通勤上装",
+          "voiceover": "针对夏季通勤场景，这条裤子主打透气与舒适，让出门穿搭更省心。"
+        },
+        {
+          "scene": "镜头2",
+          "visual": "办公室内久坐办公、起身走动的切换画面",
+          "voiceover": "上班久坐、会议走动、空调房切换，日常穿着更看重舒适感，这条裤子更贴近日常办公需求。"
+        },
+        {
+          "scene": "镜头3",
+          "visual": "下班后街头散步或咖啡店休闲场景",
+          "voiceover": "不只适合通勤，也能自然衔接日常休闲，一条裤子应对多种生活场景。"
+        }
+      ],
+      "ending": "夏季通勤想穿得更轻松，就选一条透气舒适、适合日常多场景的裤子。"
+    },
+    "keywords": [
+      "裤子",
+      "夏季裤子",
+      "通勤裤子",
+      "透气裤子",
+      "舒适裤子",
+      "办公室穿搭",
+      "年轻上班族裤子",
+      "日常休闲裤"
+    ]
+  }
+}

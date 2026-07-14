@@ -1,0 +1,56 @@
+{
+  "requestId": "ecommerce-copywriting-real-1784015623268",
+  "beforeBalance": {
+    "success": true,
+    "wallet": {
+      "totalGranted": 70,
+      "totalUsed": 30,
+      "totalAvailable": 40
+    }
+  },
+  "replayStatus": 409,
+  "replay": {
+    "error": {
+      "message": "Duplicate requestId; usage was already billed"
+    },
+    "usageRecord": {
+      "id": "ecommerce-copywriting-real-1784015623268",
+      "kind": "usage",
+      "provider": "newapi",
+      "paymentKind": "ai-app",
+      "workflowId": "ecommerce-copywriting",
+      "billingTierId": "short",
+      "points": 10,
+      "status": "used",
+      "createdAt": "2026-07-14T07:54:08.693Z",
+      "description": "ecommerce-copywriting short"
+    }
+  },
+  "duplicateDebitStatus": 200,
+  "duplicateDebit": {
+    "success": true,
+    "duplicate": true,
+    "pointsUsed": 10,
+    "usageRecord": {
+      "id": "ecommerce-copywriting-real-1784015623268",
+      "kind": "usage",
+      "provider": "newapi",
+      "paymentKind": "ai-app",
+      "workflowId": "ecommerce-copywriting",
+      "billingTierId": "short",
+      "points": 10,
+      "status": "used",
+      "createdAt": "2026-07-14T07:54:08.693Z",
+      "description": "ecommerce-copywriting short"
+    },
+    "availablePoints": 40
+  },
+  "afterBalance": {
+    "success": true,
+    "wallet": {
+      "totalGranted": 70,
+      "totalUsed": 30,
+      "totalAvailable": 40
+    }
+  }
+}

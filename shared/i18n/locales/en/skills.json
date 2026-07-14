@@ -55,7 +55,9 @@
             "queued": "Queued",
             "running": "Running",
             "completed": "Completed",
-            "failed": "Failed"
+            "succeeded": "Succeeded",
+            "failed": "Failed",
+            "cancelled": "Cancelled"
         },
         "assetTypes": {
             "text": "Copy",
@@ -75,6 +77,18 @@
             "detailPageCopyBlock": {
                 "title": "Detail page copy block",
                 "description": "A structured detail-page copy block covering scenario, material, feature, and conversion CTA."
+            },
+            "videoScript": {
+                "title": "Short video script",
+                "description": "Opening hook, scenes, visuals, voiceover, and ending."
+            },
+            "searchKeywords": {
+                "title": "Search keywords",
+                "description": "Keyword tags for product search and ads."
+            },
+            "rawCopywritingResponse": {
+                "title": "Raw copywriting response",
+                "description": "Original model text kept when structured parsing fails."
             },
             "mainImageVariation": {
                 "title": "Main image variation",
@@ -270,6 +284,100 @@
                 "0": "Production image generation for main and detail images",
                 "1": "Live image generation for quick previews and style iteration",
                 "2": "720P product short-video generation for ecommerce scenes"
+            }
+        },
+        "copywriting": {
+            "workspaceTitle": "Ecommerce copywriting workspace",
+            "workspaceSubtitle": "Fill inputs, tune settings, track the session, and preview structured outputs.",
+            "tabs": {
+                "input": "Fill and upload",
+                "settings": "Parameters",
+                "session": "Session",
+                "preview": "Preview output"
+            },
+            "referenceMaterials": "Optional references",
+            "referenceMaterialsPlaceholder": "Example: size, fabric, competitor limits, banned words, or brand notes",
+            "currentModel": "Current model",
+            "outputLanguage": "Output language",
+            "titleCount": "Title count",
+            "sellingPointCount": "Selling point count",
+            "copyLength": "Copy length",
+            "creativity": "Creativity",
+            "includeVideoScript": "Generate short-video script",
+            "includeKeywords": "Generate keywords",
+            "languages": {
+                "zhCN": "Chinese",
+                "en": "English",
+                "ja": "Japanese"
+            },
+            "copyLengths": {
+                "short": "Short",
+                "standard": "Standard",
+                "long": "Long"
+            },
+            "creativityLevels": {
+                "conservative": "Conservative",
+                "balanced": "Balanced",
+                "creative": "Creative"
+            },
+            "currentStage": "Current stage",
+            "createdAt": "Created at",
+            "startedAt": "Started at",
+            "completedAt": "Completed at",
+            "elapsed": "Elapsed",
+            "seconds": "{{count}}s",
+            "executionLog": "Execution log",
+            "errorSummary": "Error summary",
+            "retry": "Retry",
+            "logs": {
+                "waiting": "Waiting for submission.",
+                "created": "Task created.",
+                "running": "The model is generating structured copy.",
+                "succeeded": "Task completed and preview is ready.",
+                "failed": "Task failed. No points were charged."
+            },
+            "stages": {
+                "queued": "Queued",
+                "running": "Generating",
+                "completed": "Generated",
+                "succeeded": "Generated",
+                "failed": "Failed",
+                "cancelled": "Cancelled"
+            },
+            "cards": {
+                "titleOptions": "Product title options",
+                "sellingPoints": "Selling point copy",
+                "detailPage": "Detail page copy",
+                "videoScript": "Short-video script",
+                "keywords": "Keywords"
+            },
+            "resultTypes": {
+                "title_options": "Product title options",
+                "selling_points": "Selling point copy",
+                "detail_page": "Detail page copy",
+                "video_script": "Short-video script",
+                "keywords": "Keywords",
+                "raw_text": "Raw copy"
+            },
+            "positioning": "Positioning",
+            "useCases": "Use cases",
+            "coreBenefits": "Core benefits",
+            "hook": "Hook",
+            "visual": "Visual",
+            "voiceover": "Voiceover",
+            "ending": "Ending",
+            "callToAction": "Call to action",
+            "copy": "Copy",
+            "selectFinal": "Select final title",
+            "inlineOnly": "This result is stored in the app only",
+            "parseFailed": "Structured parsing failed",
+            "noStructuredResult": "No structured result yet",
+            "regenerate": {
+                "title_options": "Regenerate titles",
+                "selling_points": "Regenerate selling points",
+                "detail_page": "Regenerate detail page",
+                "video_script": "Regenerate script",
+                "keywords": "Regenerate keywords"
             }
         },
         "billing": {

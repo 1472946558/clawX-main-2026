@@ -1,0 +1,18 @@
+{
+  "scenario": "controlled-non-json-response",
+  "rawText": "这是一段非 JSON 的模型文本，用于验证结构化解析失败兜底。",
+  "parseError": "结构化解析失败：Unexpected token ...",
+  "expected": {
+    "rawTextPreserved": true,
+    "showsParseFailure": true,
+    "doesNotCreateRepeatedCards": true,
+    "assets": [
+      {
+        "metadata": {
+          "resultType": "raw_text"
+        }
+      }
+    ]
+  },
+  "billingRule": "If the production model call succeeds before parse failure, the existing workflow billing rule still applies."
+}

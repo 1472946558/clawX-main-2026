@@ -10,6 +10,7 @@ import type {
   AiAppJobMode,
   AiAppJobOutputs,
   AiAppListResultsPayload,
+  EcommerceCopywritingResult,
   JsonRecord,
 } from '../../shared/host-api/contract';
 import { buildPlatformRulePrompt, resolveEcommercePlatformRule } from '../../shared/ecommerce/platform-rules';
@@ -255,6 +256,11 @@ type TextProviderConfig = {
   apiKey: string;
   endpoint: string;
   model: string;
+};
+
+type ProviderTextResult = {
+  text: string;
+  modelId: string;
 };
 
 export function normalizeChatCompletionsEndpoint(baseUrl: string): string {
@@ -735,7 +741,7 @@ function extractChatCompletionText(response: JsonRecord): string {
   throw new Error('Provider 返回成功，但响应中没有可显示的文案。');
 }
 
-async function createProviderText(prompt: string, jobId: string, billingTierId: string): Promise<string> {
+async function createProviderText(prompt: string, jobId: string, billingTierId: string): Promise<ProviderTextResult> {
   const provider = await resolveCurrentTextProvider();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 180_000);
@@ -755,11 +761,16 @@ async function createProviderText(prompt: string, jobId: string, billingTierId: 
         messages: [
           {
             role: 'system',
-            content: '你是专业电商运营文案助手。根据用户提供的真实商品信息输出可直接使用、结构清晰、符合目标平台规则的中文文案；不要虚构未提供的产品参数或认证。',
+            content: [
+              '你是专业电商运营文案助手。',
+              '必须只返回严格 JSON，不要 Markdown，不要代码块，不要解释。',
+              '根据用户提供的真实商品信息输出可直接使用、结构清晰、符合目标平台规则的中文文案；不要虚构未提供的产品参数或认证。',
+            ].join('\n'),
           },
           { role: 'user', content: prompt },
         ],
         stream: false,
+        response_format: { type: 'json_object' },
         metadata: {
           workflowId: 'ecommerce-copywriting',
           billingTierId,
@@ -787,7 +798,7 @@ async function createProviderText(prompt: string, jobId: string, billingTierId: 
     if (!isRecord(json)) {
       throw new Error('Provider 返回了无效的 JSON 响应。');
     }
-    return extractChatCompletionText(json);
+    return { text: extractChatCompletionText(json), modelId: provider.model };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Provider 请求超时，请稍后重试。', { cause: error });
@@ -796,6 +807,93 @@ async function createProviderText(prompt: string, jobId: string, billingTierId: 
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function extractJsonObjectText(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) return trimmed;
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) return fenced[1].trim();
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
+  if (start >= 0 && end > start) return trimmed.slice(start, end + 1);
+  return trimmed;
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return uniqueStrings(value.map((entry) => typeof entry === 'string' ? entry : undefined));
+}
+
+function recordArray(value: unknown): JsonRecord[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
+function textFromRecord(value: JsonRecord, keys: string[]): string {
+  for (const key of keys) {
+    const raw = value[key];
+    if (typeof raw === 'string' && raw.trim()) return raw.trim();
+  }
+  return '';
+}
+
+export function parseEcommerceCopywritingResult(rawText: string, jobId: string, modelId: string): EcommerceCopywritingResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extractJsonObjectText(rawText)) as unknown;
+  } catch (error) {
+    throw new Error(`结构化解析失败：${errorMessage(error)}`);
+  }
+  if (!isRecord(parsed)) throw new Error('结构化解析失败：模型没有返回 JSON 对象。');
+
+  const titles = recordArray(parsed.titleOptions)
+    .map((entry, index) => ({
+      id: textFromRecord(entry, ['id']) || `title-${index + 1}`,
+      text: textFromRecord(entry, ['text', 'title']),
+    }))
+    .filter((entry) => entry.text);
+  const sellingPoints = recordArray(parsed.sellingPoints)
+    .map((entry, index) => ({
+      id: textFromRecord(entry, ['id']) || `selling-point-${index + 1}`,
+      title: textFromRecord(entry, ['title']) || undefined,
+      text: textFromRecord(entry, ['text', 'body', 'content']),
+    }))
+    .filter((entry) => entry.text);
+  const detailPageInput = isRecord(parsed.detailPage) ? parsed.detailPage : {};
+  const detailPage = {
+    positioning: textFromRecord(detailPageInput, ['positioning']) || undefined,
+    audience: textFromRecord(detailPageInput, ['audience']) || undefined,
+    coreBenefits: stringArray(detailPageInput.coreBenefits),
+    useCases: stringArray(detailPageInput.useCases),
+    materialAndSpecs: textFromRecord(detailPageInput, ['materialAndSpecs']) || undefined,
+    body: textFromRecord(detailPageInput, ['body', 'text', 'content']),
+    callToAction: textFromRecord(detailPageInput, ['callToAction', 'cta']) || undefined,
+  };
+  const videoScriptInput = isRecord(parsed.videoScript) ? parsed.videoScript : undefined;
+  const videoScript = videoScriptInput ? {
+    hook: textFromRecord(videoScriptInput, ['hook']),
+    scenes: recordArray(videoScriptInput.scenes).map((scene, index) => ({
+      scene: textFromRecord(scene, ['scene']) || `scene-${index + 1}`,
+      visual: textFromRecord(scene, ['visual']),
+      voiceover: textFromRecord(scene, ['voiceover']),
+    })).filter((scene) => scene.visual || scene.voiceover),
+    ending: textFromRecord(videoScriptInput, ['ending']),
+  } : undefined;
+
+  if (titles.length === 0 || sellingPoints.length === 0 || !detailPage.body) {
+    throw new Error('结构化解析失败：缺少商品标题、卖点文案或详情页正文。');
+  }
+
+  return {
+    taskId: typeof parsed.taskId === 'string' && parsed.taskId.trim() ? parsed.taskId.trim() : jobId,
+    modelId: typeof parsed.modelId === 'string' && parsed.modelId.trim() ? parsed.modelId.trim() : modelId,
+    generatedAt: typeof parsed.generatedAt === 'string' && parsed.generatedAt.trim() ? parsed.generatedAt.trim() : new Date().toISOString(),
+    titleOptions: titles,
+    sellingPoints,
+    detailPage,
+    ...(videoScript && videoScript.hook && videoScript.ending ? { videoScript } : {}),
+    keywords: stringArray(parsed.keywords),
+  };
 }
 
 function buildCommercialPrompt(appId: string, inputs: JsonRecord): string {
@@ -814,6 +912,14 @@ function buildCommercialPrompt(appId: string, inputs: JsonRecord): string {
     const brandTone = stringInput(inputs, 'brandTone', '专业、可信、自然');
     const targetAudience = stringInput(inputs, 'targetAudience', '未指定');
     const useScene = stringInput(inputs, 'useScene', '未指定');
+    const titleCount = stringInput(inputs, 'titleCount', '5');
+    const sellingPointCount = stringInput(inputs, 'sellingPointCount', '5');
+    const outputLanguage = stringInput(inputs, 'outputLanguage', 'zh-CN');
+    const copyLength = stringInput(inputs, 'copyLength', 'standard');
+    const creativity = stringInput(inputs, 'creativity', 'balanced');
+    const includeVideoScript = inputs.includeVideoScript !== false;
+    const includeKeywords = inputs.includeKeywords !== false;
+    const referenceMaterials = stringInput(inputs, 'referenceMaterials', '无');
     if (!productName || !sellingPoints) {
       throw new Error('产品名称和核心卖点为必填项。');
     }
@@ -829,8 +935,35 @@ function buildCommercialPrompt(appId: string, inputs: JsonRecord): string {
 品牌语气：${brandTone}
 目标人群：${targetAudience}
 使用场景：${useScene}
+可选参考资料：${referenceMaterials}
+输出语言：${outputLanguage}
+标题数量：${titleCount}
+卖点数量：${sellingPointCount}
+文案长度：${copyLength}
+创意程度：${creativity}
+是否生成短视频脚本：${includeVideoScript ? '是' : '否'}
+是否生成关键词：${includeKeywords ? '是' : '否'}
 ${tierInstruction}
-任务：生成 3 个商品标题、5 条卖点文案、1 段详情页文案和 1 条短视频脚本钩子。按“商品标题 / 核心卖点 / 详情页文案 / 视频钩子 / 合规检查”分段输出。`;
+任务：输出严格 JSON，字段和类型必须完全符合：
+{
+  "taskId": "${stringInput(inputs, 'taskId', '当前任务 ID')}",
+  "modelId": "当前模型 ID",
+  "generatedAt": "ISO-8601 时间",
+  "titleOptions": [{"id":"title-1","text":"商品标题"}],
+  "sellingPoints": [{"id":"selling-point-1","title":"卖点小标题","text":"卖点正文"}],
+  "detailPage": {
+    "positioning": "产品定位",
+    "audience": "目标人群",
+    "coreBenefits": ["核心利益点"],
+    "useCases": ["使用场景"],
+    "materialAndSpecs": "仅基于已提供信息填写；没有则写未提供",
+    "body": "详情页正文，至少包含产品定位、核心卖点和使用场景",
+    "callToAction": "行动号召"
+  },
+  "videoScript": ${includeVideoScript ? '{"hook":"开场钩子","scenes":[{"scene":"镜头1","visual":"画面描述","voiceover":"口播"}],"ending":"结尾"}' : 'null'},
+  "keywords": ${includeKeywords ? '["搜索关键词"]' : '[]'}
+}
+要求：titleOptions 至少 ${titleCount} 条且互不相同；sellingPoints 至少 ${sellingPointCount} 条且不要与标题完全重复；keywords 至少 5 个。不要返回 { "result": "..." }。`;
   }
   if (appId === 'detail-poster-generator') {
     return `${common}\n任务：生成商品详情图/详情海报方案。请描述版式、主视觉、卖点模块、详情页顺序、图片提示词和合规注意事项。`;
@@ -841,27 +974,52 @@ ${tierInstruction}
   return `${common}\n任务：生成电商 AI 应用输出方案。`;
 }
 
-function createAcceptedOutputs(appId: string, jobId: string, source: 'openclaw' | 'acceptance' | 'provider' | 'feiniu', resultText: string, outputPath?: string): AiAppJobOutputs {
+function createAcceptedOutputs(
+  appId: string,
+  jobId: string,
+  source: 'openclaw' | 'acceptance' | 'provider' | 'feiniu',
+  resultText: string,
+  outputPath?: string,
+  ecommerceCopywriting?: EcommerceCopywritingResult,
+  parseError?: string,
+): AiAppJobOutputs {
   const metadata = {
     quality: source,
-    ...(resultText ? { resultText: resultText.slice(0, 4000) } : {}),
   };
 
   if (appId === 'ecommerce-copywriting') {
-    const assets = [
-      { type: 'text' as const, title: 'Product title candidates', titleKey: 'productTitleCandidates', descriptionKey: 'productTitleCandidates', ratio: 'copy' },
-      { type: 'text' as const, title: 'Selling point bullets', titleKey: 'sellingPointBullets', descriptionKey: 'sellingPointBullets', ratio: 'copy' },
-      { type: 'text' as const, title: 'Detail page copy block', titleKey: 'detailPageCopyBlock', descriptionKey: 'detailPageCopyBlock', ratio: 'copy' },
-    ].map((asset, index) => ({
+    if (!ecommerceCopywriting) {
+      return {
+        assetCount: 1,
+        rawText: resultText,
+        parseError: parseError || '结构化解析失败',
+        assets: [{
+          id: `${jobId}-raw-text`,
+          type: 'text',
+          title: 'Raw copywriting response',
+          titleKey: 'rawCopywritingResponse',
+          descriptionKey: 'rawCopywritingResponse',
+          metadata: { ...metadata, resultType: 'raw_text', resultId: 'raw-text' },
+        }],
+      };
+    }
+
+    const assetDefinitions = [
+      { resultType: 'title_options', title: 'Product title candidates', titleKey: 'productTitleCandidates', descriptionKey: 'productTitleCandidates' },
+      { resultType: 'selling_points', title: 'Selling point bullets', titleKey: 'sellingPointBullets', descriptionKey: 'sellingPointBullets' },
+      { resultType: 'detail_page', title: 'Detail page copy block', titleKey: 'detailPageCopyBlock', descriptionKey: 'detailPageCopyBlock' },
+      ...(ecommerceCopywriting.videoScript ? [{ resultType: 'video_script', title: 'Short video script', titleKey: 'videoScript', descriptionKey: 'videoScript' }] : []),
+      ...(ecommerceCopywriting.keywords?.length ? [{ resultType: 'keywords', title: 'Search keywords', titleKey: 'searchKeywords', descriptionKey: 'searchKeywords' }] : []),
+    ];
+    const assets = assetDefinitions.map((asset, index) => ({
       id: `${jobId}-asset-${index + 1}`,
-      type: asset.type,
+      type: 'text' as const,
       title: asset.title,
       titleKey: asset.titleKey,
       descriptionKey: asset.descriptionKey,
-      downloadUrl: outputPath,
-      metadata: { ...metadata, ratio: asset.ratio },
+      metadata: { ...metadata, resultType: asset.resultType, resultId: asset.resultType },
     }));
-    return { assetCount: assets.length, assets };
+    return { assetCount: assets.length, assets, ecommerceCopywriting };
   }
 
   if (appId === 'product-short-video') {
@@ -907,9 +1065,15 @@ class FeiniuAiAppRunner implements AiAppRunner {
       // Copy generation is intentionally independent from an optional skill manifest.
       // Missing ecommerce-copywriting skill files must never block the configured Provider call.
       const result = await createProviderText(prompt, input.jobId, stringInput(input.inputs, 'billingTierId', 'social'));
-      const outputPath = join(outputDir, 'copywriting-output.txt');
-      await writeFile(outputPath, result, 'utf-8');
-      return createAcceptedOutputs(input.appId, input.jobId, 'provider', result, outputPath);
+      const rawOutputPath = join(outputDir, 'copywriting-output.txt');
+      await writeFile(rawOutputPath, result.text, 'utf-8');
+      try {
+        const structured = parseEcommerceCopywritingResult(result.text, input.jobId, result.modelId);
+        await writeFile(join(outputDir, 'copywriting-result.json'), JSON.stringify(structured, null, 2), 'utf-8');
+        return createAcceptedOutputs(input.appId, input.jobId, 'provider', result.text, undefined, structured);
+      } catch (error) {
+        return createAcceptedOutputs(input.appId, input.jobId, 'provider', result.text, undefined, undefined, errorMessage(error));
+      }
     }
 
     if (input.appId === 'product-short-video') throw new Error('Product video generation must use the current Provider task API.');
@@ -935,6 +1099,44 @@ class FeiniuAiAppRunner implements AiAppRunner {
 
 class AcceptanceAiAppRunner implements AiAppRunner {
   async run(input: AiAppRunnerInput): Promise<AiAppJobOutputs> {
+    if (input.appId === 'ecommerce-copywriting') {
+      const structured: EcommerceCopywritingResult = {
+        taskId: input.jobId,
+        modelId: 'acceptance-copy-model',
+        generatedAt: new Date().toISOString(),
+        titleOptions: [
+          { id: 'title-1', text: '轻量通勤双肩包 防泼水电脑仓 城市出行更从容' },
+          { id: 'title-2', text: '城市通勤轻量背包 独立电脑仓 防泼水设计' },
+          { id: 'title-3', text: '短途出差通勤包 轻量背负 分区收纳更高效' },
+          { id: 'title-4', text: '专业通勤双肩包 防泼水面料 电脑文件分开放' },
+          { id: 'title-5', text: '轻装上班双肩包 独立电脑仓 日常出行好搭配' },
+        ],
+        sellingPoints: [
+          { id: 'selling-point-1', title: '防泼水面料', text: '日常小雨和水滴不易渗入，通勤路上更安心。' },
+          { id: 'selling-point-2', title: '独立电脑仓', text: '电脑与随身物品分区放置，减少摩擦，也方便快速取用。' },
+          { id: 'selling-point-3', title: '轻量背负', text: '减轻肩背负担，适合地铁、办公室和短途出差高频切换。' },
+        ],
+        detailPage: {
+          positioning: '面向城市通勤和短途出差的轻量双肩包。',
+          audience: '城市通勤人群',
+          coreBenefits: ['防泼水', '独立电脑仓', '轻量背负'],
+          useCases: ['日常通勤', '办公室', '短途出差'],
+          materialAndSpecs: '未提供',
+          body: '这款轻量通勤双肩包围绕上班、会议和短途出差场景设计。防泼水面料应对日常小雨，独立电脑仓让电子设备与杂物分区收纳，轻量背负减少长时间移动的压力。整体表达专业克制，适合需要高效整理随身物品的城市通勤人群。',
+          callToAction: '现在选择这款通勤双肩包，让每日出行更轻、更稳、更有序。',
+        },
+        videoScript: {
+          hook: '每天通勤，包里的秩序决定出门效率。',
+          scenes: [
+            { scene: '镜头1', visual: '年轻通勤者在玄关拿起双肩包出门。', voiceover: '轻量背负，早高峰也不累赘。' },
+            { scene: '镜头2', visual: '电脑放入独立仓，文件和水杯分区收纳。', voiceover: '电脑独立放，物品各归其位。' },
+          ],
+          ending: '轻量通勤双肩包，让上班路更从容。',
+        },
+        keywords: ['通勤双肩包', '电脑背包', '防泼水背包', '轻量背包', '短途出差包'],
+      };
+      return createAcceptedOutputs(input.appId, input.jobId, 'acceptance', JSON.stringify(structured), undefined, structured);
+    }
     if (input.appId !== 'detail-poster-generator') {
       return createAcceptedOutputs(input.appId, input.jobId, 'acceptance', 'Acceptance runner output');
     }
@@ -1060,7 +1262,7 @@ function startJob(job: AiAppJob, runner: AiAppRunner, billing: AiAppBillingClien
   void runner.run({ jobId: job.id, appId: job.appId, inputs: job.inputs })
     .then(async (outputs) => {
       const pointsUsed = await billing.debit(job.appId, job.billingTierId || '', job.id);
-      updateJob(job.id, { status: 'completed', outputs, pointsUsed });
+      updateJob(job.id, { status: 'succeeded', outputs, pointsUsed });
     })
     .catch((error) => {
       updateJob(job.id, { status: 'failed', error: errorMessage(error) });

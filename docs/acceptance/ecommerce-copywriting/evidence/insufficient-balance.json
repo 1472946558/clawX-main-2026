@@ -1,0 +1,36 @@
+{
+  "requestId": "ecommerce-copywriting-insufficient-1784015704274",
+  "beforeBalance": {
+    "success": true,
+    "wallet": {
+      "totalGranted": 70,
+      "totalUsed": 65,
+      "totalAvailable": 5
+    }
+  },
+  "quote": {
+    "success": true,
+    "workflowId": "ecommerce-copywriting",
+    "billingTierId": "short",
+    "points": 10,
+    "availablePoints": 5,
+    "affordable": false
+  },
+  "responseStatus": 402,
+  "response": {
+    "error": {
+      "message": "Insufficient canvasland points"
+    }
+  },
+  "afterBalance": {
+    "success": true,
+    "wallet": {
+      "totalGranted": 70,
+      "totalUsed": 65,
+      "totalAvailable": 5
+    }
+  },
+  "beforeRecordCount": 18,
+  "afterRecordCount": 18,
+  "newRecord": null
+}

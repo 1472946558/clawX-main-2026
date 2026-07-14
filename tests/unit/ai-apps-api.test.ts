@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createAiAppsApi, normalizeChatCompletionsEndpoint } from '../../electron/services/ai-apps-api';
+import { createAiAppsApi, normalizeChatCompletionsEndpoint, parseEcommerceCopywritingResult } from '../../electron/services/ai-apps-api';
 
 async function jobsStatus(api: ReturnType<typeof createAiAppsApi>, id: string) {
   const result = await api.getJob({ id });
@@ -37,10 +37,10 @@ describe('ai apps host api service', () => {
     expect(listed.jobs?.some((job) => job.id === created.job?.id)).toBe(true);
 
     await vi.waitFor(async () => {
-      await expect(jobsStatus(api, created.job?.id || '')).resolves.toBe('completed');
+      await expect(jobsStatus(api, created.job?.id || '')).resolves.toBe('succeeded');
     });
     const completed = await api.getJob({ id: created.job?.id || '' });
-    expect(completed.job?.status).toBe('completed');
+    expect(completed.job?.status).toBe('succeeded');
     expect(completed.job?.outputs?.assets).toHaveLength(3);
     expect(completed.job?.outputs?.assets[0]).toMatchObject({
       type: 'image',
@@ -113,6 +113,38 @@ describe('ai apps host api service', () => {
     expect(created.job?.inputs).toEqual(inputs);
   });
 
+  it('returns structured ecommerce copywriting outputs instead of repeated text assets', async () => {
+    const api = createAiAppsApi();
+
+    const created = await api.createJob({
+      appId: 'ecommerce-copywriting',
+      inputs: {
+        productName: '轻量通勤双肩包',
+        sellingPoints: '防泼水、独立电脑仓',
+        platform: 'jd',
+      },
+    });
+
+    await vi.waitFor(async () => {
+      const result = await api.getJob({ id: created.job?.id || '' });
+      expect(result.job?.status).toBe('succeeded');
+    });
+    const completed = await api.getJob({ id: created.job?.id || '' });
+    expect(completed.job?.outputs?.ecommerceCopywriting?.titleOptions.length).toBeGreaterThanOrEqual(3);
+    expect(completed.job?.outputs?.assets.map((asset) => asset.metadata?.resultType)).toEqual([
+      'title_options',
+      'selling_points',
+      'detail_page',
+      'video_script',
+      'keywords',
+    ]);
+    expect(completed.job?.outputs?.assets.every((asset) => asset.downloadUrl == null)).toBe(true);
+  });
+
+  it('rejects unstructured ecommerce copywriting text for fallback handling', () => {
+    expect(() => parseEcommerceCopywritingResult('只有一段普通文案', 'job-1', 'model-1')).toThrow('结构化解析失败');
+  });
+
   it('charges the server-owned tier only after a successful job', async () => {
     const run = vi.fn().mockResolvedValue({ assetCount: 1, assets: [] });
     const billingClient = {
@@ -128,7 +160,7 @@ describe('ai apps host api service', () => {
 
     await vi.waitFor(async () => {
       const result = await api.getJob({ id: created.job?.id || '' });
-      expect(result.job).toMatchObject({ status: 'completed', billingTierId: 'pro', pointsUsed: 60 });
+      expect(result.job).toMatchObject({ status: 'succeeded', billingTierId: 'pro', pointsUsed: 60 });
     });
     expect(billingClient.quote).toHaveBeenCalledWith('detail-poster-generator', 'pro');
     expect(billingClient.debit).toHaveBeenCalledWith('detail-poster-generator', 'pro', created.job?.id);
