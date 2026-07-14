@@ -1,5 +1,7 @@
-import type { RawMessage } from '@shared/chat/types';
+import type { ChatRuntimeEvent } from '@shared/chat-runtime-events';
 import { getDefaultCanvaslandModelPlan, resolveCanvaslandModelPlanFromModelRef } from '@shared/model-plans';
+import { HOST_EVENT_CHANNELS } from '@shared/host-events/contract';
+import type { BrowserWindow } from 'electron';
 import { randomUUID } from 'node:crypto';
 import type { GatewayManager } from '../gateway/manager';
 import type { CompleteHostServiceRegistry } from '../main/ipc/host-contract';
@@ -70,37 +72,93 @@ function normalizeDirectContext(context: unknown): ChatCompletionMessage[] {
   }).slice(-12);
 }
 
-function extractAssistantText(parsed: unknown): string {
-  if (!isRecord(parsed)) return '';
-  const choices = parsed.choices;
-  if (!Array.isArray(choices)) return '';
-  for (const choice of choices) {
-    if (!isRecord(choice)) continue;
-    const message = choice.message;
-    if (isRecord(message) && typeof message.content === 'string' && message.content.trim()) {
-      return message.content.trim();
-    }
-    if (typeof choice.text === 'string' && choice.text.trim()) {
-      return choice.text.trim();
-    }
-  }
-  return '';
-}
-
-function extractPointsUsed(parsed: unknown): number | undefined {
-  if (!isRecord(parsed)) return undefined;
-  const usage = parsed.canvasland_usage;
-  if (!isRecord(usage)) return undefined;
-  const value = usage.pointsUsed ?? usage.points_used;
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
 function safeDirectErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return message.length > 500 ? `${message.slice(0, 500)}...` : message;
 }
 
-export function createChatApi({ gatewayManager }: { gatewayManager: GatewayManager }): CompleteHostServiceRegistry['chat'] {
+function emitRuntimeEvent(mainWindow: BrowserWindow | undefined, event: ChatRuntimeEvent): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send(HOST_EVENT_CHANNELS.chat.runtimeEvent, event);
+}
+
+function parseSsePayloads(buffer: string): { payloads: string[]; rest: string } {
+  const normalized = buffer.replace(/\r\n/g, '\n');
+  const parts = normalized.split('\n\n');
+  const rest = parts.pop() ?? '';
+  const payloads = parts.flatMap((part) => {
+    const dataLines = part
+      .split('\n')
+      .map((line) => line.trimEnd())
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trimStart());
+    return dataLines.length > 0 ? [dataLines.join('\n')] : [];
+  });
+  return { payloads, rest };
+}
+
+function extractStreamDelta(parsed: unknown): string {
+  if (!isRecord(parsed)) return '';
+  const choices = parsed.choices;
+  if (!Array.isArray(choices)) return '';
+  for (const choice of choices) {
+    if (!isRecord(choice)) continue;
+    const delta = choice.delta;
+    if (isRecord(delta) && typeof delta.content === 'string') return delta.content;
+    const message = choice.message;
+    if (isRecord(message) && typeof message.content === 'string') return message.content;
+    if (typeof choice.text === 'string') return choice.text;
+  }
+  return '';
+}
+
+async function readDirectChatStream(options: {
+  response: Response;
+  runId: string;
+  sessionKey: string;
+  mainWindow?: BrowserWindow;
+}): Promise<string> {
+  const reader = options.response.body?.getReader();
+  if (!reader) throw new Error('Direct chat stream is unavailable');
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullText = '';
+  let seq = 1;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (value) {
+      buffer += decoder.decode(value, { stream: !done });
+      const parsed = parseSsePayloads(buffer);
+      buffer = parsed.rest;
+      for (const payload of parsed.payloads) {
+        if (payload === '[DONE]') continue;
+        let chunk: unknown;
+        try {
+          chunk = JSON.parse(payload) as unknown;
+        } catch {
+          continue;
+        }
+        const delta = extractStreamDelta(chunk);
+        if (!delta) continue;
+        fullText += delta;
+        emitRuntimeEvent(options.mainWindow, {
+          type: 'assistant.delta',
+          runId: options.runId,
+          sessionKey: options.sessionKey,
+          seq: seq++,
+          ts: Date.now(),
+          delta,
+        });
+      }
+    }
+    if (done) break;
+  }
+
+  return fullText.trim();
+}
+
+export function createChatApi({ gatewayManager, mainWindow }: { gatewayManager: GatewayManager; mainWindow?: BrowserWindow }): CompleteHostServiceRegistry['chat'] {
   return {
     sendDirect: async (payload) => {
       const body = isRecord(payload) ? payload as ChatDirectPayload : {};
@@ -114,61 +172,80 @@ export function createChatApi({ gatewayManager }: { gatewayManager: GatewayManag
       const plan = typeof body.modelRef === 'string'
         ? resolveCanvaslandModelPlanFromModelRef(body.modelRef) ?? getDefaultCanvaslandModelPlan()
         : getDefaultCanvaslandModelPlan();
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 90_000);
+      const runId = `direct-${randomUUID()}`;
+      emitRuntimeEvent(mainWindow, {
+        type: 'run.started',
+        runId,
+        sessionKey,
+        startedAt: Date.now(),
+        ts: Date.now(),
+      });
 
-      try {
-        const response = await proxyAwareFetch(CANVASLAND_CHAT_COMPLETIONS_URL, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            'x-request-id': idempotencyKey,
-          },
-          body: JSON.stringify({
-            model: plan.runtimeModel,
-            stream: false,
-            messages: [
-              {
-                role: 'system',
-                content: 'You are canvasland, a concise and helpful desktop AI assistant. Reply directly to the user.',
-              },
-              ...normalizeDirectContext(body.context),
-              { role: 'user', content: message },
-            ],
-          }),
-          signal: controller.signal,
-        });
-        const text = await response.text();
-        const parsed = text ? JSON.parse(text) as unknown : null;
-        if (!response.ok) {
-          const apiMessage = isRecord(parsed) && typeof parsed.message === 'string'
-            ? parsed.message
-            : `HTTP ${response.status}`;
-          throw new Error(apiMessage);
+      void (async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 90_000);
+        try {
+          const response = await proxyAwareFetch(CANVASLAND_CHAT_COMPLETIONS_URL, {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              'x-request-id': idempotencyKey,
+            },
+            body: JSON.stringify({
+              model: plan.runtimeModel,
+              stream: true,
+              stream_options: { include_usage: true },
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are canvasland, a concise and helpful desktop AI assistant. Reply directly to the user.',
+                },
+                ...normalizeDirectContext(body.context),
+                { role: 'user', content: message },
+              ],
+            }),
+            signal: controller.signal,
+          });
+          if (!response.ok) {
+            const text = await response.text();
+            const parsed = text ? JSON.parse(text) as unknown : null;
+            const apiMessage = isRecord(parsed) && typeof parsed.message === 'string'
+              ? parsed.message
+              : `HTTP ${response.status}`;
+            throw new Error(apiMessage);
+          }
+          const content = await readDirectChatStream({ response, runId, sessionKey, mainWindow });
+          if (!content) {
+            throw new Error('Direct chat returned an empty assistant response');
+          }
+          emitRuntimeEvent(mainWindow, {
+            type: 'run.ended',
+            runId,
+            sessionKey,
+            status: 'completed',
+            endedAt: Date.now(),
+            ts: Date.now(),
+            stopReason: 'canvasland-direct',
+          });
+        } catch (error) {
+          logger.error(`[chat:sendDirect] Error: ${safeDirectErrorMessage(error)}`);
+          emitRuntimeEvent(mainWindow, {
+            type: 'run.ended',
+            runId,
+            sessionKey,
+            status: 'error',
+            error: safeDirectErrorMessage(error),
+            endedAt: Date.now(),
+            ts: Date.now(),
+            stopReason: 'canvasland-direct',
+          });
+        } finally {
+          clearTimeout(timeout);
         }
-        const content = extractAssistantText(parsed);
-        if (!content) {
-          throw new Error('Direct chat returned an empty assistant response');
-        }
-        const id = isRecord(parsed) && typeof parsed.id === 'string' ? parsed.id : randomUUID();
-        const assistantMessage: RawMessage = {
-          role: 'assistant',
-          content,
-          timestamp: Date.now() / 1000,
-          id,
-        };
-        return {
-          success: true,
-          message: assistantMessage,
-          pointsUsed: extractPointsUsed(parsed),
-        };
-      } catch (error) {
-        logger.error(`[chat:sendDirect] Error: ${safeDirectErrorMessage(error)}`);
-        return { success: false, error: safeDirectErrorMessage(error) };
-      } finally {
-        clearTimeout(timeout);
-      }
+      })();
+
+      return { success: true, result: { runId } };
     },
 
     sendWithMedia: async (payload) => {

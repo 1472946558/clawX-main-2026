@@ -774,6 +774,7 @@ export type ChatDirectPayload = {
   context?: RawMessage[];
 };
 export type ChatDirectResult = HostSuccess & {
+  result?: { runId?: string };
   message?: RawMessage;
   pointsUsed?: number;
 };

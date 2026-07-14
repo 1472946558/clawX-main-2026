@@ -117,7 +117,7 @@ describe('chat target routing', () => {
       if (url === '/api/chat/send-direct') {
         return {
           success: true,
-          message: { role: 'assistant', content: 'Direct reply', timestamp: Date.now() / 1000, id: 'direct-1' },
+          result: { runId: 'direct-run' },
         };
       }
       return { success: true, result: {} };
@@ -157,9 +157,9 @@ describe('chat target routing', () => {
     expect(state.currentSessionKey).toBe('agent:research:desk');
     expect(state.currentAgentId).toBe('research');
     expect(state.sessions.some((session) => session.key === 'agent:research:desk')).toBe(true);
-    expect(state.messages.at(-2)?.content).toBe('Hello direct agent');
-    expect(state.messages.at(-1)?.content).toBe('Direct reply');
-    expect(state.sending).toBe(false);
+    expect(state.messages.at(-1)?.content).toBe('Hello direct agent');
+    expect(state.sending).toBe(true);
+    expect(state.activeRunId).toBe('direct-run');
 
     const historyCall = gatewayRpcMock.mock.calls.find(([method]) => method === 'chat.history');
     expect(historyCall?.[1]).toEqual(
@@ -176,6 +176,24 @@ describe('chat target routing', () => {
     });
     expect(typeof (sendPayload as { idempotencyKey?: unknown }).idempotencyKey).toBe('string');
     expect(gatewayRpcMock.mock.calls.some(([method]) => method === 'chat.send')).toBe(false);
+
+    useChatStore.getState().handleRuntimeEvent({
+      type: 'assistant.delta',
+      runId: 'direct-run',
+      sessionKey: 'agent:research:desk',
+      delta: 'Direct reply',
+    });
+    expect(useChatStore.getState().streamingText).toBe('Direct reply');
+
+    useChatStore.getState().handleRuntimeEvent({
+      type: 'run.ended',
+      runId: 'direct-run',
+      sessionKey: 'agent:research:desk',
+      status: 'completed',
+      stopReason: 'canvasland-direct',
+    });
+    expect(useChatStore.getState().messages.at(-1)?.content).toBe('Direct reply');
+    expect(useChatStore.getState().sending).toBe(false);
   });
 
   it('uses the selected agent main session for attachment sends', async () => {

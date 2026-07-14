@@ -248,6 +248,10 @@ function handleChatRuntimeEvent(event: ChatRuntimeEvent): void {
         maybeLoadSessions(state, true);
       }
 
+      if (event.stopReason === 'canvasland-direct') {
+        return;
+      }
+
       const matchesCurrentSession = resolvedSessionKey != null && resolvedSessionKey === state.currentSessionKey;
       const matchesActiveRun = state.activeRunId != null && event.runId === state.activeRunId;
       if (matchesCurrentSession || matchesActiveRun) {

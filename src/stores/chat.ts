@@ -3533,7 +3533,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           && latest.lastUserMessageAt === nowMs;
         if (!sendStillCurrent || !canApplyToCurrentSession) return;
 
-        if (!directResult.success || !directResult.message) {
+        const returnedRunId = directResult.result?.runId;
+        if (!directResult.success || !returnedRunId) {
           clearSendGenerationIfCurrent();
           set({
             error: directResult.error || 'Failed to send message',
@@ -3548,20 +3549,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           return;
         }
 
-        const assistantAt = Date.now();
-        clearSendGenerationIfCurrent();
-        set((s) => ({
-          messages: [...s.messages, directResult.message!],
-          sending: false,
-          activeRunId: null,
+        set({
+          activeRunId: returnedRunId,
           runError: null,
           streamingText: '',
           streamingMessage: null,
           streamingTools: [],
-          pendingFinal: false,
-          lastUserMessageAt: null,
-          sessionLastActivity: { ...s.sessionLastActivity, [currentSessionKey]: assistantAt },
-        }));
+        });
       } catch (err) {
         const latest = get();
         const sendStillCurrent = _activeSendGenerationBySession.get(currentSessionKey) === sendGeneration;
@@ -4258,6 +4252,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
         nextPatch.error = null;
         nextPatch.runError = null;
       }
+      if (appliesToActiveUi && event.type === 'assistant.delta') {
+        const currentStream = initialState.streamingMessage;
+        const currentText = currentStream && typeof currentStream === 'object'
+          ? getMessageText((currentStream as RawMessage).content)
+          : typeof currentStream === 'string'
+            ? currentStream
+            : initialState.streamingText;
+        const nextText = typeof event.text === 'string'
+          ? event.text
+          : `${currentText}${event.delta ?? ''}`;
+        nextPatch.streamingMessage = {
+          role: 'assistant',
+          content: nextText,
+          timestamp: Date.now() / 1000,
+          id: `stream-${event.runId}`,
+        };
+        nextPatch.streamingText = nextText;
+      }
       set(nextPatch);
       return;
     }
@@ -4292,11 +4304,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const shouldClearActiveRun = terminalMatchesActiveRun || terminalIsForCurrentUntrackedSend;
 
       if (shouldClearActiveRun) {
+        if (event.status === 'completed' && event.stopReason === 'canvasland-direct') {
+          const currentStream = latestState.streamingMessage;
+          const streamText = currentStream && typeof currentStream === 'object'
+            ? getMessageText((currentStream as RawMessage).content).trim()
+            : typeof currentStream === 'string'
+              ? currentStream.trim()
+              : latestState.streamingText.trim();
+          if (streamText) {
+            const messageId = `run-${event.runId}`;
+            const alreadyExists = latestState.messages.some((message) => message.id === messageId);
+            if (!alreadyExists) {
+              nextPatch.messages = [
+                ...latestState.messages,
+                {
+                  role: 'assistant',
+                  content: streamText,
+                  timestamp: Date.now() / 1000,
+                  id: messageId,
+                },
+              ];
+              nextPatch.sessionLastActivity = {
+                ...latestState.sessionLastActivity,
+                [currentSessionKey]: Date.now(),
+              };
+            }
+          }
+        }
         nextPatch.sending = false;
         nextPatch.activeRunId = null;
         nextPatch.pendingFinal = false;
         nextPatch.lastUserMessageAt = null;
         nextPatch.streamingTools = [];
+        nextPatch.streamingMessage = null;
+        nextPatch.streamingText = '';
         if (event.status === 'error' && event.error) {
           nextPatch.error = null;
           nextPatch.runError = event.error;
