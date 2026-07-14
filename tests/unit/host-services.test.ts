@@ -136,6 +136,7 @@ vi.mock('@electron/utils/logger', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@electron/utils/logger')>();
   return {
     logger: {
+      error: vi.fn(),
       info: vi.fn(),
       warn: vi.fn(),
       getLogDir: () => logDir,
@@ -912,6 +913,55 @@ describe('host services', () => {
       },
       120000,
     );
+  });
+
+  it('sends plain text through the direct canvasland chat service', async () => {
+    const { proxyAwareFetch } = await import('@electron/utils/proxy-fetch');
+    vi.mocked(proxyAwareFetch).mockResolvedValueOnce(new Response(JSON.stringify({
+      id: 'chatcmpl-direct-1',
+      choices: [{ message: { role: 'assistant', content: '你好，有什么可以帮你的？' } }],
+      canvasland_usage: { pointsUsed: 1 },
+    }), { status: 200 }));
+    const gatewayManager = {
+      rpc: vi.fn(),
+    };
+    const { createChatApi } = await import('@electron/services/chat-api');
+
+    await expect(createChatApi({ gatewayManager: gatewayManager as never }).sendDirect({
+      sessionKey: 'agent:main:main',
+      message: '你好',
+      idempotencyKey: 'idem-direct-123',
+      modelRef: 'canvasland-newapi/qwen3.7-max',
+      context: [{ role: 'assistant', content: '上一轮回复' }],
+    })).resolves.toEqual({
+      success: true,
+      message: {
+        role: 'assistant',
+        content: '你好，有什么可以帮你的？',
+        timestamp: expect.any(Number),
+        id: 'chatcmpl-direct-1',
+      },
+      pointsUsed: 1,
+    });
+
+    expect(proxyAwareFetch).toHaveBeenCalledWith(
+      'https://apitoken.unihuax.com/v1/chat/completions',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          'x-request-id': 'idem-direct-123',
+        }),
+        body: expect.any(String),
+      }),
+    );
+    const requestBody = JSON.parse(vi.mocked(proxyAwareFetch).mock.calls[0][1]?.body as string);
+    expect(requestBody).toMatchObject({
+      model: 'qwen3.7-max',
+      stream: false,
+    });
+    expect(requestBody.messages.at(-1)).toEqual({ role: 'user', content: '你好' });
+    expect(gatewayManager.rpc).not.toHaveBeenCalled();
   });
 
   it('loads session summaries and transcript history through the typed sessions service', async () => {

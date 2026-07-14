@@ -1,7 +1,13 @@
+import type { RawMessage } from '@shared/chat/types';
+import { getDefaultCanvaslandModelPlan, resolveCanvaslandModelPlanFromModelRef } from '@shared/model-plans';
+import { randomUUID } from 'node:crypto';
 import type { GatewayManager } from '../gateway/manager';
 import type { CompleteHostServiceRegistry } from '../main/ipc/host-contract';
 import { logger } from '../utils/logger';
+import { proxyAwareFetch } from '../utils/proxy-fetch';
 import { isRecord } from './payload-utils';
+
+const CANVASLAND_CHAT_COMPLETIONS_URL = 'https://apitoken.unihuax.com/v1/chat/completions';
 
 const VISION_MIME_TYPES = new Set([
   'image/png',
@@ -24,6 +30,19 @@ type MediaPayload = {
   fileName?: unknown;
 };
 
+type ChatDirectPayload = {
+  sessionKey?: unknown;
+  message?: unknown;
+  idempotencyKey?: unknown;
+  modelRef?: unknown;
+  context?: unknown;
+};
+
+type ChatCompletionMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+};
+
 function normalizeMedia(media: unknown): Array<{ filePath: string; mimeType: string; fileName: string }> {
   if (!Array.isArray(media)) return [];
   return media.flatMap((entry): Array<{ filePath: string; mimeType: string; fileName: string }> => {
@@ -38,8 +57,120 @@ function normalizeMedia(media: unknown): Array<{ filePath: string; mimeType: str
   });
 }
 
+function normalizeDirectContext(context: unknown): ChatCompletionMessage[] {
+  if (!Array.isArray(context)) return [];
+  return context.flatMap((entry): ChatCompletionMessage[] => {
+    if (!isRecord(entry)) return [];
+    const role = entry.role;
+    const content = entry.content;
+    if ((role !== 'user' && role !== 'assistant') || typeof content !== 'string') return [];
+    const trimmed = content.trim();
+    if (!trimmed) return [];
+    return [{ role, content: trimmed }];
+  }).slice(-12);
+}
+
+function extractAssistantText(parsed: unknown): string {
+  if (!isRecord(parsed)) return '';
+  const choices = parsed.choices;
+  if (!Array.isArray(choices)) return '';
+  for (const choice of choices) {
+    if (!isRecord(choice)) continue;
+    const message = choice.message;
+    if (isRecord(message) && typeof message.content === 'string' && message.content.trim()) {
+      return message.content.trim();
+    }
+    if (typeof choice.text === 'string' && choice.text.trim()) {
+      return choice.text.trim();
+    }
+  }
+  return '';
+}
+
+function extractPointsUsed(parsed: unknown): number | undefined {
+  if (!isRecord(parsed)) return undefined;
+  const usage = parsed.canvasland_usage;
+  if (!isRecord(usage)) return undefined;
+  const value = usage.pointsUsed ?? usage.points_used;
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function safeDirectErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.length > 500 ? `${message.slice(0, 500)}...` : message;
+}
+
 export function createChatApi({ gatewayManager }: { gatewayManager: GatewayManager }): CompleteHostServiceRegistry['chat'] {
   return {
+    sendDirect: async (payload) => {
+      const body = isRecord(payload) ? payload as ChatDirectPayload : {};
+      const sessionKey = typeof body.sessionKey === 'string' ? body.sessionKey : '';
+      const message = typeof body.message === 'string' ? body.message.trim() : '';
+      const idempotencyKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey : '';
+      if (!sessionKey || !message || !idempotencyKey) {
+        return { success: false, error: 'Invalid direct chat payload' };
+      }
+
+      const plan = typeof body.modelRef === 'string'
+        ? resolveCanvaslandModelPlanFromModelRef(body.modelRef) ?? getDefaultCanvaslandModelPlan()
+        : getDefaultCanvaslandModelPlan();
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90_000);
+
+      try {
+        const response = await proxyAwareFetch(CANVASLAND_CHAT_COMPLETIONS_URL, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'x-request-id': idempotencyKey,
+          },
+          body: JSON.stringify({
+            model: plan.runtimeModel,
+            stream: false,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are canvasland, a concise and helpful desktop AI assistant. Reply directly to the user.',
+              },
+              ...normalizeDirectContext(body.context),
+              { role: 'user', content: message },
+            ],
+          }),
+          signal: controller.signal,
+        });
+        const text = await response.text();
+        const parsed = text ? JSON.parse(text) as unknown : null;
+        if (!response.ok) {
+          const apiMessage = isRecord(parsed) && typeof parsed.message === 'string'
+            ? parsed.message
+            : `HTTP ${response.status}`;
+          throw new Error(apiMessage);
+        }
+        const content = extractAssistantText(parsed);
+        if (!content) {
+          throw new Error('Direct chat returned an empty assistant response');
+        }
+        const id = isRecord(parsed) && typeof parsed.id === 'string' ? parsed.id : randomUUID();
+        const assistantMessage: RawMessage = {
+          role: 'assistant',
+          content,
+          timestamp: Date.now() / 1000,
+          id,
+        };
+        return {
+          success: true,
+          message: assistantMessage,
+          pointsUsed: extractPointsUsed(parsed),
+        };
+      } catch (error) {
+        logger.error(`[chat:sendDirect] Error: ${safeDirectErrorMessage(error)}`);
+        return { success: false, error: safeDirectErrorMessage(error) };
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+
     sendWithMedia: async (payload) => {
       const body = isRecord(payload) ? payload as ChatSendWithMediaPayload : {};
       const sessionKey = typeof body.sessionKey === 'string' ? body.sessionKey : '';

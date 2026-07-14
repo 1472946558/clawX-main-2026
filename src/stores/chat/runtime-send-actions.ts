@@ -1,4 +1,4 @@
-import { hostApi, type ChatSendWithMediaResult } from '@/lib/host-api';
+import { hostApi, type ChatDirectResult, type ChatSendWithMediaResult } from '@/lib/host-api';
 import { useAgentsStore } from '@/stores/agents';
 import {
   clearErrorRecoveryTimer,
@@ -42,6 +42,33 @@ function ensureSessionEntry(sessions: ChatSession[], sessionKey: string): ChatSe
     return sessions;
   }
   return [...sessions, { key: sessionKey, displayName: sessionKey }];
+}
+
+function hasSkillToken(value: string): boolean {
+  return /\/[^\s]+ {2}/.test(value);
+}
+
+function buildDirectChatContext(messages: RawMessage[]): RawMessage[] {
+  return messages
+    .filter((message) => (
+      (message.role === 'user' || message.role === 'assistant')
+      && typeof message.content === 'string'
+      && message.content.trim().length > 0
+    ))
+    .slice(-12)
+    .map((message) => ({
+      role: message.role,
+      content: (message.content as string).trim(),
+      timestamp: message.timestamp,
+      id: message.id,
+    }));
+}
+
+function resolveDirectModelRef(sessionKey: string): string | null {
+  const agentId = getAgentIdFromSessionKey(sessionKey);
+  const agentsState = useAgentsStore.getState();
+  const agent = agentsState.agents.find((entry) => entry.id === agentId);
+  return agent?.modelRef || agentsState.defaultModelRef || null;
 }
 
 let sendGeneration = 0;
@@ -93,6 +120,8 @@ export function createRuntimeSendActions(set: ChatSet, get: ChatGet): Pick<Runti
       }
 
       const currentSessionKey = targetSessionKey;
+      const directTextEligible = Boolean(trimmed) && !(attachments && attachments.length > 0) && !hasSkillToken(trimmed);
+      const directContext = directTextEligible ? buildDirectChatContext(get().messages) : [];
 
       // Add user message optimistically (with local file metadata for UI display)
       const nowMs = Date.now();
@@ -132,6 +161,54 @@ export function createRuntimeSendActions(set: ChatSet, get: ChatGet): Pick<Runti
 
       // Mark this session as most recently active
       set((s) => ({ sessionLastActivity: { ...s.sessionLastActivity, [currentSessionKey]: nowMs } }));
+
+      if (directTextEligible) {
+        try {
+          const directResult: ChatDirectResult = await hostApi.chat.sendDirect({
+            sessionKey: currentSessionKey,
+            message: trimmed,
+            idempotencyKey: crypto.randomUUID(),
+            modelRef: resolveDirectModelRef(currentSessionKey),
+            context: directContext,
+          });
+
+          if (currentSendGeneration !== sendGeneration) return;
+
+          if (!directResult.success || !directResult.message) {
+            set({
+              error: directResult.error || 'Failed to send message',
+              sending: false,
+              activeRunId: null,
+              pendingFinal: false,
+              lastUserMessageAt: null,
+            });
+            return;
+          }
+
+          const assistantAt = Date.now();
+          set((s) => ({
+            messages: [...s.messages, directResult.message!],
+            sending: false,
+            activeRunId: null,
+            streamingText: '',
+            streamingMessage: null,
+            streamingTools: [],
+            pendingFinal: false,
+            lastUserMessageAt: null,
+            sessionLastActivity: { ...s.sessionLastActivity, [currentSessionKey]: assistantAt },
+          }));
+        } catch (err) {
+          if (currentSendGeneration !== sendGeneration) return;
+          set({
+            error: String(err),
+            sending: false,
+            activeRunId: null,
+            pendingFinal: false,
+            lastUserMessageAt: null,
+          });
+        }
+        return;
+      }
 
       // Start the history poll and safety timeout IMMEDIATELY (before the
       // RPC await) because the gateway's chat.send RPC may block until the

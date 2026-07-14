@@ -766,6 +766,17 @@ export type ChatSendWithMediaPayload = {
 export type ChatSendWithMediaResult = HostSuccess & {
   result?: { runId?: string };
 };
+export type ChatDirectPayload = {
+  sessionKey: string;
+  message: string;
+  idempotencyKey: string;
+  modelRef?: string | null;
+  context?: RawMessage[];
+};
+export type ChatDirectResult = HostSuccess & {
+  message?: RawMessage;
+  pointsUsed?: number;
+};
 
 export type CronUpdatePayload = { id: string; input: CronJobUpdateInput };
 export type CronIdPayload = { id: string };
@@ -1257,6 +1268,7 @@ export type HostApiContract = {
   };
   chat: {
     sendWithMedia: (payload: ChatSendWithMediaPayload) => ChatSendWithMediaResult;
+    sendDirect: (payload: ChatDirectPayload) => ChatDirectResult;
   };
   cron: {
     list: () => CronJob[];

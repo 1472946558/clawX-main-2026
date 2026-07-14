@@ -4,7 +4,7 @@
  * Communicates with OpenClaw Gateway through the Main-owned host API.
  */
 import { create } from 'zustand';
-import { hostApi, type ChatSendWithMediaResult, type SessionLabelSummary } from '@/lib/host-api';
+import { hostApi, type ChatDirectResult, type ChatSendWithMediaResult, type SessionLabelSummary } from '@/lib/host-api';
 import { useGatewayStore } from './gateway';
 import { useAgentsStore } from './agents';
 import type { ChatRuntimeEvent } from '../../shared/chat-runtime-events';
@@ -1663,6 +1663,33 @@ function ensureSessionEntry(sessions: ChatSession[], sessionKey: string): ChatSe
     return sessions;
   }
   return [...sessions, { key: sessionKey, displayName: sessionKey }];
+}
+
+function hasSkillToken(value: string): boolean {
+  return /\/[^\s]+ {2}/.test(value);
+}
+
+function buildDirectChatContext(messages: RawMessage[]): RawMessage[] {
+  return messages
+    .filter((message) => (
+      (message.role === 'user' || message.role === 'assistant')
+      && typeof message.content === 'string'
+      && message.content.trim().length > 0
+    ))
+    .slice(-12)
+    .map((message) => ({
+      role: message.role,
+      content: (message.content as string).trim(),
+      timestamp: message.timestamp,
+      id: message.id,
+    }));
+}
+
+function resolveDirectModelRef(sessionKey: string): string | null {
+  const agentId = getAgentIdFromSessionKey(sessionKey);
+  const agentsState = useAgentsStore.getState();
+  const agent = agentsState.agents.find((entry) => entry.id === agentId);
+  return agent?.modelRef || agentsState.defaultModelRef || null;
 }
 
 function clearSessionEntryFromMap<T extends Record<string, unknown>>(entries: T, sessionKey: string): T {
@@ -3439,6 +3466,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const currentSessionKey = targetSessionKey;
+    const directTextEligible = Boolean(trimmed) && !(attachments && attachments.length > 0) && !hasSkillToken(trimmed);
+    const directContext = directTextEligible ? buildDirectChatContext(get().messages) : [];
     const sendGeneration = ++_sendGenerationCounter;
     _activeSendGenerationBySession.set(currentSessionKey, sendGeneration);
 
@@ -3482,6 +3511,75 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // Mark this session as most recently active
     set((s) => ({ sessionLastActivity: { ...s.sessionLastActivity, [currentSessionKey]: nowMs } }));
+
+    const clearSendGenerationIfCurrent = () => {
+      if (_activeSendGenerationBySession.get(currentSessionKey) === sendGeneration) {
+        _activeSendGenerationBySession.delete(currentSessionKey);
+      }
+    };
+
+    if (directTextEligible) {
+      try {
+        const directResult: ChatDirectResult = await hostApi.chat.sendDirect({
+          sessionKey: currentSessionKey,
+          message: trimmed,
+          idempotencyKey: crypto.randomUUID(),
+          modelRef: resolveDirectModelRef(currentSessionKey),
+          context: directContext,
+        });
+        const latest = get();
+        const sendStillCurrent = _activeSendGenerationBySession.get(currentSessionKey) === sendGeneration;
+        const canApplyToCurrentSession = latest.currentSessionKey === currentSessionKey
+          && latest.lastUserMessageAt === nowMs;
+        if (!sendStillCurrent || !canApplyToCurrentSession) return;
+
+        if (!directResult.success || !directResult.message) {
+          clearSendGenerationIfCurrent();
+          set({
+            error: directResult.error || 'Failed to send message',
+            sending: false,
+            activeRunId: null,
+            pendingFinal: false,
+            lastUserMessageAt: null,
+            streamingText: '',
+            streamingMessage: null,
+            streamingTools: [],
+          });
+          return;
+        }
+
+        const assistantAt = Date.now();
+        clearSendGenerationIfCurrent();
+        set((s) => ({
+          messages: [...s.messages, directResult.message!],
+          sending: false,
+          activeRunId: null,
+          runError: null,
+          streamingText: '',
+          streamingMessage: null,
+          streamingTools: [],
+          pendingFinal: false,
+          lastUserMessageAt: null,
+          sessionLastActivity: { ...s.sessionLastActivity, [currentSessionKey]: assistantAt },
+        }));
+      } catch (err) {
+        const latest = get();
+        const sendStillCurrent = _activeSendGenerationBySession.get(currentSessionKey) === sendGeneration;
+        const canApplyToCurrentSession = latest.currentSessionKey === currentSessionKey
+          && latest.lastUserMessageAt === nowMs;
+        if (sendStillCurrent && canApplyToCurrentSession) {
+          clearSendGenerationIfCurrent();
+          set({
+            error: String(err),
+            sending: false,
+            activeRunId: null,
+            pendingFinal: false,
+            lastUserMessageAt: null,
+          });
+        }
+      }
+      return;
+    }
 
     // Runtime progress now comes from Main-owned streamed events. We still
     // keep the no-response safety timeout, but history polling is no longer
@@ -3555,12 +3653,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
     };
     setTimeout(checkStuck, 30_000);
-
-    const clearSendGenerationIfCurrent = () => {
-      if (_activeSendGenerationBySession.get(currentSessionKey) === sendGeneration) {
-        _activeSendGenerationBySession.delete(currentSessionKey);
-      }
-    };
 
     const applySendFailure = (errorMsg: string) => {
       const latest = get();

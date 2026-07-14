@@ -76,8 +76,8 @@ export async function waitForGatewayReady(options: {
   retries?: number;
   intervalMs?: number;
 }): Promise<void> {
-  const retries = options.retries ?? 2400;
-  const intervalMs = options.intervalMs ?? 200;
+  const retries = options.retries ?? 120;
+  const intervalMs = options.intervalMs ?? 250;
 
   for (let i = 0; i < retries; i++) {
     const exitCode = options.getProcessExitCode();
@@ -87,7 +87,7 @@ export async function waitForGatewayReady(options: {
     }
 
     try {
-      const ready = await probeGatewayReady(options.port, 1500);
+      const ready = await probeGatewayReady(options.port, 500);
       if (ready) {
         logger.debug(`Gateway ready after ${i + 1} attempt(s)`);
         return;

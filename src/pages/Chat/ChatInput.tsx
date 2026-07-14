@@ -255,8 +255,9 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
   const showModelPicker = modelOptions.length > 1;
   const chatComposerStatusComponents = rendererExtensionRegistry.getChatComposerStatusComponents();
   const isGatewayUsable = gatewayStatus.state === 'running' && gatewayStatus.gatewayReady !== false;
-  const inputDisabled = disabled || !isGatewayUsable;
   const skillTokenRanges = useMemo(() => findSkillTokenRanges(input), [input]);
+  const inputDisabled = disabled;
+  const gatewayControlDisabled = disabled || !isGatewayUsable || sending;
   const openArtifactPreview = useArtifactPanel((s) => s.openPreview);
 
   useEffect(() => {
@@ -566,8 +567,10 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
 
   const allReady = attachments.length === 0 || attachments.every(a => a.status === 'ready');
   const hasFailedAttachments = attachments.some((a) => a.status === 'error');
-  const canSend = (input.trim() || attachments.length > 0) && allReady && !inputDisabled && !sending;
-  const canStop = sending && !inputDisabled && !!onStop;
+  const canSendDirectText = Boolean(input.trim()) && attachments.length === 0 && skillTokenRanges.length === 0 && !selectedSkill;
+  const canSendGatewayMessage = isGatewayUsable && Boolean(input.trim() || attachments.length > 0);
+  const canSend = (canSendDirectText || canSendGatewayMessage) && allReady && !inputDisabled && !sending;
+  const canStop = sending && isGatewayUsable && !inputDisabled && !!onStop;
 
   const handleSend = useCallback(async () => {
     if (!canSend) return;
@@ -828,7 +831,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
               size="icon"
               className="shrink-0 h-8 w-8 rounded-lg text-muted-foreground hover:bg-black/5 dark:hover:bg-white/10 hover:text-foreground transition-colors"
               onClick={pickFiles}
-              disabled={inputDisabled || sending}
+              disabled={gatewayControlDisabled}
               title={t('composer.attachFiles')}
             >
               <Paperclip className="h-3.5 w-3.5" />
@@ -848,7 +851,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
                     setSkillPickerOpen(false);
                     setPickerOpen((open) => !open);
                   }}
-                  disabled={inputDisabled || sending}
+                  disabled={gatewayControlDisabled}
                   title={t('composer.pickAgent')}
                 >
                   <AtSign className="h-3.5 w-3.5" />
@@ -889,7 +892,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false }:
                   setPickerOpen(false);
                   setSkillPickerOpen((open) => !open);
                 }}
-                disabled={inputDisabled || sending}
+                disabled={gatewayControlDisabled}
                 title={t('composer.pickSkill')}
               >
                 <span>{t('composer.skillButton')}</span>

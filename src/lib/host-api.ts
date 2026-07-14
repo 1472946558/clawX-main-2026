@@ -12,6 +12,7 @@ import type {
   ChannelAccountsPayload,
   ChannelSaveConfigPayload,
   ChannelTargetsPayload,
+  ChatDirectPayload,
   ChatSendWithMediaPayload,
   ClawHubSearchPayload,
   CreemCreateCheckoutPayload,
@@ -74,6 +75,7 @@ export type {
   ChannelTargetOption,
   ChannelTargetsResult,
   ChatSendWithMediaResult,
+  ChatDirectResult,
   ClawHubInstalledSkill,
   ClawHubListResult,
   ClawHubSearchResult,
@@ -382,6 +384,7 @@ export const hostApi = {
   },
   chat: {
     sendWithMedia: (input: ChatSendWithMediaPayload) => invokeHost('chat', 'sendWithMedia', input),
+    sendDirect: (input: ChatDirectPayload) => invokeHost('chat', 'sendDirect', input),
   },
   cron: {
     list: () => invokeHost('cron', 'list'),

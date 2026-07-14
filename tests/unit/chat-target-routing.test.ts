@@ -39,6 +39,10 @@ vi.mock('@/lib/host-api', () => ({
       rename: vi.fn(async () => ({ success: true })),
     },
     chat: {
+      sendDirect: async (input: unknown) => hostApiFetchMock('/api/chat/send-direct', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
       sendWithMedia: async (input: unknown) => hostApiFetchMock('/api/chat/send-with-media', {
         method: 'POST',
         body: JSON.stringify(input),
@@ -110,6 +114,12 @@ describe('chat target routing', () => {
       if (url === '/api/chat/send-with-media') {
         return { success: true, result: { runId: 'run-media' } };
       }
+      if (url === '/api/chat/send-direct') {
+        return {
+          success: true,
+          message: { role: 'assistant', content: 'Direct reply', timestamp: Date.now() / 1000, id: 'direct-1' },
+        };
+      }
       return { success: true, result: {} };
     });
   });
@@ -118,7 +128,7 @@ describe('chat target routing', () => {
     vi.useRealTimers();
   });
 
-  it('switches to the selected agent main session before sending text', async () => {
+  it('switches to the selected agent main session before sending direct text', async () => {
     const { useChatStore } = await import('@/stores/chat');
 
     useChatStore.setState({
@@ -147,21 +157,25 @@ describe('chat target routing', () => {
     expect(state.currentSessionKey).toBe('agent:research:desk');
     expect(state.currentAgentId).toBe('research');
     expect(state.sessions.some((session) => session.key === 'agent:research:desk')).toBe(true);
-    expect(state.messages.at(-1)?.content).toBe('Hello direct agent');
+    expect(state.messages.at(-2)?.content).toBe('Hello direct agent');
+    expect(state.messages.at(-1)?.content).toBe('Direct reply');
+    expect(state.sending).toBe(false);
 
     const historyCall = gatewayRpcMock.mock.calls.find(([method]) => method === 'chat.history');
     expect(historyCall?.[1]).toEqual(
       chatHistoryRpcParams('agent:research:desk', 200),
     );
 
-    const sendCall = gatewayRpcMock.mock.calls.find(([method]) => method === 'chat.send');
-    const sendPayload = (sendCall?.[1] ?? {}) as Record<string, unknown>;
+    const directSendCall = hostApiFetchMock.mock.calls.find(([url]) => url === '/api/chat/send-direct');
+    const sendPayload = JSON.parse(
+      (directSendCall?.[1] as { body: string }).body,
+    ) as Record<string, unknown>;
     expect(sendPayload).toMatchObject({
       sessionKey: 'agent:research:desk',
       message: 'Hello direct agent',
-      deliver: false,
     });
     expect(typeof (sendPayload as { idempotencyKey?: unknown }).idempotencyKey).toBe('string');
+    expect(gatewayRpcMock.mock.calls.some(([method]) => method === 'chat.send')).toBe(false);
   });
 
   it('uses the selected agent main session for attachment sends', async () => {
