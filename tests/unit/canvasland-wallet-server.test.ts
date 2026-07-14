@@ -170,7 +170,7 @@ describe('canvasland wallet server AI App billing', () => {
       stream_options: { include_usage: true },
     });
     expect(text).toContain('pong');
-    expect(text).toContain('canvasland_usage');
+    expect(text).not.toContain('canvasland_usage');
     expect(text.trim()).toMatch(/data: \[DONE\]$/);
     expect(balance.wallet).toMatchObject({ totalGranted: 1000, totalUsed: 1, totalAvailable: 999 });
   });

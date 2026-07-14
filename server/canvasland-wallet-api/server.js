@@ -372,10 +372,6 @@ function collectStreamChunkMetadata(data, state) {
   }
 }
 
-function writeSseJson(res, payload) {
-  res.write(`data: ${JSON.stringify(payload)}\n\n`);
-}
-
 async function proxyStreamingChatCompletion({
   res,
   response,
@@ -431,23 +427,14 @@ async function proxyStreamingChatCompletion({
 
   try {
     const usage = state.usage || estimateStreamUsage(body, state.outputText);
-    const debit = workflowPrice && requestId
-      ? await debitAiWorkflowUsage({ requestId, price: workflowPrice })
-      : await debitUsage({ requestId, plan, usage, upstreamId: state.upstreamId });
-    writeSseJson(res, {
-      object: 'canvasland.usage',
-      canvasland_usage: {
-        pointsUsed: debit.record.points,
-        modelPlanId: plan.id,
-        workflowId: workflowPrice?.workflowId,
-        billingTierId: workflowPrice?.billingTierId,
-        duplicate: debit.duplicate,
-      },
-    });
-  } catch (error) {
-    writeSseJson(res, {
-      error: { message: redactSecretText(error instanceof Error ? error.message : String(error)) },
-    });
+    if (workflowPrice && requestId) {
+      await debitAiWorkflowUsage({ requestId, price: workflowPrice });
+    } else {
+      await debitUsage({ requestId, plan, usage, upstreamId: state.upstreamId });
+    }
+  } catch {
+    // Do not inject provider-incompatible events into the OpenAI stream. The
+    // preflight balance check covers expected insufficient-balance failures.
   }
 
   res.write('data: [DONE]\n\n');
