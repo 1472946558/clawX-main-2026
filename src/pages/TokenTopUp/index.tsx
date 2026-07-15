@@ -498,8 +498,8 @@ export function TokenTopUp() {
                       </Button>
                     </div>
                     {selectedPaymentKind === 'creem' && (
-                      <div data-testid="token-topup-creem-currency" className="mt-3 grid grid-cols-2 gap-2">
-                        {(['USD', 'HKD'] as CreemCurrency[]).map((currency) => (
+                      <div data-testid="token-topup-creem-currency" className="mt-3 grid grid-cols-1 gap-2">
+                        {(['USD'] as CreemCurrency[]).map((currency) => (
                           <Button
                             key={currency}
                             type="button"

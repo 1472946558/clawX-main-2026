@@ -30,6 +30,20 @@ const creemSuccessUrl = process.env.CREEM_SUCCESS_URL || 'https://feiniu-ai.cn';
 const creemApiBaseUrl = process.env.CREEM_API_BASE_URL
   || (creemApiKey.startsWith('creem_test_') ? 'https://test-api.creem.io/v1' : 'https://api.creem.io/v1');
 const newApiBaseUrl = (process.env.CANVASLAND_NEWAPI_BASE_URL || 'https://feiniu.space/v1').replace(/\/+$/, '');
+const walletUserId = process.env.CANVASLAND_WALLET_USER_ID || 'local-default';
+const walletAccountId = process.env.CANVASLAND_WALLET_ACCOUNT_ID || 'canvasland-wallet-default';
+const standardErrorMessages = {
+  POINTS_INSUFFICIENT: '积分不足',
+  MODEL_NOT_CONFIGURED: '模型未配置',
+  MODEL_DISABLED: '模型不可用',
+  UPSTREAM_UNAUTHORIZED: '上游模型认证失败',
+  UPSTREAM_NO_CHANNEL: '上游模型通道不可用',
+  UPSTREAM_QUOTA_EXHAUSTED: '上游模型额度不足',
+  UPSTREAM_TIMEOUT: '上游模型响应超时',
+  UPSTREAM_RATE_LIMITED: '上游模型请求过于频繁',
+  NETWORK_ERROR: '网络错误',
+  UNKNOWN_ERROR: '未知错误',
+};
 const modelPlans = [
   {
     id: 'gpt-5.4',
@@ -149,19 +163,28 @@ async function withWalletTransaction(operation) {
 
 async function writeWallet(wallet) {
   await mkdir(dataDir, { recursive: true });
-  const paidRecords = wallet.records.filter((record) => record.status === 'paid');
-  const usedRecords = wallet.records.filter((record) => record.kind === 'usage' || record.status === 'used');
-  const totalGranted = paidRecords.reduce((sum, record) => sum + safeNumber(record.points), 0);
-  const totalUsed = usedRecords.reduce((sum, record) => sum + safeNumber(record.points), 0);
+  const totals = calculateWalletTotals(wallet);
   const next = {
     ...wallet,
-    totalGranted,
-    totalUsed,
-    totalAvailable: Math.max(0, totalGranted - totalUsed),
+    totalGranted: totals.totalGranted,
+    totalUsed: totals.totalUsed,
+    totalAvailable: totals.totalAvailable,
     records: wallet.records.slice(0, 500),
   };
   await writeFile(walletFile, JSON.stringify(next, null, 2), 'utf8');
   return next;
+}
+
+function calculateWalletTotals(wallet) {
+  const paidRecords = wallet.records.filter((record) => record.status === 'paid');
+  const usedRecords = wallet.records.filter((record) => record.kind === 'usage' || record.status === 'used');
+  const totalGranted = paidRecords.reduce((sum, record) => sum + safeNumber(record.points), 0);
+  const totalUsed = usedRecords.reduce((sum, record) => sum + safeNumber(record.points), 0);
+  return {
+    totalGranted,
+    totalUsed,
+    totalAvailable: Math.max(0, totalGranted - totalUsed),
+  };
 }
 
 function safeNumber(value) {
@@ -188,7 +211,9 @@ async function debitAiWorkflowUsage({ requestId, price }) {
     const current = await writeWallet(wallet);
     if (current.totalAvailable < price.points) {
       const error = new Error('Insufficient canvasland points');
-      error.code = 'INSUFFICIENT_POINTS';
+      error.code = 'POINTS_INSUFFICIENT';
+      error.requiredPoints = price.points;
+      error.availablePoints = current.totalAvailable;
       throw error;
     }
     const record = {
@@ -238,6 +263,57 @@ function getRequestId(req, body) {
   const headerValue = req.get('x-request-id') || req.get('idempotency-key');
   const value = headerValue || body.requestId || body.request_id || body.metadata?.requestId;
   return String(value || '').trim();
+}
+
+function requestIdentity() {
+  return { userId: walletUserId, walletAccountId };
+}
+
+function logRequestTrace(label, req, extra = {}) {
+  const body = normalizeObject(req.body);
+  const requestId = getRequestId(req, body) || extra.requestId || crypto.randomUUID();
+  console.info(`[${label}]`, JSON.stringify({
+    requestId,
+    ...requestIdentity(),
+    modelPlanId: extra.modelPlanId,
+    workflowId: extra.workflowId,
+    billingTierId: extra.billingTierId,
+    status: extra.status,
+    errorCode: extra.errorCode,
+  }));
+  return requestId;
+}
+
+function standardError(errorCode, message, details = {}) {
+  return {
+    success: false,
+    errorCode,
+    message: message || standardErrorMessages[errorCode] || standardErrorMessages.UNKNOWN_ERROR,
+    ...details,
+  };
+}
+
+function sendStandardError(res, status, errorCode, message, details = {}) {
+  res.status(status).json(standardError(errorCode, message, details));
+}
+
+function insufficientPointsPayload(requiredPoints, availablePoints) {
+  return standardError('POINTS_INSUFFICIENT', standardErrorMessages.POINTS_INSUFFICIENT, {
+    requiredPoints: Math.max(0, Math.ceil(safeNumber(requiredPoints))),
+    availablePoints: Math.max(0, Math.floor(safeNumber(availablePoints))),
+  });
+}
+
+function classifyUpstreamError(status, message) {
+  const normalized = String(message || '').toLowerCase();
+  if (status === 401 || status === 403) return 'UPSTREAM_UNAUTHORIZED';
+  if (status === 408 || normalized.includes('timeout')) return 'UPSTREAM_TIMEOUT';
+  if (status === 429) return 'UPSTREAM_RATE_LIMITED';
+  if (status === 402 || normalized.includes('quota') || normalized.includes('balance') || normalized.includes('额度')) {
+    return 'UPSTREAM_QUOTA_EXHAUSTED';
+  }
+  if (status === 404 || normalized.includes('channel') || normalized.includes('no route')) return 'UPSTREAM_NO_CHANNEL';
+  return 'UNKNOWN_ERROR';
 }
 
 function redactSecretText(value) {
@@ -311,7 +387,11 @@ async function debitUsage({ requestId, plan, usage, upstreamId }) {
     const points = calculateModelPoints(plan, usage);
     const current = await writeWallet(wallet);
     if (current.totalAvailable < points) {
-      throw new Error('Insufficient canvasland points');
+      const error = new Error('Insufficient canvasland points');
+      error.code = 'POINTS_INSUFFICIENT';
+      error.requiredPoints = points;
+      error.availablePoints = current.totalAvailable;
+      throw error;
     }
     const recordId = requestId || upstreamId || `usage-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
     const record = {
@@ -541,6 +621,7 @@ async function savePendingOrder({ provider, paymentKind, outTradeNo, tradeNo, am
     wallet.orders[orderNo] = {
       ...(wallet.orders[orderNo] || {}),
       credited: Boolean(wallet.orders[orderNo]?.credited),
+      status: wallet.orders[orderNo]?.status || 'pending',
       provider,
       paymentKind,
       amount,
@@ -661,6 +742,7 @@ async function creditWallet({ provider, paymentKind, outTradeNo, tradeNo, amount
     };
     wallet.orders[orderNo] = {
       credited: true,
+      status: 'paid',
       provider,
       paymentKind,
       amount: record.amount,
@@ -688,6 +770,7 @@ app.get('/api/wallet/balance', async (_req, res) => {
   const saved = await writeWallet(wallet);
   res.json({
     success: true,
+    ...requestIdentity(),
     wallet: {
       totalGranted: saved.totalGranted,
       totalUsed: saved.totalUsed,
@@ -698,24 +781,93 @@ app.get('/api/wallet/balance', async (_req, res) => {
 
 app.get('/api/wallet/records', async (_req, res) => {
   const wallet = await readWallet();
-  res.json({ success: true, records: wallet.records });
+  res.json({ success: true, ...requestIdentity(), records: wallet.records });
 });
 
 app.get('/api/model-plans', (_req, res) => {
   res.json({ success: true, models: modelPlans.map(publicModelPlan) });
 });
 
+app.get('/api/admin/wallet/reconcile', async (req, res) => {
+  const wallet = await readWallet();
+  const totals = calculateWalletTotals(wallet);
+  const storedBalance = safeNumber(wallet.totalAvailable);
+  const credits = wallet.records
+    .filter((record) => record.status === 'paid')
+    .map((record) => ({
+      id: record.id,
+      outTradeNo: record.outTradeNo,
+      provider: record.provider,
+      paymentKind: record.paymentKind,
+      status: record.status,
+      points: safeNumber(record.points),
+      amount: safeNumber(record.amount),
+      createdAt: record.createdAt,
+      paidAt: record.paidAt,
+    }));
+  const debits = wallet.records
+    .filter((record) => record.kind === 'usage' || record.status === 'used')
+    .map((record) => ({
+      id: record.id,
+      provider: record.provider,
+      paymentKind: record.paymentKind,
+      modelPlanId: record.modelPlanId,
+      workflowId: record.workflowId,
+      billingTierId: record.billingTierId,
+      status: record.status,
+      points: safeNumber(record.points),
+      createdAt: record.createdAt,
+    }));
+  const orders = Object.entries(wallet.orders || {}).map(([id, order]) => {
+    const normalized = normalizeObject(order);
+    return {
+      id,
+      provider: normalized.provider,
+      paymentKind: normalized.paymentKind,
+      status: normalized.status || (normalized.credited ? 'paid' : 'pending'),
+      credited: Boolean(normalized.credited),
+      points: safeNumber(normalized.points),
+      amount: safeNumber(normalized.amount),
+      createdAt: normalized.createdAt,
+      updatedAt: normalized.updatedAt,
+    };
+  });
+  const difference = Number((storedBalance - totals.totalAvailable).toFixed(6));
+  if (difference !== 0) {
+    console.warn('[wallet_reconciliation]', JSON.stringify({
+      requestId: req.get('x-request-id') || crypto.randomUUID(),
+      ...requestIdentity(),
+      storedBalance,
+      calculatedBalance: totals.totalAvailable,
+      difference,
+    }));
+  }
+  res.json({
+    success: true,
+    ...requestIdentity(),
+    storedBalance,
+    calculatedBalance: totals.totalAvailable,
+    difference,
+    lifetimeEarned: totals.totalGranted,
+    lifetimeSpent: totals.totalUsed,
+    credits,
+    debits,
+    orders,
+  });
+});
+
 app.post('/api/usage/quote', async (req, res) => {
   const body = normalizeObject(req.body);
   const price = findAiWorkflowPrice(body.workflowId, body.billingTierId);
   if (!price) {
-    res.status(400).json({ success: false, error: 'Unsupported AI workflow billing tier' });
+    sendStandardError(res, 400, 'MODEL_NOT_CONFIGURED', 'Unsupported AI workflow billing tier');
     return;
   }
   const wallet = await readWallet();
   const saved = await writeWallet(wallet);
   res.json({
     success: true,
+    ...requestIdentity(),
     ...price,
     availablePoints: saved.totalAvailable,
     affordable: saved.totalAvailable >= price.points,
@@ -727,28 +879,30 @@ app.post('/api/usage/debit', async (req, res) => {
     const body = normalizeObject(req.body);
     const requestId = getRequestId(req, body);
     if (!requestId) {
-      res.status(400).json({ success: false, error: 'requestId is required' });
+      sendStandardError(res, 400, 'UNKNOWN_ERROR', 'requestId is required');
       return;
     }
     const price = findAiWorkflowPrice(body.workflowId, body.billingTierId);
     if (!price) {
-      res.status(400).json({ success: false, error: 'Unsupported AI workflow billing tier' });
+      sendStandardError(res, 400, 'MODEL_NOT_CONFIGURED', 'Unsupported AI workflow billing tier');
       return;
     }
+    logRequestTrace('wallet-debit', req, { workflowId: price.workflowId, billingTierId: price.billingTierId });
     const debit = await debitAiWorkflowUsage({ requestId, price });
     res.json({
       success: true,
+      ...requestIdentity(),
       duplicate: debit.duplicate,
       pointsUsed: debit.record.points,
       usageRecord: debit.record,
       availablePoints: debit.wallet.totalAvailable,
     });
   } catch (error) {
-    const status = error?.code === 'INSUFFICIENT_POINTS' ? 402 : 500;
-    res.status(status).json({
-      success: false,
-      error: redactSecretText(error instanceof Error ? error.message : String(error)),
-    });
+    if (error?.code === 'POINTS_INSUFFICIENT') {
+      res.status(402).json(insufficientPointsPayload(error.requiredPoints, error.availablePoints));
+      return;
+    }
+    sendStandardError(res, 500, 'UNKNOWN_ERROR', redactSecretText(error instanceof Error ? error.message : String(error)));
   }
 });
 
@@ -769,20 +923,27 @@ app.post('/v1/chat/completions', async (req, res) => {
     const plan = findModelPlan(body.model);
     const workflowPrice = findAiWorkflowPrice(body.metadata?.workflowId, body.metadata?.billingTierId);
     if (!plan) {
-      res.status(400).json({ error: { message: 'Unsupported canvasland model' } });
-      return;
-    }
-    const apiKey = process.env[plan.upstreamEnvVar];
-    if (!apiKey) {
-      res.status(503).json({ error: { message: 'Upstream model is not configured' } });
+      sendStandardError(res, 400, 'MODEL_NOT_CONFIGURED', 'Unsupported canvasland model');
       return;
     }
     const requestId = getRequestId(req, body);
+    logRequestTrace('model-call', req, {
+      requestId,
+      modelPlanId: plan.id,
+      workflowId: workflowPrice?.workflowId,
+      billingTierId: workflowPrice?.billingTierId,
+    });
+    const apiKey = process.env[plan.upstreamEnvVar];
+    if (!apiKey) {
+      sendStandardError(res, 503, 'MODEL_NOT_CONFIGURED', 'Upstream model is not configured', { modelPlanId: plan.id });
+      return;
+    }
     if (requestId) {
       const wallet = await readWallet();
       if (wallet.usageRequests[requestId]?.debited) {
         res.status(409).json({
-          error: { message: 'Duplicate requestId; usage was already billed' },
+          ...standardError('UNKNOWN_ERROR', 'Duplicate requestId; usage was already billed'),
+          duplicate: true,
           usageRecord: wallet.usageRequests[requestId].record,
         });
         return;
@@ -791,7 +952,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     const wallet = await readWallet();
     const minimumRequiredPoints = workflowPrice?.points || 1;
     if (safeNumber(wallet.totalAvailable) < minimumRequiredPoints) {
-      res.status(402).json({ error: { message: 'Insufficient canvasland points' } });
+      res.status(402).json(insufficientPointsPayload(minimumRequiredPoints, wallet.totalAvailable));
       return;
     }
     const upstreamBody = {
@@ -838,7 +999,11 @@ app.post('/v1/chat/completions', async (req, res) => {
     }
     if (!response.ok) {
       const message = redactSecretText(data.message || data.error?.message || `Upstream HTTP ${response.status}`);
-      res.status(response.status).json({ error: { message } });
+      const errorCode = classifyUpstreamError(response.status, message);
+      const status = errorCode === 'UPSTREAM_RATE_LIMITED' ? 429 : response.status >= 500 ? 502 : response.status;
+      sendStandardError(res, status, errorCode, standardErrorMessages[errorCode] || message, {
+        upstreamStatus: response.status,
+      });
       return;
     }
     const usage = normalizeObject(data.usage);
@@ -856,9 +1021,19 @@ app.post('/v1/chat/completions', async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(error?.code === 'INSUFFICIENT_POINTS' ? 402 : 500).json({
-      error: { message: redactSecretText(error instanceof Error ? error.message : String(error)) },
-    });
+    if (error?.code === 'POINTS_INSUFFICIENT') {
+      res.status(402).json(insufficientPointsPayload(error.requiredPoints, error.availablePoints));
+      return;
+    }
+    const message = redactSecretText(error instanceof Error ? error.message : String(error));
+    const isAbort = error instanceof Error && error.name === 'AbortError';
+    const isNetwork = error instanceof TypeError || /fetch failed|network/i.test(message);
+    sendStandardError(
+      res,
+      isAbort ? 504 : isNetwork ? 502 : 500,
+      isAbort ? 'UPSTREAM_TIMEOUT' : isNetwork ? 'NETWORK_ERROR' : 'UNKNOWN_ERROR',
+      isAbort ? standardErrorMessages.UPSTREAM_TIMEOUT : isNetwork ? standardErrorMessages.NETWORK_ERROR : message,
+    );
   }
 });
 

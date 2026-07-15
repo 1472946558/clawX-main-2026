@@ -174,7 +174,8 @@ export function createRuntimeSendActions(set: ChatSet, get: ChatGet): Pick<Runti
 
           if (currentSendGeneration !== sendGeneration) return;
 
-          if (!directResult.success || !directResult.message) {
+          const returnedRunId = directResult.result?.runId;
+          if (!directResult.success || !returnedRunId) {
             set({
               error: directResult.error || 'Failed to send message',
               sending: false,
@@ -185,18 +186,13 @@ export function createRuntimeSendActions(set: ChatSet, get: ChatGet): Pick<Runti
             return;
           }
 
-          const assistantAt = Date.now();
-          set((s) => ({
-            messages: [...s.messages, directResult.message!],
-            sending: false,
-            activeRunId: null,
+          set({
+            activeRunId: returnedRunId,
+            runError: null,
             streamingText: '',
             streamingMessage: null,
             streamingTools: [],
-            pendingFinal: false,
-            lastUserMessageAt: null,
-            sessionLastActivity: { ...s.sessionLastActivity, [currentSessionKey]: assistantAt },
-          }));
+          });
         } catch (err) {
           if (currentSendGeneration !== sendGeneration) return;
           set({

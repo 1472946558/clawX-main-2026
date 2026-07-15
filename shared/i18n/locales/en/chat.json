@@ -27,7 +27,8 @@
         "viewAll": "View all changes"
     },
     "runError": {
-        "title": "Model call failed"
+        "title": "Model call failed",
+        "recharge": "Recharge"
     },
     "artifactPanel": {
         "tabs": {

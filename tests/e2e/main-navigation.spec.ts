@@ -93,6 +93,8 @@ test.describe('canvasland main navigation without setup flow', () => {
       await expect(page.getByTestId('token-topup-custom-points-preview')).toContainText('10');
       await page.getByRole('button', { name: 'Creem' }).click();
       await expect(page.getByTestId('token-topup-creem-currency')).toBeVisible();
+      await expect(page.getByTestId('token-topup-creem-currency').getByRole('button')).toHaveText(['USD']);
+      await expect(page.getByTestId('token-topup-creem-currency').getByRole('button', { name: 'HKD' })).toHaveCount(0);
       await expect(page.getByTestId('token-topup-create-selected-payment-qr')).toContainText('Creem');
       await expect(page.getByTestId('token-topup-create-selected-payment-qr')).toBeVisible();
       await expect(page.getByTestId('token-topup-blueocean-config')).toHaveCount(0);

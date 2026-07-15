@@ -15,6 +15,9 @@ export type ChatRuntimeEvent =
       status: 'completed' | 'error' | 'aborted';
       endedAt?: number;
       error?: string;
+      errorCode?: string;
+      requiredPoints?: number;
+      availablePoints?: number;
       livenessState?: string;
       replayInvalid?: boolean;
       stopReason?: string;

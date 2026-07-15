@@ -27,7 +27,8 @@
         "viewAll": "ファイル変更を見る"
     },
     "runError": {
-        "title": "モデル呼び出しに失敗しました"
+        "title": "モデル呼び出しに失敗しました",
+        "recharge": "チャージへ"
     },
     "artifactPanel": {
         "tabs": {

@@ -22,6 +22,7 @@ import { resolveOpenClawProviderKey } from '../utils/provider-keys';
 import { getProviderConfig } from '../utils/provider-registry';
 import { fetchOpenAiCompatibleModels } from './providers/provider-validation';
 import { proxyAwareFetch } from '../utils/proxy-fetch';
+import { getDefaultCanvaslandModelPlan } from '../../shared/model-plans';
 
 type AiAppRunnerInput = {
   jobId: string;
@@ -56,6 +57,7 @@ const REFERENCE_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 const MAX_REFERENCE_IMAGE_BYTES = 10 * 1024 * 1024;
 const STAGED_FILES_DIR = join(homedir(), '.openclaw', 'media', 'outbound');
 const CANVASLAND_WALLET_API_BASE_URL = 'https://apitoken.unihuax.com';
+const CANVASLAND_TEXT_COMPLETIONS_URL = `${CANVASLAND_WALLET_API_BASE_URL}/v1/chat/completions`;
 
 type StagedReferenceImage = {
   id: string;
@@ -161,7 +163,11 @@ async function walletBillingRequest(path: string, payload: JsonRecord): Promise<
   }
   const record = isRecord(data) ? data : {};
   if (!response.ok || record.success !== true) {
-    const message = typeof record.error === 'string' ? record.error : `Wallet billing failed (${response.status})`;
+    const message = typeof record.message === 'string'
+      ? record.message
+      : typeof record.error === 'string'
+        ? record.error
+        : `Wallet billing failed (${response.status})`;
     throw new Error(safeApiMessage(message));
   }
   return record;
@@ -251,16 +257,11 @@ function safeApiMessage(value: string, secrets: string[] = []): string {
     .slice(0, 600);
 }
 
-type TextProviderConfig = {
-  account: ProviderAccount;
-  apiKey: string;
-  endpoint: string;
-  model: string;
-};
-
 type ProviderTextResult = {
   text: string;
   modelId: string;
+  pointsUsed?: number;
+  billedByCanvaslandApi?: boolean;
 };
 
 export function normalizeChatCompletionsEndpoint(baseUrl: string): string {
@@ -280,47 +281,6 @@ export function normalizeChatCompletionsEndpoint(baseUrl: string): string {
   parsed.search = '';
   parsed.hash = '';
   return parsed.toString().replace(/\/$/, '');
-}
-
-function normalizeSelectedModel(model: string, runtimeProviderKey: string): string {
-  const trimmed = model.trim();
-  const prefix = `${runtimeProviderKey}/`;
-  return trimmed.startsWith(prefix) ? trimmed.slice(prefix.length) : trimmed;
-}
-
-async function resolveCurrentTextProvider(): Promise<TextProviderConfig> {
-  const providerService = getProviderService();
-  const defaultAccountId = await providerService.getDefaultAccountId();
-  if (!defaultAccountId) {
-    throw new Error('Provider 未配置，请先在设置中配置并设为默认 Provider。');
-  }
-
-  const accounts = await providerService.listAccounts();
-  const account = accounts.find((candidate) => candidate.id === defaultAccountId)
-    ?? await providerService.getAccount(defaultAccountId);
-  if (!account || !account.enabled) {
-    throw new Error('Provider 未配置，请先在设置中配置并启用默认 Provider。');
-  }
-
-  const runtimeProviderKey = resolveOpenClawProviderKey(account);
-  const apiKey = (await getProviderApiKeyFromOpenClaw(runtimeProviderKey))
-    ?? (await providerService.getAccountApiKey(account.id));
-  if (!apiKey?.trim()) {
-    throw new Error('Provider 未配置 API Key，请先在设置中完成 Provider 配置。');
-  }
-
-  const baseUrl = account.baseUrl || getProviderConfig(account.vendorId)?.baseUrl;
-  const selectedModel = account.model ? normalizeSelectedModel(account.model, runtimeProviderKey) : '';
-  if (!selectedModel) {
-    throw new Error('当前 Provider 未选择模型，请先在设置中选择 Model。');
-  }
-
-  return {
-    account,
-    apiKey: apiKey.trim(),
-    endpoint: normalizeChatCompletionsEndpoint(baseUrl || ''),
-    model: selectedModel,
-  };
 }
 
 function rawResponseSummary(value: unknown): string {
@@ -742,22 +702,19 @@ function extractChatCompletionText(response: JsonRecord): string {
 }
 
 async function createProviderText(prompt: string, jobId: string, billingTierId: string): Promise<ProviderTextResult> {
-  const provider = await resolveCurrentTextProvider();
+  const plan = getDefaultCanvaslandModelPlan();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 180_000);
   try {
-    const customHeaders = Object.fromEntries(
-      Object.entries(provider.account.headers || {}).filter(([key]) => !['authorization', 'content-type'].includes(key.toLowerCase())),
-    );
-    const response = await fetch(provider.endpoint, {
+    const response = await proxyAwareFetch(CANVASLAND_TEXT_COMPLETIONS_URL, {
       method: 'POST',
       headers: {
-        ...customHeaders,
-        authorization: `Bearer ${provider.apiKey}`,
+        Accept: 'application/json',
         'content-type': 'application/json',
+        'x-request-id': jobId,
       },
       body: JSON.stringify({
-        model: provider.model,
+        model: plan.id,
         messages: [
           {
             role: 'system',
@@ -788,20 +745,27 @@ async function createProviderText(prompt: string, jobId: string, billingTierId: 
       }
     })();
     if (!response.ok) {
-      const message = isRecord(json) && isRecord(json.error) && typeof json.error.message === 'string'
-        ? json.error.message
-        : isRecord(json) && typeof json.message === 'string'
-          ? json.message
+      const message = isRecord(json) && typeof json.message === 'string'
+        ? json.message
+        : isRecord(json) && isRecord(json.error) && typeof json.error.message === 'string'
+          ? json.error.message
           : text || response.statusText;
-      throw new Error(`Provider 请求失败 (${response.status}): ${safeApiMessage(message, [provider.apiKey])}`);
+      throw new Error(`Canvasland API 请求失败 (${response.status}): ${safeApiMessage(message)}`);
     }
     if (!isRecord(json)) {
-      throw new Error('Provider 返回了无效的 JSON 响应。');
+      throw new Error('Canvasland API 返回了无效的 JSON 响应。');
     }
-    return { text: extractChatCompletionText(json), modelId: provider.model };
+    const usage = isRecord(json.canvasland_usage) ? json.canvasland_usage : {};
+    const pointsUsed = typeof usage.pointsUsed === 'number' ? usage.pointsUsed : undefined;
+    return {
+      text: extractChatCompletionText(json),
+      modelId: typeof usage.modelPlanId === 'string' ? usage.modelPlanId : plan.id,
+      pointsUsed,
+      billedByCanvaslandApi: true,
+    };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Provider 请求超时，请稍后重试。', { cause: error });
+      throw new Error('Canvasland API 请求超时，请稍后重试。', { cause: error });
     }
     throw error;
   } finally {
@@ -1070,9 +1034,17 @@ class FeiniuAiAppRunner implements AiAppRunner {
       try {
         const structured = parseEcommerceCopywritingResult(result.text, input.jobId, result.modelId);
         await writeFile(join(outputDir, 'copywriting-result.json'), JSON.stringify(structured, null, 2), 'utf-8');
-        return createAcceptedOutputs(input.appId, input.jobId, 'provider', result.text, undefined, structured);
+        return {
+          ...createAcceptedOutputs(input.appId, input.jobId, 'provider', result.text, undefined, structured),
+          pointsUsed: result.pointsUsed,
+          billedByCanvaslandApi: result.billedByCanvaslandApi,
+        };
       } catch (error) {
-        return createAcceptedOutputs(input.appId, input.jobId, 'provider', result.text, undefined, undefined, errorMessage(error));
+        return {
+          ...createAcceptedOutputs(input.appId, input.jobId, 'provider', result.text, undefined, undefined, errorMessage(error)),
+          pointsUsed: result.pointsUsed,
+          billedByCanvaslandApi: result.billedByCanvaslandApi,
+        };
       }
     }
 
@@ -1261,7 +1233,9 @@ function startJob(job: AiAppJob, runner: AiAppRunner, billing: AiAppBillingClien
   updateJob(job.id, { status: 'running' });
   void runner.run({ jobId: job.id, appId: job.appId, inputs: job.inputs })
     .then(async (outputs) => {
-      const pointsUsed = await billing.debit(job.appId, job.billingTierId || '', job.id);
+      const pointsUsed = outputs.billedByCanvaslandApi
+        ? outputs.pointsUsed
+        : await billing.debit(job.appId, job.billingTierId || '', job.id);
       updateJob(job.id, { status: 'succeeded', outputs, pointsUsed });
     })
     .catch((error) => {

@@ -137,7 +137,7 @@ AI 应用的详情图/海报工作台支持通过系统选择器上传 PNG、JPG
 
 商品短视频工作台使用当前 Provider，优先展示其模型列表中的视频模型，并支持商品文本、核心卖点、目标平台和画面比例输入。异步任务会显示本地任务 ID、Provider taskId、标准化状态、脱敏后的原始响应摘要和手动状态查询按钮；完成后展示视频播放器与结果 URL。
 AI 应用采用服务端定价的积分档位：文案生成每次 10-30 积分，图片生成每张 30 或 60 积分，视频生成每条 300-600 积分。页面只展示积分和 Pro、优先生成、无水印、画质、时长等权益，不展示人民币折算；生成成功后按请求 ID 幂等扣费，失败不扣。充值套餐包含赠送积分，其中 5,000 基础积分赠送 1,000 积分。
-如果你通过 **自定义（Custom）Provider** 对接 OpenAI-compatible 网关，可以在 **设置 → AI Providers → 编辑 Provider** 中配置自定义 `User-Agent`，以提高兼容性。
+如果你通过 **自定义（Custom）Provider** 对接 OpenAI-compatible 网关，可在开发者/管理员模式的 **设置 → AI Providers → 编辑 Provider** 中配置自定义 `User-Agent`，以提高兼容性。
 如果兼容网关的 `/models` 因非鉴权原因不可用，canvasland 会在校验 API Key 时自动降级为轻量的 `/chat/completions` 或 `/responses` 探测。
 
 ### 🌙 自适应主题

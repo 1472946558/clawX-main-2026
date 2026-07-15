@@ -195,6 +195,12 @@ export function Chat() {
     () => (agentsList ?? []).find((a) => a.id === currentAgentId) ?? null,
     [agentsList, currentAgentId],
   );
+  const runErrorIsPointsInsufficient = Boolean(
+    runError && (/POINTS_INSUFFICIENT/i.test(runError) || /积分不足/.test(runError)),
+  );
+  const goToRecharge = useCallback(() => {
+    window.location.hash = '#/token-topup';
+  }, []);
   const panelOpen = useArtifactPanel((s) => s.open);
   const panelWidthPct = useArtifactPanel((s) => s.widthPct);
   const openChanges = useArtifactPanel((s) => s.openChanges);
@@ -1105,6 +1111,15 @@ export function Chat() {
             <p className="mt-1 text-sm text-destructive/90 break-words">
               {runError}
             </p>
+            {runErrorIsPointsInsufficient && (
+              <button
+                type="button"
+                onClick={goToRecharge}
+                className="mt-3 inline-flex items-center rounded-md border border-destructive/30 px-3 py-1.5 text-sm font-medium text-destructive hover:bg-destructive/10"
+              >
+                {t('runError.recharge')}
+              </button>
+            )}
           </div>
         </div>
       )}

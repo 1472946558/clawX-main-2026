@@ -27,7 +27,8 @@
         "viewAll": "Все изменения"
     },
     "runError": {
-        "title": "Ошибка вызова модели"
+        "title": "Ошибка вызова модели",
+        "recharge": "Пополнить"
     },
     "artifactPanel": {
         "tabs": {

@@ -1040,6 +1040,8 @@ export type AiAppJobOutputs = {
   ecommerceCopywriting?: EcommerceCopywritingResult;
   rawText?: string;
   parseError?: string;
+  pointsUsed?: number;
+  billedByCanvaslandApi?: boolean;
 };
 export type AiAppJob = {
   id: string;

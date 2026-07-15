@@ -508,11 +508,15 @@ export function Settings() {
             </div>
           </div>
 
-          <Separator className="bg-black/5 dark:bg-white/5" />
+          {devModeUnlocked && (
+            <>
+              <Separator className="bg-black/5 dark:bg-white/5" />
 
-          <div id="ai-providers" className="scroll-mt-10">
-            <ProvidersSettings />
-          </div>
+              <div id="ai-providers" className="scroll-mt-10">
+                <ProvidersSettings />
+              </div>
+            </>
+          )}
 
           <Separator className="bg-black/5 dark:bg-white/5" />
 

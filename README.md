@@ -137,7 +137,7 @@ The AI Apps detail-image/poster workbench supports native PNG, JPG, JPEG, and We
 
 The product short-video workbench uses the current Provider, prefers video models returned by its model list, and supports product text, selling points, platform, and aspect ratio inputs. Asynchronous jobs expose the local job ID, Provider task ID, normalized status, redacted raw-response summary, manual status refresh, and a video player/result URL when complete.
 AI Apps use server-owned points tiers: copywriting costs 10-30 points, image generation costs 30 or 60 points, and video generation costs 300-600 points. The selected tier shows Pro, priority, watermark-free, quality, and duration benefits without a currency equivalent. Successful jobs debit once by request ID; failed jobs do not debit. Recharge packages include bonus points, including 5,000 base points plus a 1,000-point bonus.
-For **Custom** providers used with OpenAI-compatible gateways, you can set a custom `User-Agent` in **Settings → AI Providers → Edit Provider** for compatibility-sensitive endpoints.
+For **Custom** providers used with OpenAI-compatible gateways, developer/admin mode can set a custom `User-Agent` in **Settings → AI Providers → Edit Provider** for compatibility-sensitive endpoints.
 When a compatible gateway rejects `/models` for non-auth reasons, canvasland automatically falls back to a lightweight `/chat/completions` or `/responses` probe during API key validation.
 
 ### 🌙 Adaptive Theming

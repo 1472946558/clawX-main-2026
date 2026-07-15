@@ -77,6 +77,60 @@ function safeDirectErrorMessage(error: unknown): string {
   return message.length > 500 ? `${message.slice(0, 500)}...` : message;
 }
 
+class CanvaslandApiError extends Error {
+  errorCode?: string;
+  requiredPoints?: number;
+  availablePoints?: number;
+
+  constructor(message: string, details: { errorCode?: string; requiredPoints?: number; availablePoints?: number } = {}) {
+    super(message);
+    this.name = 'CanvaslandApiError';
+    this.errorCode = details.errorCode;
+    this.requiredPoints = details.requiredPoints;
+    this.availablePoints = details.availablePoints;
+  }
+}
+
+function numberField(source: Record<string, unknown>, key: string): number | undefined {
+  const value = source[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function parseCanvaslandError(status: number, bodyText: string): CanvaslandApiError {
+  let parsed: unknown = null;
+  if (bodyText.trim()) {
+    try {
+      parsed = JSON.parse(bodyText) as unknown;
+    } catch {
+      parsed = null;
+    }
+  }
+  const source = isRecord(parsed) ? parsed : {};
+  const nested = isRecord(source.error) ? source.error : {};
+  const errorCode = typeof source.errorCode === 'string'
+    ? source.errorCode
+    : typeof nested.errorCode === 'string'
+      ? nested.errorCode
+      : undefined;
+  const requiredPoints = numberField(source, 'requiredPoints') ?? numberField(nested, 'requiredPoints');
+  const availablePoints = numberField(source, 'availablePoints') ?? numberField(nested, 'availablePoints');
+  const message = typeof source.message === 'string'
+    ? source.message
+    : typeof nested.message === 'string'
+      ? nested.message
+      : bodyText.trim() || `HTTP ${status}`;
+  if (errorCode === 'POINTS_INSUFFICIENT') {
+    const required = requiredPoints ?? 1;
+    const available = availablePoints ?? 0;
+    return new CanvaslandApiError(`积分不足，本次需要 ${required} 积分，当前可用 ${available} 积分。`, {
+      errorCode,
+      requiredPoints: required,
+      availablePoints: available,
+    });
+  }
+  return new CanvaslandApiError(message, { errorCode, requiredPoints, availablePoints });
+}
+
 function emitRuntimeEvent(mainWindow: BrowserWindow | undefined, event: ChatRuntimeEvent): void {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send(HOST_EVENT_CHANNELS.chat.runtimeEvent, event);
@@ -209,11 +263,7 @@ export function createChatApi({ gatewayManager, mainWindow }: { gatewayManager: 
           });
           if (!response.ok) {
             const text = await response.text();
-            const parsed = text ? JSON.parse(text) as unknown : null;
-            const apiMessage = isRecord(parsed) && typeof parsed.message === 'string'
-              ? parsed.message
-              : `HTTP ${response.status}`;
-            throw new Error(apiMessage);
+            throw parseCanvaslandError(response.status, text);
           }
           const content = await readDirectChatStream({ response, runId, sessionKey, mainWindow });
           if (!content) {
@@ -230,12 +280,16 @@ export function createChatApi({ gatewayManager, mainWindow }: { gatewayManager: 
           });
         } catch (error) {
           logger.error(`[chat:sendDirect] Error: ${safeDirectErrorMessage(error)}`);
+          const canvaslandError = error instanceof CanvaslandApiError ? error : null;
           emitRuntimeEvent(mainWindow, {
             type: 'run.ended',
             runId,
             sessionKey,
             status: 'error',
             error: safeDirectErrorMessage(error),
+            errorCode: canvaslandError?.errorCode,
+            requiredPoints: canvaslandError?.requiredPoints,
+            availablePoints: canvaslandError?.availablePoints,
             endedAt: Date.now(),
             ts: Date.now(),
             stopReason: 'canvasland-direct',
